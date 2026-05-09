@@ -1,0 +1,246 @@
+---
+title: "Differentiation"
+chapter: 3
+---
+
+import { Theorem, Definition, Lemma, Corollary, Proof, Remark, Ref, Figure, Table, PrintFallback, Cite, AnnotatedAlign } from '../../components/math';
+
+Differentiation formalises the notion of an instantaneous rate of change.
+The key new idea — compared with the limits of Chapter 1 — is that we fix one
+point $x_0$ and ask how quickly $f$ changes there.  The main results here
+(the product rule, chain rule, and Mean Value Theorem) are proved using only
+the $\varepsilon$-$\delta$ machinery already developed; see <Cite id="rudin1976" />
+(Chapter 5) for a comprehensive treatment.
+
+## The Derivative
+
+<Definition id="def:derivative" title="Derivative">
+Let $f : (a,b) \to \mathbb{R}$ and $x_0 \in (a,b)$.  The **derivative of $f$ at $x_0$** is
+
+$$ {#eq:derivative-def}
+f'(x_0) = \lim_{h \to 0} \frac{f(x_0 + h) - f(x_0)}{h},
+$$
+
+provided the limit exists.  When it does, we say $f$ is **differentiable at $x_0$**.
+</Definition>
+
+<Remark id="rem:diff-notation">
+Alternative notations: $\dfrac{df}{dx}\big|_{x_0}$, $Df(x_0)$, and $\dot{f}(x_0)$ (in
+physics, for time derivatives) all denote the same object.
+The limit in <Ref id="eq:derivative-def" /> is the slope of the tangent line at $(x_0, f(x_0))$,
+obtained as the limiting slope of secant lines through $(x_0, f(x_0))$
+and $(x_0+h, f(x_0+h))$ as $h \to 0$; see <Ref id="fig:derivative" />.
+</Remark>
+
+<Figure id="fig:derivative" caption="The derivative as the limit of secant slopes.  As $h \to 0$, the secant line (dashed) rotates to the tangent (solid blue).">
+  <svg viewBox="0 0 360 210" xmlns="http://www.w3.org/2000/svg" style={{width:'100%', maxWidth:'400px', fontFamily:'serif'}}>
+    <line x1="30" y1="185" x2="340" y2="185" stroke="#374151" strokeWidth="1.5"/>
+    <line x1="30" y1="10" x2="30" y2="190" stroke="#374151" strokeWidth="1.5"/>
+    <text x="343" y="189" fontSize="12" fill="#374151">x</text>
+    <text x="18" y="12" fontSize="12" fill="#374151">y</text>
+    {/* curve: quadratic y = 185 - 0.015*(x-30)^2 */}
+    <path d="M40,185 C80,160 130,100 180,68 C230,36 285,28 335,40" fill="none" stroke="#1d4ed8" strokeWidth="2.2"/>
+    {/* x0 at x=160, f(x0) ≈ 75 */}
+    <circle cx="160" cy="75" r="3.5" fill="#1d4ed8"/>
+    <line x1="160" y1="75" x2="160" y2="185" stroke="#374151" strokeWidth="0.8" strokeDasharray="3 2"/>
+    <text x="160" y="197" fontSize="11" fill="#374151" textAnchor="middle">x₀</text>
+    {/* x0+h at x=230, f(x0+h) ≈ 42 */}
+    <circle cx="230" cy="43" r="3.5" fill="#9ca3af"/>
+    <line x1="230" y1="43" x2="230" y2="185" stroke="#9ca3af" strokeWidth="0.8" strokeDasharray="3 2"/>
+    <text x="230" y="197" fontSize="11" fill="#9ca3af" textAnchor="middle">x₀+h</text>
+    {/* secant line through (160,75) and (230,43), extended */}
+    <line x1="60" y1="121" x2="310" y2="7" stroke="#9ca3af" strokeWidth="1.4" strokeDasharray="6 3"/>
+    {/* tangent line at (160,75): slope ≈ -0.47, extended */}
+    <line x1="60" y1="122" x2="290" y2="61" stroke="#1d4ed8" strokeWidth="1.8"/>
+    {/* labels */}
+    <text x="295" y="57" fontSize="10" fill="#1d4ed8">tangent</text>
+    <text x="295" y="10" fontSize="10" fill="#9ca3af">secant</text>
+  </svg>
+  <PrintFallback>
+    A curve with a secant line through $(x_0, f(x_0))$ and $(x_0+h, f(x_0+h))$
+    and the limiting tangent line at $x_0$.  As $h\to 0$ the secant slope approaches $f'(x_0)$.
+  </PrintFallback>
+</Figure>
+
+## Differentiability and Continuity
+
+A differentiable function is automatically continuous, but the converse fails
+(e.g. $|x|$ is continuous but not differentiable at $0$).
+
+<Theorem id="thm:diff-implies-cont" title="Differentiability implies continuity">
+If $f$ is differentiable at $x_0$, then $f$ is continuous at $x_0$.
+</Theorem>
+
+<Proof>
+For $x \neq x_0$, factor the difference as a product:
+
+<AnnotatedAlign rows={[
+  {
+    math: 'f(x)-f(x_0) &= \\frac{f(x)-f(x_0)}{x-x_0}\\cdot(x-x_0)',
+    reason: 'Multiply and divide by $x-x_0$; valid since $x\\neq x_0$',
+  },
+  {
+    math: '&\\to f\'(x_0)\\cdot 0 = 0 \\quad\\text{as }x\\to x_0',
+    reason: 'Product of limits ([ref:thm:limit-algebra]): the difference quotient converges to $f\'(x_0)$ by [ref:def:derivative], and $(x-x_0)\\to 0$',
+  },
+]} />
+
+Hence $\lim_{x\to x_0} f(x) = f(x_0)$, which is continuity at $x_0$
+(see <Ref id="def:continuous" />).
+</Proof>
+
+## Differentiation Rules
+
+The table below records the standard rules for differentiation of elementary functions.
+All are proved by direct calculation from <Ref id="def:derivative" />.
+
+<Table id="tab:diff-rules" caption="Standard differentiation rules.  Here $f$ and $g$ are differentiable and $n, c$ are constants.">
+
+| Function | Derivative | Name |
+|----------|-----------|------|
+| $c$ | $0$ | Constant |
+| $x^n$ | $nx^{n-1}$ | Power rule |
+| $cf(x)$ | $cf'(x)$ | Scalar multiple |
+| $f(x)+g(x)$ | $f'(x)+g'(x)$ | Sum rule |
+| $f(x)g(x)$ | $f'(x)g(x)+f(x)g'(x)$ | Product rule |
+| $f(x)/g(x)$ | $(f'g - fg')/{g^2}$ | Quotient rule |
+| $(g \circ f)(x)$ | $g'(f(x))\cdot f'(x)$ | Chain rule |
+| $e^x$ | $e^x$ | — |
+| $\ln x$ | $1/x$ | — |
+| $\sin x$ | $\cos x$ | — |
+| $\cos x$ | $-\sin x$ | — |
+
+</Table>
+
+### The Product Rule
+
+<Theorem id="thm:product-rule" title="Product rule">
+If $f$ and $g$ are differentiable at $x_0$, then so is $fg$, and
+
+$$ {#eq:product-rule}
+(fg)'(x_0) = f'(x_0)\,g(x_0) + f(x_0)\,g'(x_0).
+$$
+</Theorem>
+
+<Proof>
+The standard "add and subtract" trick splits the limit into two recognisable pieces.
+
+<AnnotatedAlign rows={[
+  {
+    math: "(fg)'(x_0) &= \\lim_{h\\to 0}\\frac{f(x_0+h)g(x_0+h)-f(x_0)g(x_0)}{h}",
+    reason: 'Definition of derivative ([ref:def:derivative])',
+  },
+  {
+    id: 'eq:product-split',
+    math: '&= \\lim_{h\\to 0}\\left[f(x_0+h)\\frac{g(x_0+h)-g(x_0)}{h}+g(x_0)\\frac{f(x_0+h)-f(x_0)}{h}\\right]',
+    reason: 'Add and subtract $f(x_0+h)g(x_0)$; factor: $g(x_0)$ is independent of $h$',
+  },
+  {
+    id: 'eq:product-rule-result',
+    math: "&= f(x_0)\\,g'(x_0)+g(x_0)\\,f'(x_0)",
+    reason: 'Limits of both quotients exist ([ref:def:derivative]); $f(x_0+h)\\to f(x_0)$ since $f$ is continuous ([ref:thm:diff-implies-cont])',
+  },
+]} />
+</Proof>
+
+### The Chain Rule
+
+The chain rule is the differentiation analogue of <Ref id="thm:composition" />.
+
+<Theorem id="thm:chain-rule" title="Chain rule">
+If $f$ is differentiable at $x_0$ and $g$ is differentiable at $f(x_0)$, then
+$g \circ f$ is differentiable at $x_0$ and
+
+$$ {#eq:chain-rule}
+(g \circ f)'(x_0) = g'(f(x_0))\cdot f'(x_0).
+$$
+</Theorem>
+
+<Proof>
+Define the auxiliary function
+$$
+\varphi(y) = \begin{cases} \dfrac{g(y)-g(f(x_0))}{y-f(x_0)} & y \neq f(x_0), \\[6pt] g'(f(x_0)) & y = f(x_0). \end{cases}
+$$
+By differentiability of $g$, $\varphi$ is continuous at $f(x_0)$.  For $h \neq 0$:
+$$
+\frac{(g\circ f)(x_0+h)-(g\circ f)(x_0)}{h}
+= \varphi(f(x_0+h))\cdot\frac{f(x_0+h)-f(x_0)}{h}.
+$$
+As $h\to 0$, the right factor tends to $f'(x_0)$ and $f(x_0+h)\to f(x_0)$
+(by <Ref id="thm:diff-implies-cont" />), so $\varphi(f(x_0+h))\to g'(f(x_0))$ by continuity.
+</Proof>
+
+## The Mean Value Theorem
+
+The Mean Value Theorem (MVT) is the central tool for converting information about
+derivatives into information about function values.
+
+<Theorem id="thm:rolles" title="Rolle's Theorem">
+If $f$ is continuous on $[a,b]$, differentiable on $(a,b)$, and $f(a) = f(b)$,
+then there exists $c \in (a,b)$ with $f'(c) = 0$.
+</Theorem>
+
+<Proof>
+If $f$ is constant then $f' \equiv 0$ and any $c$ works.  Otherwise $f$ attains a
+value strictly above or below $f(a)$; by the extreme value theorem (which follows
+from <Ref id="cor:compact" />) $f$ attains its maximum or minimum at some interior
+point $c$.  At an interior extremum the derivative must be zero.
+</Proof>
+
+<Theorem id="thm:mvt" title="Mean Value Theorem">
+If $f$ is continuous on $[a,b]$ and differentiable on $(a,b)$, then there exists
+$c \in (a,b)$ such that
+
+$$ {#eq:mvt}
+f'(c) = \frac{f(b)-f(a)}{b-a}.
+$$
+</Theorem>
+
+<Proof>
+Apply <Ref id="thm:rolles" /> to the function
+
+$$
+h(x) = f(x) - f(a) - \frac{f(b)-f(a)}{b-a}(x-a),
+$$
+
+which is continuous on $[a,b]$, differentiable on $(a,b)$, and satisfies $h(a)=h(b)=0$.
+</Proof>
+
+<Corollary id="cor:mvt" title="Monotonicity test">
+If $f'(x) > 0$ for all $x \in (a,b)$ then $f$ is strictly increasing on $(a,b)$.
+If $f'(x) = 0$ for all $x \in (a,b)$ then $f$ is constant on $(a,b)$.
+</Corollary>
+
+<Proof>
+For any $x < y$ in $(a,b)$, the MVT gives $f(y)-f(x)=f'(c)(y-x)$ for some $c\in(x,y)$.
+The sign of $f'(c)$ determines the sign of $f(y)-f(x)$.
+</Proof>
+
+## Taylor's Theorem
+
+The MVT generalises to higher-order approximations via Taylor's theorem.
+Define the **$n$-th Taylor polynomial** of $f$ at $x_0$ by
+
+$$ {#eq:taylor-poly}
+P_n(x) = \sum_{k=0}^{n} \frac{f^{(k)}(x_0)}{k!}(x-x_0)^k.
+$$
+
+<Theorem id="thm:taylor" title="Taylor's Theorem with Lagrange Remainder">
+If $f$ is $n$ times continuously differentiable on $[a,b]$ and $n+1$ times
+differentiable on $(a,b)$, then for each $x \in [a,b]$ there exists $c$ between
+$x_0$ and $x$ such that
+
+$$ {#eq:taylor-remainder}
+f(x) = P_n(x) + \frac{f^{(n+1)}(c)}{(n+1)!}(x-x_0)^{n+1}.
+$$
+</Theorem>
+
+<Remark>
+When $n=0$, <Ref id="eq:taylor-remainder" /> reduces to the Mean Value Theorem
+<Ref id="eq:mvt" />.  The remainder term quantifies the error in approximating $f$
+by the polynomial $P_n$ and is essential for bounding truncation errors.
+</Remark>
+
+The convergence of partial sums $P_n(x)$ to $f(x)$ as $n\to\infty$ is the question
+of convergence of a power series, which connects directly to the series convergence
+tests in <Ref id="tab:conv-tests" /> (Chapter 2).

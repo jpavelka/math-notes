@@ -1,0 +1,185 @@
+---
+title: "Background Results"
+chapter: A
+---
+
+import { Theorem, Lemma, Corollary, Definition, Proof, Remark, Ref, Figure, Table, AnnotatedAlign } from '../../components/math';
+
+This appendix collects the foundational inequalities and order-completeness results
+used throughout the main text.
+
+## A.1 Inequalities
+
+<Lemma id="lem:triangle" title="Triangle Inequality">
+For all $x, y \in \mathbb{R}$,
+$$
+|x + y| \leq |x| + |y|.
+$$
+</Lemma>
+
+<Proof>
+From the definitions $|x+y|^2 = (x+y)^2$ and $|x|^2 = x^2$:
+
+<AnnotatedAlign rows={[
+  {
+    math: '(x+y)^2 &= x^2 + 2xy + y^2',
+    reason: 'Expand',
+  },
+  {
+    math: '&\\leq x^2 + 2|x||y| + y^2',
+    reason: '$xy \\leq |xy| = |x||y|$',
+  },
+  {
+    id: 'eq:triangle-sq',
+    math: '&= (|x|+|y|)^2',
+    reason: 'Factor',
+  },
+]} />
+
+Taking square roots (both sides are non-negative) gives $|x+y| \leq |x|+|y|$.
+</Proof>
+
+A useful consequence is the **reverse triangle inequality**.
+
+<Corollary id="cor:reverse-triangle" title="Reverse Triangle Inequality">
+For all $x, y \in \mathbb{R}$,
+
+$$ {#eq:reverse-tri}
+\bigl||x| - |y|\bigr| \leq |x - y|.
+$$
+</Corollary>
+
+<Proof>
+Apply <Ref id="lem:triangle" /> to $x = (x - y) + y$ to get $|x| \leq |x-y| + |y|$,
+hence $|x| - |y| \leq |x - y|$.  Swapping $x$ and $y$ gives $|y| - |x| \leq |x - y|$,
+and combining yields the result.
+</Proof>
+
+### The AM–GM Inequality
+
+<Theorem id="thm:am-gm" title="Arithmetic–Geometric Mean Inequality">
+For all $a, b \geq 0$,
+
+$$ {#eq:am-gm}
+\sqrt{ab} \leq \frac{a + b}{2},
+$$
+
+with equality if and only if $a = b$.
+</Theorem>
+
+<Proof>
+<AnnotatedAlign rows={[
+  {
+    math: '0 &\\leq (\\sqrt{a}-\\sqrt{b})^2',
+    reason: 'Square of a real number is non-negative; equality holds iff $a=b$',
+  },
+  {
+    id: 'eq:am-gm-expand',
+    math: '&= a - 2\\sqrt{ab} + b',
+    reason: 'Expand: $(\\sqrt{a})^2 - 2\\sqrt{a}\\sqrt{b} + (\\sqrt{b})^2 = a - 2\\sqrt{ab} + b$',
+  },
+  {
+    math: '\\sqrt{ab} &\\leq \\frac{a+b}{2}',
+    reason: 'Rearrange [ref:eq:am-gm-expand]: $2\\sqrt{ab}\\leq a+b$, then divide by $2$',
+  },
+]} />
+</Proof>
+
+### The Cauchy–Schwarz Inequality
+
+<Theorem id="thm:cauchy-schwarz" title="Cauchy–Schwarz Inequality">
+For all $a_1, a_2, b_1, b_2 \in \mathbb{R}$,
+
+$$ {#eq:cs-result}
+(a_1 b_1 + a_2 b_2)^2 \leq (a_1^2 + a_2^2)(b_1^2 + b_2^2).
+$$
+
+Equality holds if and only if $(a_1, a_2)$ and $(b_1, b_2)$ are proportional.
+</Theorem>
+
+<Proof>
+<AnnotatedAlign rows={[
+  {
+    math: '0 &\\leq (a_1 b_2 - a_2 b_1)^2',
+    reason: 'Non-negative square',
+  },
+  {
+    id: 'eq:cs-expand',
+    math: '&= a_1^2 b_2^2 - 2a_1 a_2 b_1 b_2 + a_2^2 b_1^2',
+    reason: 'Expand the square',
+  },
+  {
+    math: '2 a_1 a_2 b_1 b_2 &\\leq a_1^2 b_2^2 + a_2^2 b_1^2',
+    reason: 'Rearrange [ref:eq:cs-expand]',
+  },
+  {
+    math: '(a_1 b_1+a_2 b_2)^2 &\\leq (a_1^2+a_2^2)(b_1^2+b_2^2)',
+    reason: 'Add $a_1^2 b_1^2 + a_2^2 b_2^2$ to both sides; the left side is $(a_1b_1+a_2b_2)^2$ and the right is $(a_1^2+a_2^2)(b_1^2+b_2^2)$',
+  },
+]} />
+</Proof>
+
+<Remark>
+In $n$ dimensions, the same argument (with sum $\sum_i a_i b_j - a_j b_i$ over pairs
+$i < j$) gives $|\mathbf{a}\cdot\mathbf{b}| \leq \|\mathbf{a}\|\|\mathbf{b}\|$.
+The AM–GM inequality (<Ref id="thm:am-gm" />) is the special case $n=1$.
+</Remark>
+
+### Bernoulli's Inequality
+
+<Lemma id="lem:bernoulli" title="Bernoulli's Inequality">
+For all $x > -1$ and $n \in \mathbb{N}$,
+$$
+(1+x)^n \geq 1 + nx.
+$$
+</Lemma>
+
+<Proof>
+By induction.  The base case $n=1$ is an equality.  Assuming $(1+x)^n \geq 1+nx$,
+multiply both sides by $(1+x) > 0$:
+$(1+x)^{n+1} \geq (1+nx)(1+x) = 1+(n+1)x+nx^2 \geq 1+(n+1)x.$
+</Proof>
+
+The four inequalities are compared in <Ref id="tab:inequalities" />.
+
+<Table id="tab:inequalities" caption="Core inequalities used in real analysis.">
+
+| Inequality | Statement | Condition |
+|-----------|-----------|-----------|
+| Triangle | $\|a+b\| \leq \|a\|+\|b\|$ | $a,b\in\mathbb{R}$ |
+| Reverse triangle | $\big\|\|a\|-\|b\|\big\| \leq \|a-b\|$ | $a,b\in\mathbb{R}$ |
+| AM–GM | $\sqrt{ab} \leq \tfrac{a+b}{2}$ | $a,b\geq 0$ |
+| Cauchy–Schwarz | $({\bf a}\cdot{\bf b})^2\leq\|{\bf a}\|^2\|{\bf b}\|^2$ | ${\bf a},{\bf b}\in\mathbb{R}^n$ |
+| Bernoulli | $(1+x)^n \geq 1+nx$ | $x>-1,\;n\in\mathbb{N}$ |
+
+</Table>
+
+## A.2 Supremum and Infimum
+
+<Definition id="def:sup" title="Supremum">
+Let $S \subset \mathbb{R}$ be nonempty and bounded above.
+The **supremum** $\sup S$ is the least upper bound of $S$: the unique real number $M$ such that
+$$
+x \leq M \text{ for all } x \in S, \quad \text{and} \quad
+\forall\,\varepsilon > 0,\;\exists\, x \in S : x > M - \varepsilon.
+$$
+</Definition>
+
+<Theorem id="thm:sup-exists" title="Completeness Axiom">
+Every nonempty subset of $\mathbb{R}$ that is bounded above has a supremum in $\mathbb{R}$.
+</Theorem>
+
+The analogous statements for the infimum follow by replacing $S$ with $\{-x : x \in S\}$.
+
+<Lemma id="lem:sup-eps" title="$\varepsilon$-characterisation of supremum">
+Let $M = \sup S$.  For every $\varepsilon > 0$ there exists $x \in S$ with $x > M - \varepsilon$.
+</Lemma>
+
+<Proof>
+Immediate from the definition (<Ref id="def:sup" />): $M - \varepsilon$ is not an upper bound of $S$.
+</Proof>
+
+The completeness axiom (<Ref id="thm:sup-exists" />) underpins the key results in the
+main text: the Intermediate Value Theorem (<Ref id="thm:ivt" />),
+the Bolzano–Weierstrass theorem (<Ref id="thm:bolzano" />), and the completeness of
+$\mathbb{R}$ (<Ref id="thm:cauchy-complete" />).

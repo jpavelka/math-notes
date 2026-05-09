@@ -1,0 +1,52 @@
+---
+import type { MarkdownHeading } from 'astro';
+import { renderInlineMath } from '../math/renderInlineMath';
+
+interface Props {
+  headings: MarkdownHeading[];
+  headingTexts?: string[];   // parallel array: clean text with $...$ intact
+  chapter?: number;
+}
+
+const { headings, headingTexts = [], chapter } = Astro.props;
+
+// Zip clean texts with headings by document position
+const all = headings.map((h, i) => ({ ...h, rawText: headingTexts[i] ?? h.text }));
+
+// Compute section numbers and build items
+let section = 0;
+let subsection = 0;
+
+const toc = all
+  .filter(h => h.depth >= 2 && h.depth <= 3)
+  .map(h => {
+    let label = '';
+    if (chapter !== undefined) {
+      if (h.depth === 2) {
+        section++;
+        subsection = 0;
+        label = `${chapter}.${section}`;
+      } else {
+        subsection++;
+        label = `${chapter}.${section}.${subsection}`;
+      }
+    }
+    return { slug: h.slug, depth: h.depth, label, html: renderInlineMath(h.rawText) };
+  });
+---
+
+{toc.length > 1 && (
+  <nav class="toc-nav">
+    <p class="toc-title">On this page</p>
+    <ul>
+      {toc.map(item => (
+        <li class={`toc-h${item.depth}`}>
+          <a href={`#${item.slug}`}>
+            {item.label && <span class="toc-num">{item.label}</span>}
+            <span set:html={item.html} />
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+)}

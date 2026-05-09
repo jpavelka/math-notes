@@ -1,0 +1,38 @@
+{
+  "rudin1976": {
+    "key": "rudin1976",
+    "type": "book",
+    "label": "Rudin, 1976",
+    "sortKey": "rudin1976",
+    "formatted": "Rudin, W. (1976). <em>Principles of Mathematical Analysis</em>. McGraw-Hill.",
+    "image": "https://books.google.com/books/content?id=kwqzPAAACAAJ&printsec=frontcover&img=1&zoom=1"
+  },
+  "apostol1974": {
+    "key": "apostol1974",
+    "type": "book",
+    "label": "Apostol, 1974",
+    "sortKey": "apostol1974",
+    "formatted": "Apostol, T. M. (1974). <em>Mathematical Analysis</em>. Addison-Wesley."
+  },
+  "royden1988": {
+    "key": "royden1988",
+    "type": "book",
+    "label": "Royden, 1988",
+    "sortKey": "royden1988",
+    "formatted": "Royden, H. L. (1988). <em>Real Analysis</em>. Prentice Hall."
+  },
+  "bolzano1817": {
+    "key": "bolzano1817",
+    "type": "article",
+    "label": "Bolzano, 1817",
+    "sortKey": "bolzano1817",
+    "formatted": "Bolzano, B. (1817). Rein analytischer Beweis des Lehrsatzes, dass zwischen je zwey Werthen, die ein entgegengesetztes Resultat gewähren, wenigstens eine reelle Wurzel der Gleichung liege. <em>Abhandlungen der Königlichen Böhmischen Gesellschaft der Wissenschaften</em>."
+  },
+  "cauchy1821": {
+    "key": "cauchy1821",
+    "type": "article",
+    "label": "Cauchy, 1821",
+    "sortKey": "cauchy1821",
+    "formatted": "Cauchy, A. (1821). Cours d'analyse de l'École Royale Polytechnique. <em>Imprimerie Royale</em>."
+  }
+}

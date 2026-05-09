@@ -1,0 +1,56 @@
+@page {
+  size: A4;
+  margin: 2.5cm 2.5cm 3cm 2.5cm;
+}
+
+@media print {
+  /* ── Force light colours regardless of theme ── */
+  :root {
+    --text: #1a1a1a !important;
+    --text-muted: #555555 !important;
+    --bg: white !important;
+    --bg-sidebar: #f9fafb !important;
+    --border: #d1d5db !important;
+    --code-bg: #f3f4f6 !important;
+  }
+
+  /* ── Hide screen chrome ── */
+  .sidebar { display: none !important; }
+  .toc-sidebar { display: none !important; }
+  .mobile-header { display: none !important; }
+  .print-btn { display: none !important; }
+
+  /* ── Reflow layout ── */
+  .layout { display: block; }
+
+  .content {
+    padding: 0;
+    max-width: 100%;
+    width: 100%;
+    font-size: 11pt;
+    line-height: 1.6;
+  }
+
+  /* Chapter title starts a fresh page when multiple chapters are printed */
+  .content h1 { page-break-before: always; }
+  .content h1:first-of-type { page-break-before: avoid; }
+
+  /* Headings stay attached to following content */
+  h2, h3 { page-break-after: avoid; }
+
+  /* Keep math environments and floats on one page where possible */
+  .math-env,
+  .math-figure,
+  .math-table,
+  .equation-block { page-break-inside: avoid; }
+
+  /* KaTeX: no scroll bars in print */
+  .katex-display { overflow: visible; }
+
+  /* Hide hover tooltips */
+  .ref-tooltip { display: none !important; }
+
+  /* Hide annotation toggles and open reason panels */
+  .annot-align-toggle-cell { display: none !important; }
+  .annot-align-reason { display: none !important; }
+}

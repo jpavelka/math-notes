@@ -1,0 +1,515 @@
+---
+import { getCollection, render } from 'astro:content';
+import type { MarkdownHeading } from 'astro';
+import TOC from './TOC.astro';
+import { renderInlineMath } from '../math/renderInlineMath';
+import '@fontsource/source-serif-4/400.css';
+import '@fontsource/source-serif-4/400-italic.css';
+import '@fontsource/source-serif-4/700.css';
+import 'katex/dist/katex.min.css';
+import '../../styles/global.css';
+import '../../styles/math.css';
+import '../../styles/print.css';
+
+interface Props {
+  title: string;
+  siteTitle: string;
+  siteTitleShort?: string;
+  chapter?: number;
+  headings?: MarkdownHeading[];
+  headingTexts?: string[];
+  currentChapterId?: string;
+}
+
+const { title, siteTitle, siteTitleShort, chapter, headings = [], headingTexts = [], currentChapterId } = Astro.props;
+
+const chapters = await getCollection('chapters');
+chapters.sort((a, b) => {
+  const ca = a.data.chapter ?? Infinity;
+  const cb = b.data.chapter ?? Infinity;
+  return ca !== cb ? ca - cb : a.id.localeCompare(b.id);
+});
+
+const chaptersWithSections = await Promise.all(
+  chapters.map(async ch => {
+    const { headings: chHeadings, remarkPluginFrontmatter } = await render(ch);
+    const chTexts: string[] = remarkPluginFrontmatter.headingTexts ?? [];
+    const sections: { slug: string; html: string; subsections: { slug: string; html: string }[] }[] = [];
+    for (const [i, h] of chHeadings.entries()) {
+      const html = renderInlineMath(chTexts[i] ?? h.text);
+      if (h.depth === 2) {
+        sections.push({ slug: h.slug, html, subsections: [] });
+      } else if (h.depth === 3 && sections.length > 0) {
+        sections[sections.length - 1].subsections.push({ slug: h.slug, html });
+      }
+    }
+    return { ...ch, sections };
+  })
+);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{chapter !== undefined ? `${chapter}. ` : ''}{title} — {siteTitle}</title>
+    <!-- Restore theme before first paint to avoid flash -->
+    <script is:inline>
+      const t = localStorage.getItem('theme');
+      if (t) document.documentElement.setAttribute('data-theme', t);
+      const _fsSizes = [13, 14, 16, 18, 20, 22];
+      const _fsStep = parseInt(localStorage.getItem('font-size-step') ?? '2');
+      document.documentElement.style.fontSize = _fsSizes[Math.max(0, Math.min(_fsStep, _fsSizes.length - 1))] + 'px';
+    </script>
+    {import.meta.env.PROD && (
+      <link rel="stylesheet" href="/pagefind/pagefind-ui.css" />
+    )}
+    <slot name="head" />
+  </head>
+  <body>
+
+    <!-- Mobile top bar -->
+    <div class="mobile-header">
+      <a href="/" class="site-title">{siteTitleShort ?? siteTitle}</a>
+      <div class="mobile-controls">
+        <button class="font-size-btn font-decrease" aria-label="Decrease font size">A−</button>
+        <button class="font-size-btn font-increase" aria-label="Increase font size">A+</button>
+        <button class="theme-toggle" aria-label="Toggle theme"></button>
+        <button class="print-btn" aria-label="Print page">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"/>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+            <rect x="6" y="14" width="12" height="8"/>
+          </svg>
+        </button>
+        <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="layout">
+
+      <!-- Left sidebar -->
+      <aside class="sidebar" id="sidebar" data-pagefind-ignore>
+        <div class="sidebar-header">
+          <a href="/" class="site-title">{siteTitle}</a>
+          <div class="sidebar-controls">
+            <button class="font-size-btn font-decrease" aria-label="Decrease font size">A−</button>
+            <button class="font-size-btn font-increase" aria-label="Increase font size">A+</button>
+            <button class="theme-toggle" aria-label="Toggle theme"></button>
+            <button class="print-btn" aria-label="Print page">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 6 2 18 2 18 9"/>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                <rect x="6" y="14" width="12" height="8"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {import.meta.env.PROD && (
+          <div class="search-wrap" id="search"></div>
+        )}
+
+        <nav class="sidebar-nav">
+          <ul>
+            {chaptersWithSections.map(ch => (
+              <li class="chapter-item">
+                <div class="chapter-row">
+                  <a href={`/chapters/${ch.id}`} class="chapter-link" aria-current={ch.id === currentChapterId ? 'page' : undefined}>
+                    {ch.data.chapter !== undefined && (
+                      <span class="chapter-num">{ch.data.chapter}.</span>
+                    )}
+                    {ch.data.title}
+                  </a>
+                  {ch.sections.length > 0 && (
+                    <button
+                      class="chapter-toggle"
+                      aria-expanded="false"
+                      aria-label="Toggle sections"
+                    />
+                  )}
+                </div>
+                {ch.sections.length > 0 && (
+                  <ul class="chapter-sections" hidden>
+                    {ch.sections.map((s, i) => (
+                      <li class="section-item">
+                        <div class="section-row">
+                          <a href={`/chapters/${ch.id}#${s.slug}`}>
+                            {ch.data.chapter !== undefined && (
+                              <span class="section-num">{ch.data.chapter}.{i + 1}</span>
+                            )}
+                            <span set:html={s.html} />
+                          </a>
+                          {s.subsections.length > 0 && (
+                            <button
+                              class="section-toggle"
+                              aria-expanded="false"
+                              aria-label="Toggle subsections"
+                            />
+                          )}
+                        </div>
+                        {s.subsections.length > 0 && (
+                          <ul class="section-subsections" hidden>
+                            {s.subsections.map((sub, j) => (
+                              <li>
+                                <a href={`/chapters/${ch.id}#${sub.slug}`}>
+                                  {ch.data.chapter !== undefined && (
+                                    <span class="section-num">{ch.data.chapter}.{i + 1}.{j + 1}</span>
+                                  )}
+                                  <span set:html={sub.html} />
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </aside>
+
+      <!-- Main content -->
+      <main
+        class="content"
+        data-pagefind-body
+        {...(chapter !== undefined && {
+          'data-chapter': String(chapter),
+          style: `counter-reset: chapter ${chapter} section 0`,
+        })}
+      >
+        {chapter !== undefined && (
+          <p class="chapter-label">{typeof chapter === 'string' ? `Appendix ${chapter}` : `Chapter ${chapter}`}</p>
+        )}
+        <span data-pagefind-meta="title" style="display:none">
+          {chapter !== undefined
+            ? (typeof chapter === 'string' ? `Appendix ${chapter}: ` : `${chapter}. `)
+            : ''}{title}
+        </span>
+        <h1>{title}</h1>
+        <slot />
+      </main>
+
+      <!-- Right TOC -->
+      <aside class="toc-sidebar" data-pagefind-ignore>
+        <TOC headings={headings} headingTexts={headingTexts} chapter={chapter} />
+      </aside>
+
+    </div>
+
+    <script>
+      // ── Font size ────────────────────────────────────────────
+      {
+        const SIZES = [13, 14, 16, 18, 20, 22];
+        const DEFAULT_STEP = 2;
+
+        function getFontStep(): number {
+          return parseInt(localStorage.getItem('font-size-step') ?? String(DEFAULT_STEP));
+        }
+
+        function applyFontStep(step: number) {
+          const clamped = Math.max(0, Math.min(step, SIZES.length - 1));
+          document.documentElement.style.fontSize = SIZES[clamped] + 'px';
+          localStorage.setItem('font-size-step', String(clamped));
+        }
+
+        document.querySelectorAll<HTMLButtonElement>('.font-decrease').forEach(btn =>
+          btn.addEventListener('click', () => applyFontStep(getFontStep() - 1))
+        );
+        document.querySelectorAll<HTMLButtonElement>('.font-increase').forEach(btn =>
+          btn.addEventListener('click', () => applyFontStep(getFontStep() + 1))
+        );
+        document.querySelectorAll<HTMLButtonElement>('.print-btn').forEach(btn =>
+          btn.addEventListener('click', () => window.print())
+        );
+      }
+
+      // ── Chapter section toggles ──────────────────────────────
+      document.querySelectorAll<HTMLButtonElement>('.chapter-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const expanded = btn.getAttribute('aria-expanded') === 'true';
+          btn.setAttribute('aria-expanded', String(!expanded));
+          const sections = btn.closest('.chapter-item')!.querySelector<HTMLElement>('.chapter-sections')!;
+          sections.hidden = expanded;
+        });
+      });
+
+      document.querySelectorAll<HTMLButtonElement>('.section-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const expanded = btn.getAttribute('aria-expanded') === 'true';
+          btn.setAttribute('aria-expanded', String(!expanded));
+          const subsections = btn.closest('.section-item')!.querySelector<HTMLElement>('.section-subsections')!;
+          subsections.hidden = expanded;
+        });
+      });
+
+      // ── Theme ────────────────────────────────────────────────
+      function effectiveTheme(): 'light' | 'dark' {
+        const stored = localStorage.getItem('theme');
+        if (stored === 'light' || stored === 'dark') return stored;
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+
+      function applyTheme(theme: 'light' | 'dark') {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('theme', theme);
+      }
+
+      document.querySelectorAll<HTMLButtonElement>('.theme-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          applyTheme(effectiveTheme() === 'dark' ? 'light' : 'dark');
+        });
+      });
+
+      // ── TOC + nav scroll-spy ─────────────────────────────────
+      {
+        const headings = [...document.querySelectorAll<HTMLElement>('.content h2, .content h3')];
+
+        // Right-side TOC: href="#id"
+        const tocLinks = new Map<string, HTMLAnchorElement>();
+        const tocOrder: { id: string; depth: number }[] = [];
+        document.querySelectorAll<HTMLAnchorElement>('.toc-nav a[href^="#"]').forEach(a => {
+          const id = a.getAttribute('href')!.slice(1);
+          tocLinks.set(id, a);
+          tocOrder.push({ id, depth: a.closest('.toc-h3') ? 3 : 2 });
+        });
+
+        // Left-side nav: href="/chapters/slug#id" — only links for the current page
+        const navLinks = new Map<string, HTMLAnchorElement>();
+        const currentPath = window.location.pathname;
+        document.querySelectorAll<HTMLAnchorElement>('.sidebar-nav a[href*="#"]').forEach(a => {
+          const url = new URL(a.href, location.origin);
+          if (url.pathname === currentPath) navLinks.set(url.hash.slice(1), a);
+        });
+
+        function updateScrollSpy() {
+          let active: string | null = null;
+          for (const h of headings) {
+            if (h.getBoundingClientRect().top <= 80) active = h.id;
+            else break;
+          }
+          tocLinks.forEach((a, id) => a.classList.toggle('toc-active', id === active));
+
+          // If the active TOC entry is h3, also highlight its nearest preceding h2
+          const activeTocIdx = active !== null ? tocOrder.findIndex(e => e.id === active) : -1;
+          if (activeTocIdx !== -1 && tocOrder[activeTocIdx].depth === 3) {
+            for (let i = activeTocIdx - 1; i >= 0; i--) {
+              if (tocOrder[i].depth === 2) {
+                tocLinks.get(tocOrder[i].id)?.classList.add('toc-active');
+                break;
+              }
+            }
+          }
+          navLinks.forEach((a, id) => a.classList.toggle('nav-active', id === active));
+
+          // If the active link is a subsection, also highlight its parent section
+          const activeLink = active !== null ? (navLinks.get(active) ?? null) : null;
+          if (activeLink?.closest('.section-subsections')) {
+            activeLink
+              .closest('.section-item')
+              ?.querySelector<HTMLAnchorElement>('.section-row > a')
+              ?.classList.add('nav-active');
+          }
+        }
+
+        window.addEventListener('scroll', updateScrollSpy, { passive: true });
+        updateScrollSpy();
+      }
+
+      // ── Mobile header height CSS variable ────────────────────
+      {
+        const mobileHeader = document.querySelector<HTMLElement>('.mobile-header');
+        if (mobileHeader) {
+          document.documentElement.style.setProperty(
+            '--mobile-header-height', mobileHeader.offsetHeight + 'px'
+          );
+        }
+      }
+
+      // ── Mobile menu ──────────────────────────────────────────
+      {
+        const menuBtn = document.getElementById('mobile-menu-btn');
+        const sidebar = document.getElementById('sidebar');
+        const navBackdrop = document.getElementById('mobile-nav-backdrop');
+
+        function setMenuOpen(open: boolean) {
+          sidebar?.classList.toggle('is-open', open);
+          navBackdrop?.classList.toggle('is-open', open);
+          document.body.style.overflow = open ? 'hidden' : '';
+        }
+
+        menuBtn?.addEventListener('click', () => {
+          setMenuOpen(!sidebar?.classList.contains('is-open'));
+        });
+
+        navBackdrop?.addEventListener('click', () => setMenuOpen(false));
+      }
+
+      // ── Pagefind search ──────────────────────────────────────
+      if (import.meta.env.PROD) {
+        window.addEventListener('DOMContentLoaded', async () => {
+          try {
+            await new Function('return import("/pagefind/pagefind-ui.js")')();
+            new window.PagefindUI({ element: '#search', showSubResults: false, showImages: false });
+          } catch { /* pagefind not yet built */ }
+        });
+      }
+      // ── Figure tooltip upgrade (desktop hover) ───────────────
+      function cloneFigureInto(container: HTMLElement, figureId: string): boolean {
+        const figureEl = document.getElementById(figureId);
+        if (!figureEl) return false;
+        const clone = figureEl.cloneNode(true) as HTMLElement;
+        clone.removeAttribute('id');
+        container.innerHTML = '';
+        container.appendChild(clone);
+        return true;
+      }
+
+      document.querySelectorAll<HTMLElement>('.ref[data-figure-id]').forEach(refEl => {
+        refEl.addEventListener('mouseenter', () => {
+          const tooltip = refEl.querySelector<HTMLElement>('.ref-tooltip');
+          if (!tooltip || tooltip.dataset.upgraded) return;
+          tooltip.dataset.upgraded = 'true';
+          cloneFigureInto(tooltip, refEl.dataset.figureId!);
+        });
+      });
+
+      // ── Mobile ref bottom sheet ──────────────────────────────
+      if (window.matchMedia('(hover: none)').matches) {
+        const backdrop = document.getElementById('ref-sheet-backdrop')!;
+        const sheetBody = document.getElementById('ref-sheet-body')!;
+        const sheetJump = document.getElementById('ref-sheet-jump') as HTMLAnchorElement;
+        let touchStartY = 0;
+
+        const sheetFooter = document.getElementById('ref-sheet-footer')!;
+
+        function openSheet(refEl: Element, tooltipEl: HTMLElement, href: string, linkText: string) {
+          const figureId = (refEl as HTMLElement).dataset.figureId;
+          if (figureId && cloneFigureInto(sheetBody, figureId)) {
+            sheetBody.removeAttribute('style');
+            sheetBody.classList.remove('is-env');
+          } else if (figureId) {
+            sheetBody.innerHTML = tooltipEl.innerHTML;
+            sheetBody.removeAttribute('style');
+            sheetBody.classList.remove('is-env');
+          } else {
+            sheetBody.innerHTML = tooltipEl.innerHTML;
+            sheetBody.setAttribute('style', tooltipEl.getAttribute('style') ?? '');
+            sheetBody.classList.toggle('is-env', tooltipEl.classList.contains('ref-tooltip--env'));
+          }
+          if (href) {
+            sheetJump.href = href;
+            sheetJump.textContent = `Go to ${linkText}`;
+            sheetFooter.style.display = '';
+          } else {
+            sheetFooter.style.display = 'none';
+          }
+          backdrop.classList.add('is-open');
+        }
+
+        function closeSheet() {
+          backdrop.classList.remove('is-open');
+        }
+
+        document.addEventListener('click', e => {
+          const link = (e.target as Element).closest<HTMLAnchorElement>('.ref-link');
+          if (!link) return;
+          const ref = link.closest('.ref')!;
+          const tooltipEl = ref.querySelector<HTMLElement>('.ref-tooltip');
+          if (!tooltipEl) return;
+          e.preventDefault();
+          const href = (link as HTMLAnchorElement).href ?? '';
+          openSheet(ref, tooltipEl, href, link.textContent ?? 'reference');
+        });
+
+        backdrop.addEventListener('click', e => {
+          if (e.target === backdrop) closeSheet();
+        });
+
+        sheetJump.addEventListener('click', () => closeSheet());
+
+        const sheet = document.getElementById('ref-sheet')!;
+        sheet.addEventListener('touchstart', e => {
+          touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+        sheet.addEventListener('touchend', e => {
+          if (e.changedTouches[0].clientY - touchStartY > 60) closeSheet();
+        }, { passive: true });
+      }
+    </script>
+
+    <script>
+      // ── Print footnotes ──────────────────────────────────────────
+      const _printRestorations: Array<() => void> = [];
+
+      function buildPrintFootnotes() {
+        const bodies = Array.from(document.querySelectorAll<HTMLElement>('.footnote-body'));
+        if (bodies.length === 0) return;
+
+        const section = document.createElement('section');
+        section.className = 'print-footnotes';
+        const heading = document.createElement('h2');
+        heading.textContent = 'Footnotes';
+        section.appendChild(heading);
+
+        const ol = document.createElement('ol');
+        bodies.forEach(body => {
+          const n = body.dataset.fnBody!;
+          const li = document.createElement('li');
+          li.id = `fn-body-${n}`;
+          li.innerHTML = body.innerHTML;
+          const back = document.createElement('a');
+          back.href = `#fn-ref-${n}`;
+          back.className = 'print-footnote-back';
+          back.textContent = '↩';
+          li.appendChild(back);
+          ol.appendChild(li);
+
+          // Swap inline button → anchor pointing to this footnote
+          const ref = document.getElementById(`fn-ref-${n}`);
+          const btn = ref?.querySelector<HTMLElement>('button.footnote-marker');
+          if (btn) {
+            const a = document.createElement('a');
+            a.href = `#fn-body-${n}`;
+            a.className = btn.className;
+            a.innerHTML = btn.innerHTML;
+            btn.replaceWith(a);
+            _printRestorations.push(() => a.replaceWith(btn));
+          }
+        });
+
+        section.appendChild(ol);
+        document.querySelector('.content')?.appendChild(section);
+      }
+
+      function removePrintFootnotes() {
+        document.querySelectorAll('.print-footnotes').forEach(el => el.remove());
+        _printRestorations.forEach(fn => fn());
+        _printRestorations.length = 0;
+      }
+
+      window.addEventListener('beforeprint', buildPrintFootnotes);
+      window.addEventListener('afterprint', removePrintFootnotes);
+    </script>
+
+    <!-- Mobile nav backdrop (closes menu on outside tap) -->
+    <div id="mobile-nav-backdrop" aria-hidden="true"></div>
+
+    <!-- Mobile ref preview sheet -->
+    <div id="ref-sheet-backdrop" aria-hidden="true">
+      <div id="ref-sheet" role="dialog" aria-modal="true" aria-label="Reference preview">
+        <div id="ref-sheet-body"></div>
+        <div id="ref-sheet-footer">
+          <a id="ref-sheet-jump" href="#">Go to reference</a>
+        </div>
+      </div>
+    </div>
+
+  </body>
+</html>

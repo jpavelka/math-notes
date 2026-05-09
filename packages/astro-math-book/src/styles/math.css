@@ -1,0 +1,574 @@
+.math-env {
+  margin: 1.5em 0;
+  padding: 0.75em 1em 0.75em 1.1em;
+  border-left: 3px solid;
+}
+
+.math-env-label {
+  margin-bottom: 0.25em;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+  flex-wrap: wrap;
+}
+
+.math-env-proof-link {
+  margin-left: auto;
+  font-size: 0.8em;
+  font-style: normal;
+  font-weight: normal;
+  opacity: 0.65;
+  white-space: nowrap;
+}
+
+.math-env-proof-link:hover {
+  opacity: 1;
+}
+
+.math-env-body > :first-child { margin-top: 0; }
+.math-env-body > :last-child  { margin-bottom: 0; }
+
+/* Italic body text for theorem-like environments */
+.math-env--theorem .math-env-body,
+.math-env--lemma .math-env-body,
+.math-env--corollary .math-env-body {
+  font-style: italic;
+}
+
+/* QED marker at end of proof */
+.math-env--proof::after {
+  content: '□';
+  display: block;
+  text-align: right;
+  margin-top: 0.25em;
+}
+
+/* ── Labeled equations ── */
+
+.equation-block {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.75rem 0;
+}
+
+.equation-block .eq-content {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  display: flex;
+  justify-content: center;
+}
+
+/* Remove default katex-display margins inside our flex container */
+.equation-block .katex-display {
+  margin: 0;
+}
+
+/* Sub-equation block — CSS table layout so numbers use real .eq-number spans */
+.subeq-block {
+  margin: 1.75rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.subeq-table {
+  display: table;
+  margin: 0 auto;
+}
+
+.subeq-row {
+  display: table-row;
+}
+
+.subeq-lhs,
+.subeq-rhs {
+  display: table-cell;
+  padding: 0.2em 0;
+  vertical-align: middle;
+}
+
+.subeq-lhs {
+  text-align: right;
+}
+
+.subeq-rhs {
+  text-align: left;
+  padding-left: 0.2em;
+}
+
+.subeq-row .eq-number {
+  display: table-cell;
+  width: 3.5rem;
+  text-align: right;
+  font-size: 0.95em;
+  color: var(--text-muted);
+  padding-left: 1rem;
+  vertical-align: middle;
+}
+
+/* Zero-size scroll anchor for individual labeled lines */
+.subeq-anchor {
+  display: block;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  scroll-margin-top: 1.5rem;
+}
+
+/* Inside a flex cell (AnnotatedAlign) baseline-alignment shifts the empty anchor
+   down to the text baseline, causing scroll-to-anchor to overshoot. Pin it to
+   the top of the cell so the scroll target matches the visual top of the row. */
+.annot-align-cell .subeq-anchor {
+  align-self: flex-start;
+}
+
+.equation-block .eq-number {
+  width: 3.5rem;
+  text-align: right;
+  font-size: 0.95em;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ── AnnotatedAlign ── */
+
+.annot-align-block {
+  margin: 1.75rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.annot-align-block.has-open-ref-tooltip {
+  overflow: visible;
+}
+
+.annot-align-grid {
+  display: grid;
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.annot-align-cell {
+  display: flex;
+  align-items: center;
+  padding: 0.2em 0;
+}
+
+.annot-align-cell--r {
+  justify-content: flex-end;
+}
+
+.annot-align-cell--l {
+  justify-content: flex-start;
+}
+
+.annot-align-num {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-left: 1rem;
+  width: 3.5rem;
+  font-size: 0.95em;
+  color: var(--text-muted);
+  position: sticky;
+  right: 0;
+  background: var(--bg);
+}
+
+.annot-align-toggle-cell {
+  display: flex;
+  align-items: center;
+  padding-left: 0.5rem;
+  position: sticky;
+  right: var(--annot-num-w, 0px);
+  background: var(--bg);
+}
+
+.annot-align-btn {
+  width: 1.1em;
+  height: 1.1em;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  background: none;
+  color: var(--text-muted, #888);
+  font-size: 0.72em;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+  font-family: inherit;
+}
+
+.annot-align-btn:hover,
+.annot-align-btn--open {
+  background: var(--text-muted, #888);
+  color: var(--bg, #fff);
+}
+
+.annot-align-reason {
+  display: block;
+  contain: inline-size;
+  padding: 0.3em 0.7em;
+  margin-bottom: 0.15em;
+  background: var(--code-bg);
+  border-left: 2px solid var(--text-muted, #aaa);
+  font-size: 0.875em;
+  color: var(--text-muted);
+  line-height: 1.55;
+  overflow-wrap: break-word;
+}
+
+/* ── Theme-aware figure utilities ── */
+
+/* Invert image/SVG colors in dark mode — good for black-on-white diagrams */
+[data-theme="dark"] .invert-in-dark {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .invert-in-dark {
+    filter: invert(1) hue-rotate(180deg);
+  }
+}
+
+/* SVG paint utilities — apply to <path>, <circle>, <line>, etc. */
+.svg-fill-text    { fill:   var(--text); }
+.svg-fill-muted   { fill:   var(--text-muted); }
+.svg-fill-bg      { fill:   var(--bg); }
+.svg-fill-border  { fill:   var(--border); }
+.svg-stroke-text  { stroke: var(--text); }
+.svg-stroke-muted { stroke: var(--text-muted); }
+.svg-stroke-bg    { stroke: var(--bg); }
+
+/* ── Figures ── */
+
+.math-figure {
+  margin: 2em auto;
+  max-width: 100%;
+  text-align: center;
+}
+
+.math-figure-content {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.math-figure-caption {
+  margin-top: 0.6em;
+  font-size: 0.9em;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Tables ── */
+
+.math-table {
+  margin: 2em auto;
+  max-width: 100%;
+}
+
+.math-table-caption {
+  margin-bottom: 0.5em;
+  font-size: 0.9em;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.math-table-content {
+  overflow-x: auto;
+}
+
+.math-table-content table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95em;
+}
+
+.math-table-content th,
+.math-table-content td {
+  border: 1px solid var(--border);
+  padding: 0.4em 0.85em;
+  text-align: left;
+}
+
+.math-table-content th {
+  background: var(--code-bg);
+  font-weight: 600;
+}
+
+.math-table-content tr:nth-child(even) td {
+  background: var(--bg-sidebar);
+}
+
+/* ── Print fallback ── */
+
+.print-fallback {
+  display: none;
+}
+
+@media print {
+  .print-fallback {
+    display: block;
+  }
+
+  /* Hide interactive siblings when a print fallback is present */
+  .math-figure-content:has(.print-fallback) > *:not(.print-fallback) {
+    display: none;
+  }
+
+  .print-footnotes {
+    margin-top: 2em;
+    padding-top: 1em;
+    border-top: 1px solid currentColor;
+  }
+
+  .print-footnotes h2 {
+    font-size: 0.95em;
+    font-weight: 600;
+    margin-bottom: 0.5em;
+  }
+
+  .print-footnotes ol {
+    font-size: 0.85em;
+    line-height: 1.5;
+    padding-left: 1.5em;
+    margin: 0;
+  }
+
+  .print-footnotes li {
+    margin-bottom: 0.4em;
+  }
+
+  .print-footnote-back {
+    margin-left: 0.4em;
+    font-size: 0.85em;
+    text-decoration: none;
+  }
+}
+
+/* ── Footnotes ── */
+
+.footnote-marker {
+  font-size: 0.78em;
+  line-height: 0;
+  vertical-align: super;
+  font-family: system-ui, sans-serif;
+  font-style: normal;
+  text-decoration: none;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.footnote-marker:hover {
+  color: var(--text);
+}
+
+/* Hidden container for rich footnote body content */
+.footnote-body {
+  display: none;
+}
+
+/* Ensure block-ish content in the footnote tooltip renders correctly */
+.footnote-tooltip p {
+  margin: 0.2em 0;
+}
+
+.footnote-tooltip p:first-child { margin-top: 0; }
+.footnote-tooltip p:last-child  { margin-bottom: 0; }
+
+/* ── Cross-references ── */
+
+.ref {
+  position: relative;
+  display: inline-block;
+}
+
+.ref-link {
+  color: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.ref-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28rem;
+  max-width: 90vw;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.18);
+  padding: 0.65em 0.9em;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  text-align: left;
+  z-index: 100;
+  pointer-events: none;
+  color: var(--text);
+}
+
+.ref-tooltip--env {
+  border-left-width: 3px;
+  border-radius: 0 6px 6px 0;
+  padding-left: 1.1em;
+}
+
+/* Small triangle pointing down */
+.ref-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--border);
+}
+.ref-tooltip::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--ref-tooltip-bg, var(--bg));
+  z-index: 1;
+}
+
+@media (hover: hover) {
+  .ref:hover .ref-tooltip {
+    display: block;
+  }
+}
+
+/* Cloned figures inside tooltip / bottom sheet */
+.ref-tooltip .math-figure,
+#ref-sheet-body .math-figure {
+  margin: 0;
+}
+
+/* Bare SVG serialized from registry (cross-page figure refs) */
+.ref-tooltip > svg,
+#ref-sheet-body > svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0.4em 0 0;
+}
+
+.ref-tooltip .math-figure-content img,
+.ref-tooltip .math-figure-content svg,
+#ref-sheet-body .math-figure-content img,
+#ref-sheet-body .math-figure-content svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.ref-tooltip .print-fallback,
+#ref-sheet-body .print-fallback {
+  display: none;
+}
+
+
+.ref--unknown {
+  color: #dc2626;
+  font-family: monospace;
+  font-size: 0.85em;
+}
+
+/* Span-based CSS table for use inside tooltip <span> (avoids block-in-inline invalid HTML) */
+.ref-tooltip .tt-table,
+#ref-sheet-body .tt-table  { display: table; width: 100%; border-collapse: collapse; font-size: 0.82em; margin-top: 0.25em; }
+.ref-tooltip .tt-thead,
+#ref-sheet-body .tt-thead  { display: table-header-group; }
+.ref-tooltip .tt-tbody,
+#ref-sheet-body .tt-tbody  { display: table-row-group; }
+.ref-tooltip .tt-tr,
+#ref-sheet-body .tt-tr     { display: table-row; }
+.ref-tooltip .tt-th,
+#ref-sheet-body .tt-th     { display: table-cell; border: 1px solid var(--border); padding: 0.2em 0.5em; font-weight: 600; background: var(--code-bg); }
+.ref-tooltip .tt-td,
+#ref-sheet-body .tt-td     { display: table-cell; border: 1px solid var(--border); padding: 0.2em 0.5em; }
+
+/* ── Per-type colours (vars defined in global.css) ── */
+.math-env--theorem   { border-color: var(--env-theorem-border);    background: var(--env-theorem-bg); }
+.math-env--definition{ border-color: var(--env-definition-border); background: var(--env-definition-bg); }
+.math-env--lemma     { border-color: var(--env-lemma-border);      background: var(--env-lemma-bg); }
+.math-env--corollary { border-color: var(--env-corollary-border);  background: var(--env-corollary-bg); }
+.math-env--remark    { border-color: var(--env-remark-border);     background: var(--env-remark-bg); }
+.math-env--proof     { border-color: var(--env-proof-border);      background: transparent; }
+
+/* ── Citations & Bibliography ── */
+
+.cite {
+  font-size: 0.95em;
+}
+
+.cite-link {
+  color: inherit;
+}
+
+.cite-with-image {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.75em;
+}
+
+.cite-tooltip-img {
+  width: 72px;
+  flex-shrink: 0;
+  border-radius: 3px;
+  object-fit: cover;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+}
+
+.cite--unknown {
+  color: #dc2626;
+  font-family: monospace;
+  font-size: 0.85em;
+}
+
+.bibliography {
+  margin: 1.5em 0;
+}
+
+.bib-entry {
+  padding: 0.4em 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.93em;
+  line-height: 1.5;
+  padding-left: 2em;
+  text-indent: -2em;
+}
+
+.bib-entry--with-image {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9em;
+  text-indent: 0;
+  padding-left: 0;
+}
+
+.bib-entry-img {
+  width: 56px;
+  flex-shrink: 0;
+  border-radius: 3px;
+  object-fit: cover;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+  margin-top: 0.1em;
+}
+
+.bib-entry:last-child {
+  border-bottom: 1px solid var(--border);
+}

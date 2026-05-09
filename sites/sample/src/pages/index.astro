@@ -1,0 +1,11 @@
+---
+import { getCollection } from 'astro:content';
+
+const chapters = await getCollection('chapters');
+chapters.sort((a, b) => a.id.localeCompare(b.id));
+
+if (chapters.length > 0) {
+  return Astro.redirect(`/chapters/${chapters[0].id}`);
+}
+---
+<p>No chapters found. Add an <code>.mdx</code> file to <code>src/content/chapters/</code>.</p>

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.astro/
+.env
+.env.*
+!.env.example
+local/
+.idx/
+
+# Generated at build time
+sites/math-notes/src/lib/registry.json
+sites/math-notes/src/lib/bibliography.json
