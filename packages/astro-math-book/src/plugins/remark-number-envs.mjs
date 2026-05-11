@@ -30,7 +30,7 @@ function numberAttr(num) {
  * Accepts { getRegistryPath, numberedEnvironments }.
  */
 export function remarkNumberEnvs({ getRegistryPath, numberedEnvironments } = {}) {
-  const NUMBERED = new Set(numberedEnvironments ?? ['Theorem', 'Definition', 'Lemma', 'Corollary', 'Remark', 'Figure', 'Table']);
+  const NUMBERED = new Set(numberedEnvironments ?? ['Theorem', 'Definition', 'Lemma', 'Corollary', 'Remark', 'Figure', 'Table', 'YouTubeEmbed']);
 
   function getRegistry() {
     if (!getRegistryPath) return {};

@@ -572,3 +572,25 @@
 .bib-entry:last-child {
   border-bottom: 1px solid var(--border);
 }
+
+/* ── YouTube embeds ── */
+
+.yt-embed {
+  width: 100%;
+}
+
+.yt-embed-print {
+  display: none;
+}
+
+.yt-embed-thumb {
+  width: 100%;
+  border-radius: 4px;
+}
+
+.yt-embed-url {
+  margin: 0.4em 0 0;
+  font-size: 0.88em;
+  color: var(--text-muted);
+  word-break: break-all;
+}

@@ -8,5 +8,5 @@ local/
 .idx/
 
 # Generated at build time
-sites/math-notes/src/lib/registry.json
-sites/math-notes/src/lib/bibliography.json
+sites/*/src/lib/registry.json
+sites/*/src/lib/bibliography.json

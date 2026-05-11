@@ -330,6 +330,42 @@ The same effect is available as a plain CSS class `.invert-in-dark` for use outs
 
 ---
 
+## YouTube Embeds
+
+`<YouTubeEmbed>` renders a responsive embedded video with an automatic print fallback (thumbnail + watch URL).
+
+```mdx
+import { YouTubeEmbed } from 'astro-math-book/components';
+
+<YouTubeEmbed
+  videoId="dQw4w9WgXcQ"
+  id="vid:example"
+  number="1.1"
+  caption="A motivating example."
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `videoId` | `string` | — | YouTube video ID (required) |
+| `id` | `string` | — | Anchor id for cross-references with `<Ref>` |
+| `number` | `string` | — | Label shown in the figcaption, e.g. `"1.1"` |
+| `caption` | `string` | — | Caption text shown below the video |
+| `title` | `string` | `'YouTube video'` | Accessible title for the iframe |
+| `aspectRatio` | `'16/9' \| '4/3'` | `'16/9'` | Aspect ratio of the embed |
+| `start` | `number` | — | Start time in seconds |
+| `end` | `number` | — | End time in seconds |
+| `controls` | `boolean` | `true` | Show player controls |
+| `autoplay` | `boolean` | `false` | Autoplay the video |
+| `muted` | `boolean` | `false` | Mute the video |
+| `loop` | `boolean` | `false` | Loop the video |
+
+When `id` is provided the embed can be cross-referenced with `<Ref id="vid:example" />`. In print output the iframe is replaced by a thumbnail image and a `youtu.be` short link; if `start` or `end` are set, a formatted timestamp range (e.g. `1:30–2:45`) is appended to the link.
+
+---
+
 ## Bibliography
 
 ### 1. Add a `.bib` file

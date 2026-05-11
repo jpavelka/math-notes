@@ -19,7 +19,7 @@ import katex from 'katex';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const NUMBERED_ENVS = new Set(['Theorem', 'Definition', 'Lemma', 'Corollary', 'Remark', 'Figure', 'Table']);
+const NUMBERED_ENVS = new Set(['Theorem', 'Definition', 'Lemma', 'Corollary', 'Remark', 'Figure', 'Table', 'YouTubeEmbed']);
 const LABEL_RE = /\{#([\w:.-]+)(?:\|([^}]*))?\}/;
 
 // ── Filesystem helpers ───────────────────────────────────────────────────────
@@ -328,7 +328,14 @@ function collectItems(tree, katexMacros) {
     if (node.type === 'mdxJsxFlowElement' && NUMBERED_ENVS.has(node.name)) {
       const id = getAttrString(node.attributes, 'id');
       if (!id) return;
-      if (FLOAT_ENVS.has(node.name)) {
+      if (node.name === 'YouTubeEmbed') {
+        const videoId = getAttrString(node.attributes, 'videoId');
+        const caption = getAttrString(node.attributes, 'caption');
+        const thumbHTML = videoId
+          ? `<img src="https://img.youtube.com/vi/${esc(videoId)}/hqdefault.jpg" alt="${esc(caption ?? 'Video')}" style="max-width:100%;height:auto">`
+          : '';
+        items.push({ id, type: 'Video', title: caption ?? undefined, contentHTML: thumbHTML });
+      } else if (FLOAT_ENVS.has(node.name)) {
         const caption = getAttrString(node.attributes, 'caption');
         items.push({
           id,

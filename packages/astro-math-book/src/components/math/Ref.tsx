@@ -16,7 +16,7 @@ export function Ref({ id }: Props) {
 
   const isEquation = entry.type === 'Equation';
   const isSection = entry.type === 'Section';
-  const isEnvStyled = !['Equation', 'Figure', 'Table', 'Section'].includes(entry.type);
+  const isEnvStyled = !['Equation', 'Figure', 'Table', 'Section', 'Video'].includes(entry.type);
 
   let label: string;
   if (isEquation) {
@@ -41,7 +41,7 @@ export function Ref({ id }: Props) {
     const titleHTML = entry.title ? `: <em>${renderInlineMath(entry.title)}</em>` : '';
     tooltipHTML = `<strong>Section ${entry.number}</strong>${titleHTML}`;
   } else {
-    const isCaption = entry.type === 'Table' || entry.type === 'Figure';
+    const isCaption = entry.type === 'Table' || entry.type === 'Figure' || entry.type === 'Video';
     const titleHTML = entry.title
       ? isCaption
         ? `. <em>${renderInlineMath(entry.title)}</em>`

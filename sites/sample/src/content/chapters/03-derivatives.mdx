@@ -3,7 +3,7 @@ title: "Differentiation"
 chapter: 3
 ---
 
-import { Theorem, Definition, Lemma, Corollary, Proof, Remark, Ref, Figure, Table, PrintFallback, Cite, AnnotatedAlign } from '../../components/math';
+import { Theorem, Definition, Lemma, Corollary, Proof, Remark, Ref, Figure, Table, PrintFallback, Cite, AnnotatedAlign, YouTubeEmbed } from '../../components/math';
 
 Differentiation formalises the notion of an instantaneous rate of change.
 The key new idea — compared with the limits of Chapter 1 — is that we fix one
@@ -29,7 +29,7 @@ Alternative notations: $\dfrac{df}{dx}\big|_{x_0}$, $Df(x_0)$, and $\dot{f}(x_0)
 physics, for time derivatives) all denote the same object.
 The limit in <Ref id="eq:derivative-def" /> is the slope of the tangent line at $(x_0, f(x_0))$,
 obtained as the limiting slope of secant lines through $(x_0, f(x_0))$
-and $(x_0+h, f(x_0+h))$ as $h \to 0$; see <Ref id="fig:derivative" />.
+and $(x_0+h, f(x_0+h))$ as $h \to 0$; see <Ref id="fig:derivative" /> and <Ref id="vid:derivative" />.
 </Remark>
 
 <Figure id="fig:derivative" caption="The derivative as the limit of secant slopes.  As $h \to 0$, the secant line (dashed) rotates to the tangent (solid blue).">
@@ -61,6 +61,12 @@ and $(x_0+h, f(x_0+h))$ as $h \to 0$; see <Ref id="fig:derivative" />.
     and the limiting tangent line at $x_0$.  As $h\to 0$ the secant slope approaches $f'(x_0)$.
   </PrintFallback>
 </Figure>
+
+<YouTubeEmbed
+  id="vid:derivative"
+  videoId="9vKqVkMQHKk"
+  caption='3Blue1Brown: "The paradox of the derivative" — a visual walkthrough of the secant-slope limit and why instantaneous rate of change is well-defined.'
+/>
 
 ## Differentiability and Continuity
 

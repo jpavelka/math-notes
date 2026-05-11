@@ -18,3 +18,4 @@ export type { AlignRow } from './AnnotatedAlign';
 export { Footnote } from './Footnote';
 export { FootnoteBody } from './FootnoteBody';
 export { AnnotationBody } from './AnnotationBody';
+export { YouTubeEmbed } from './YouTubeEmbed';
