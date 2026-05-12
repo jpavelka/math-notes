@@ -594,6 +594,27 @@
 .math-env--remark    { border-color: var(--env-remark-border);     background: var(--env-remark-bg); }
 .math-env--proof     { border-color: var(--env-proof-border);      background: transparent; }
 
+/* ── Block quotes ── */
+
+.block-quote {
+  margin: 1.75em 0;
+  padding: 0 1.5em;
+  border-left: 1px solid var(--text-muted);
+  border-right: none;
+  background: transparent;
+}
+
+.block-quote-body > :first-child { margin-top: 0; }
+.block-quote-body > :last-child  { margin-bottom: 0; }
+
+.block-quote-attribution {
+  margin-top: 0.6em;
+  text-align: right;
+  font-size: 0.9em;
+  color: var(--text-muted);
+  font-style: normal;
+}
+
 /* ── Citations & Bibliography ── */
 
 .cite {

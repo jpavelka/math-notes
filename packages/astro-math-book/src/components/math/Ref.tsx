@@ -27,7 +27,7 @@ export function Ref({ id }: Props) {
   } else if (isSection) {
     label = `§${entry.number}`;
   } else {
-    label = `${entry.type} ${entry.number}`;
+    label = entry.label ?? `${entry.type} ${entry.number}`;
   }
 
   const bodyHTML = entry.contentHTML

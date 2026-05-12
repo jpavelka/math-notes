@@ -11,7 +11,7 @@ at some level, to questions about convergence. Here is a citation: <Cite id="apo
 
 ## Convergent Sequences
 
-<Definition id="def:convergence" title="Convergence">
+<Definition id="def:convergence" title="Convergence/Divergence">
 A sequence $(a_n)$ **converges to $L \in \mathbb{R}$** if for every $\varepsilon > 0$
 there exists $N \in \mathbb{N}$ such that $n > N$ implies $|a_n - L| < \varepsilon$.
 We write $a_n \to L$ or $\lim_{n\to\infty} a_n = L$.
@@ -92,6 +92,7 @@ $n > N_2 \Rightarrow |a_n - M| < \varepsilon$.  For $n > \max(N_1, N_2)$:
 ]} />
 
 a contradiction.
+
 </Proof>
 
 <Theorem id="thm:squeeze" title="Squeeze Theorem">
@@ -173,7 +174,7 @@ $n_1 < n_2 < n_3 < \cdots$ are strictly increasing.
 Every subsequence of a convergent sequence converges to the same limit (by <Ref id="thm:limit-unique" />), but divergent
 sequences can have convergent subsequences—and in $\mathbb{R}$ they always do if bounded.
 
-<Theorem id="thm:bolzano" title="Bolzano–Weierstrass">
+<Theorem id="thm:bolzano" title="Bolzano–Weierstrass" label="Bolzano-Weierstrass">
 Every bounded sequence in $\mathbb{R}$ has a convergent subsequence.
 </Theorem>
 
@@ -210,7 +211,7 @@ sequence in $K$ has a subsequence converging to a point of $K$.
 </Corollary>
 
 <Proof>
-By Bolzano–Weierstrass any sequence in $K$ (which is bounded) has a convergent
+By <Ref id="thm:bolzano" /> any sequence in $K$ (which is bounded) has a convergent
 subsequence.  The limit lies in $K$ because $K$ is closed.
 </Proof>
 

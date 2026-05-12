@@ -2,6 +2,7 @@
 import { getCollection, render } from 'astro:content';
 import type { MarkdownHeading } from 'astro';
 import TOC from './TOC.astro';
+import { RegistrySearch } from '../math/RegistrySearch';
 import { renderInlineMath } from '../math/renderInlineMath';
 import '@fontsource/source-serif-4/400.css';
 import '@fontsource/source-serif-4/400-italic.css';
@@ -69,9 +70,6 @@ const chaptersWithSections = await Promise.all(
       const _fsStep = parseInt(localStorage.getItem('font-size-step') ?? '2');
       document.documentElement.style.fontSize = _fsSizes[Math.max(0, Math.min(_fsStep, _fsSizes.length - 1))] + 'px';
     </script>
-    {import.meta.env.PROD && (
-      <link rel="stylesheet" href="/pagefind/pagefind-ui.css" />
-    )}
     <slot name="head" />
   </head>
   <body>
@@ -120,9 +118,13 @@ const chaptersWithSections = await Promise.all(
           <a href={portalHref} class="portal-link">← All Books</a>
         )}
 
-        {import.meta.env.PROD && (
-          <div class="search-wrap" id="search"></div>
-        )}
+        <button
+          class="reg-search-btn"
+          onclick="document.dispatchEvent(new CustomEvent('open-registry-search'))"
+          aria-label="Search theorems, definitions, or text"
+        >
+          Search… <kbd>⌘K</kbd>
+        </button>
 
         <nav class="sidebar-nav">
           <ul>
@@ -192,7 +194,7 @@ const chaptersWithSections = await Promise.all(
         data-pagefind-body
         {...(chapter !== undefined && {
           'data-chapter': String(chapter),
-          style: `counter-reset: chapter ${chapter} section 0`,
+          style: `--chapter-prefix: "${chapter}"; counter-reset: section 0 subsection 0`,
         })}
       >
         {chapter !== undefined && (
@@ -362,15 +364,6 @@ const chaptersWithSections = await Promise.all(
         navBackdrop?.addEventListener('click', () => setMenuOpen(false));
       }
 
-      // ── Pagefind search ──────────────────────────────────────
-      if (import.meta.env.PROD) {
-        window.addEventListener('DOMContentLoaded', async () => {
-          try {
-            await new Function('return import("/pagefind/pagefind-ui.js")')();
-            new window.PagefindUI({ element: '#search', showSubResults: false, showImages: false });
-          } catch { /* pagefind not yet built */ }
-        });
-      }
       // ── Figure tooltip upgrade (desktop hover) ───────────────
       function cloneFigureInto(container: HTMLElement, figureId: string): boolean {
         const figureEl = document.getElementById(figureId);
@@ -526,6 +519,8 @@ const chaptersWithSections = await Promise.all(
       window.addEventListener('beforeprint', buildPrintFootnotes);
       window.addEventListener('afterprint', removePrintFootnotes);
     </script>
+
+    <RegistrySearch client:load />
 
     <!-- Mobile nav backdrop (closes menu on outside tap) -->
     <div id="mobile-nav-backdrop" aria-hidden="true"></div>

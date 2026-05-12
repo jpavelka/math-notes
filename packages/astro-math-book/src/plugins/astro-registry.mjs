@@ -330,19 +330,21 @@ function collectItems(tree, katexMacros, environments = []) {
     if (node.type === 'mdxJsxFlowElement' && allNumbered.has(node.name)) {
       const id = getAttrString(node.attributes, 'id');
       if (!id) return;
+      const labelAttr = getAttrString(node.attributes, 'label') ?? undefined;
       if (node.name === 'YouTubeEmbed') {
         const videoId = getAttrString(node.attributes, 'videoId');
         const caption = getAttrString(node.attributes, 'caption');
         const thumbHTML = videoId
           ? `<img src="https://img.youtube.com/vi/${esc(videoId)}/hqdefault.jpg" alt="${esc(caption ?? 'Video')}" style="max-width:100%;height:auto">`
           : '';
-        items.push({ id, type: 'Video', kind: 'float', title: caption ?? undefined, contentHTML: thumbHTML });
+        items.push({ id, type: 'Video', kind: 'float', ...(labelAttr ? { label: labelAttr } : {}), title: caption ?? undefined, contentHTML: thumbHTML });
       } else if (FLOAT_ENVS.has(node.name)) {
         const caption = getAttrString(node.attributes, 'caption');
         items.push({
           id,
           type: node.name,
           kind: 'float',
+          ...(labelAttr ? { label: labelAttr } : {}),
           title: caption ?? undefined,
           contentHTML: nodesToHtml(node.children),
         });
@@ -350,14 +352,15 @@ function collectItems(tree, katexMacros, environments = []) {
         const desc = envMap.get(node.name);
         if (desc?.kind === 'float') {
           const caption = getAttrString(node.attributes, 'caption');
-          items.push({ id, type: desc.type ?? node.name, kind: 'float', title: caption ?? undefined, contentHTML: nodesToHtml(node.children) });
+          items.push({ id, type: desc.type ?? node.name, kind: 'float', ...(labelAttr ? { label: labelAttr } : {}), title: caption ?? undefined, contentHTML: nodesToHtml(node.children) });
         } else if (desc?.collectContent) {
           const result = desc.collectContent(node, { getAttrString, nodesToHtml });
-          items.push({ id, type: desc.type ?? node.name, ...result });
+          items.push({ id, type: desc.type ?? node.name, ...(labelAttr ? { label: labelAttr } : {}), ...result });
         } else {
           items.push({
             id,
             type: desc?.type ?? node.name,
+            ...(labelAttr ? { label: labelAttr } : {}),
             title: getAttrString(node.attributes, 'title') ?? undefined,
             contentHTML: nodesToHtml(node.children),
           });
@@ -377,6 +380,7 @@ function collectItems(tree, katexMacros, environments = []) {
           id: row.id,
           type: 'Equation',
           kind: 'equation',
+          ...(row.label ? { label: String(row.label) } : {}),
           contentHTML: katex.renderToString(mathClean, {
             displayMode: true,
             throwOnError: false,
@@ -499,7 +503,7 @@ function buildRegistry(root, katexMacros = {}, environments = [], bookSlug = 'ch
   for (const file of files) {
     const raw = readFileSync(file, 'utf-8');
     const frontmatter = parseFrontmatter(raw);
-    const slug = relative(chaptersDir, file).replace(/\.mdx$/, '');
+    const slug = relative(chaptersDir, file).replace(/\.mdx$/, '').toLowerCase();
     // Strip frontmatter before parsing (avoids remark treating --- as thematic break)
     const body = raw.replace(/^---[\s\S]*?---\r?\n/, '');
     let tree;

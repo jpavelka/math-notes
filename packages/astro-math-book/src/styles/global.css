@@ -353,17 +353,216 @@ body {
   :root:not([data-theme="light"]) .theme-toggle::before { content: '☀'; }
 }
 
-/* ── Search (Pagefind) ── */
 
-.search-wrap { margin-bottom: 1.25rem; }
+/* ── Registry search (Jump to…) ── */
 
-/* Minimal Pagefind overrides */
-.search-wrap .pagefind-ui__search-input {
+.reg-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: 0.35em 0.65em;
   font-family: system-ui, sans-serif;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
   background: var(--bg);
-  color: var(--text);
   border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.reg-search-btn:hover {
+  border-color: var(--text-muted);
+  color: var(--text);
+}
+
+.reg-search-btn kbd {
+  font-family: system-ui, sans-serif;
+  font-size: 0.75em;
+  padding: 0.1em 0.35em;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.reg-search-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 500;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 18vh;
+}
+
+.reg-search-modal {
+  width: min(560px, 90vw);
+  max-height: 65vh;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.reg-search-input {
+  padding: 0.85em 1.1em;
+  font-family: system-ui, sans-serif;
+  font-size: 1rem;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  outline: none;
+  width: 100%;
+}
+
+.reg-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.reg-search-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 0.3em 0;
+}
+
+.reg-search-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  padding: 0.55em 1.1em;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.reg-search-item--active {
+  background: var(--code-bg);
+}
+
+.reg-search-item-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55em;
+  min-width: 0;
+}
+
+.reg-search-type {
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.reg-search-label {
+  color: var(--text-muted);
+  font-size: 0.85em;
+  flex-shrink: 0;
+}
+
+.reg-search-title {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reg-search-preview {
+  position: relative;
+  max-height: 4.5em;
+  overflow: hidden;
+  font-size: 0.82em;
+  color: var(--text-muted);
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+.reg-search-preview::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1.4em;
+  background: linear-gradient(transparent, var(--bg));
+}
+
+.reg-search-item--active .reg-search-preview::after {
+  background: linear-gradient(transparent, var(--code-bg));
+}
+
+.reg-search-section-header {
+  padding: 0.4em 1.1em 0.25em;
+  font-family: system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+
+.reg-search-body > section:first-child .reg-search-section-header {
+  border-top: none;
+}
+
+.reg-search-spinner {
+  font-weight: normal;
+  font-style: italic;
+}
+
+.reg-search-pf-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.reg-search-excerpt {
+  font-size: 0.82em;
+  color: var(--text-muted);
+  line-height: 1.5;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.reg-search-excerpt mark {
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.reg-search-empty {
+  padding: 1.2em 1.1em;
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.reg-search-footer {
+  display: flex;
+  gap: 1.2em;
+  padding: 0.45em 1.1em;
+  border-top: 1px solid var(--border);
+  font-family: system-ui, sans-serif;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.reg-search-footer kbd {
+  font-family: system-ui, sans-serif;
+  padding: 0.05em 0.3em;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 0.9em;
 }
 
 /* ── TOC sidebar ── */
@@ -464,7 +663,7 @@ body {
 
 main[data-chapter] h2::before {
   counter-increment: section;
-  content: counter(chapter) "." counter(section) "\2002";
+  content: var(--chapter-prefix) "." counter(section) "\2002";
   font-family: system-ui, sans-serif;
   font-size: 0.875em;
   font-weight: 500;
@@ -473,7 +672,7 @@ main[data-chapter] h2::before {
 
 main[data-chapter] h3::before {
   counter-increment: subsection;
-  content: counter(chapter) "." counter(section) "." counter(subsection) "\2002";
+  content: var(--chapter-prefix) "." counter(section) "." counter(subsection) "\2002";
   font-family: system-ui, sans-serif;
   font-size: 0.8em;
   font-weight: 400;

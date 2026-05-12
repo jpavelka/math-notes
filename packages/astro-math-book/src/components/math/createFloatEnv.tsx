@@ -4,6 +4,7 @@ import { renderInlineMath } from './renderInlineMath';
 export interface FloatEnvProps {
   id?: string;
   caption?: string;
+  label?: string;
   number?: string;
   invertInDark?: boolean;
   children: ReactNode;
@@ -41,7 +42,11 @@ export function createFloatEnv(type: string, options: FloatEnvOptions = {}): Rea
       </div>
     );
     return (
-      <figure className={cssPrefix} id={id}>
+      <figure
+        className={cssPrefix}
+        id={id}
+        {...(id ? { 'data-pagefind-filter': `type:${type}` } : {})}
+      >
         {captionPosition === 'top'
           ? <>{figcaption}{content}</>
           : <>{content}{figcaption}</>}

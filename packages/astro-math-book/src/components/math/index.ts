@@ -9,6 +9,7 @@ export { Lemma } from './Lemma';
 export { Corollary } from './Corollary';
 export { Proof } from './Proof';
 export { Remark } from './Remark';
+export { BlockQuote } from './BlockQuote';
 export { NumberingProvider } from './NumberingProvider';
 export { Ref } from './Ref';
 export { Figure } from './Figure';
@@ -24,6 +25,7 @@ export { FootnoteBody } from './FootnoteBody';
 export { AnnotationBody } from './AnnotationBody';
 export { YouTubeEmbed } from './YouTubeEmbed';
 export { ColabEmbed } from './ColabEmbed';
+export { RegistrySearch } from './RegistrySearch';
 export { Algorithm } from './Algorithm';
 export {
   AlgoStep, AlgoReturn,

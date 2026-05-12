@@ -7,6 +7,7 @@ const registry = registryJson;
 export interface MathEnvProps {
   id?: string;
   title?: string;
+  label?: string;
   number?: number;
   children: ReactNode;
 }
@@ -25,7 +26,11 @@ export function createMathEnv(type: string, cssKey?: string): React.FC<MathEnvPr
   function MathEnv({ id, title, number, children }: MathEnvProps) {
     const proofHref = id ? registry[id]?.proofHref : undefined;
     return (
-      <div className={`math-env math-env--${key}`} id={id}>
+      <div
+        className={`math-env math-env--${key}`}
+        id={id}
+        {...(id ? { 'data-pagefind-filter': `type:${type}` } : {})}
+      >
         <div className="math-env-label">
           <strong>{type} {number}</strong>
           {title && <em> (<span dangerouslySetInnerHTML={{ __html: renderInlineMath(title) }} />)</em>}
