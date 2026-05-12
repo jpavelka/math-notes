@@ -27,10 +27,14 @@ function numberAttr(num) {
 
 /**
  * Injects a `number` prop onto each numbered math environment.
- * Accepts { getRegistryPath, numberedEnvironments }.
+ * Accepts { getRegistryPath, numberedEnvironments, environments }.
  */
-export function remarkNumberEnvs({ getRegistryPath, numberedEnvironments } = {}) {
-  const NUMBERED = new Set(numberedEnvironments ?? ['Theorem', 'Definition', 'Lemma', 'Corollary', 'Remark', 'Figure', 'Table', 'YouTubeEmbed']);
+export function remarkNumberEnvs({ getRegistryPath, numberedEnvironments, environments = [] } = {}) {
+  const DEFAULT = ['Theorem', 'Definition', 'Lemma', 'Corollary', 'Remark', 'Figure', 'Table', 'YouTubeEmbed', 'Algorithm'];
+  const NUMBERED = new Set([
+    ...(numberedEnvironments ?? DEFAULT),
+    ...environments.map(e => e.name),
+  ]);
 
   function getRegistry() {
     if (!getRegistryPath) return {};

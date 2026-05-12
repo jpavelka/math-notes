@@ -1,3 +1,7 @@
+export { createMathEnv } from './createMathEnv';
+export type { MathEnvProps } from './createMathEnv';
+export { createFloatEnv } from './createFloatEnv';
+export type { FloatEnvProps } from './createFloatEnv';
 export { Equation } from './Equation';
 export { Theorem } from './Theorem';
 export { Definition } from './Definition';
@@ -19,3 +23,11 @@ export { Footnote } from './Footnote';
 export { FootnoteBody } from './FootnoteBody';
 export { AnnotationBody } from './AnnotationBody';
 export { YouTubeEmbed } from './YouTubeEmbed';
+export { ColabEmbed } from './ColabEmbed';
+export { Algorithm } from './Algorithm';
+export {
+  AlgoStep, AlgoReturn,
+  AlgoFor, AlgoWhile,
+  AlgoIf, AlgoElseIf, AlgoElse,
+  AlgoComment, AlgoInput, AlgoOutput,
+} from './AlgoComponents';

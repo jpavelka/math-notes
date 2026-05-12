@@ -42,6 +42,7 @@
   .math-env,
   .math-figure,
   .math-table,
+  .math-algorithm,
   .equation-block { page-break-inside: avoid; }
 
   /* KaTeX: no scroll bars in print */
@@ -58,4 +59,8 @@
   .yt-embed-screen { display: none !important; }
   .yt-embed-print { display: block !important; }
   .yt-embed-thumb { width: 40%; }
+
+  /* Colab embeds: swap iframe for link */
+  .colab-embed-screen { display: none !important; }
+  .colab-embed-print { display: block !important; }
 }

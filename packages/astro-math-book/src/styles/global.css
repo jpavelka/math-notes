@@ -78,6 +78,17 @@ body {
 
 /* ── Sidebar ── */
 
+.portal-link {
+  display: block;
+  font-family: system-ui, sans-serif;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  margin-bottom: 1.25rem;
+}
+
+.portal-link:hover { color: var(--text); }
+
 .sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
@@ -488,6 +499,44 @@ main[data-chapter] h3::before {
   overflow-x: auto;
   font-size: 0.875rem;
   line-height: 1.6;
+}
+
+/* Copy-button wrapper */
+.content .code-block {
+  position: relative;
+  margin: 1.5rem 0;
+}
+
+.content .code-block pre {
+  margin: 0;
+}
+
+.copy-code-btn {
+  position: absolute;
+  top: 0.5em;
+  right: 0.5em;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-family: system-ui, sans-serif;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.copy-code-btn:hover { color: var(--text); border-color: var(--text-muted); }
+
+.copy-code-btn.is-copied { color: var(--text); }
+
+.code-block:hover .copy-code-btn { opacity: 1; }
+
+/* Always visible on touch devices */
+@media (hover: none) {
+  .copy-code-btn { opacity: 1; }
 }
 
 .content code:not(pre code) {

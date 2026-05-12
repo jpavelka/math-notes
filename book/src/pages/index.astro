@@ -1,0 +1,15 @@
+---
+import { getCollection } from 'astro:content';
+
+const chapters = await getCollection('sample');
+chapters.sort((a, b) => {
+  const ca = a.data.chapter ?? Infinity;
+  const cb = b.data.chapter ?? Infinity;
+  return ca !== cb ? ca - cb : a.id.localeCompare(b.id);
+});
+
+if (chapters.length > 0) {
+  return Astro.redirect(`/${chapters[0].id}`);
+}
+---
+<p>No chapters found. Add an <code>.mdx</code> file to <code>content/</code>.</p>

@@ -1,6 +1,6 @@
 import { defineConfig } from 'astro/config';
 import { mathBook } from 'astro-math-book';
-import { katexMacros } from './src/lib/katex-macros.ts';
+import { katexMacros } from './katex-macros.ts';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -14,10 +14,12 @@ export default defineConfig({
   },
   vite: {
     resolve: {
-      alias: { '@': join(__dirname, 'src') },
+      alias: {
+        '@': join(__dirname, 'src'),
+      },
     },
   },
   integrations: [
-    mathBook({ katexMacros }),
+    mathBook({ katexMacros, bookSlug: 'sample', contentDir: 'content', urlBase: '' }),
   ],
 });

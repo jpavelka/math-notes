@@ -1,10 +1,10 @@
 ---
 import { getCollection, render } from 'astro:content';
 import BookLayout from 'astro-math-book/BookLayout.astro';
-import { SITE_TITLE, SITE_TITLE_SHORT } from '../../config';
+import { SITE_TITLE, SITE_TITLE_SHORT } from '../../config.ts';
 
 export async function getStaticPaths() {
-  const entries = await getCollection('chapters');
+  const entries = await getCollection('sample');
   return entries.map(entry => ({
     params: { slug: entry.id },
     props: { entry },
@@ -24,6 +24,8 @@ const headingTexts: string[] = remarkPluginFrontmatter.headingTexts ?? [];
   headings={headings}
   headingTexts={headingTexts}
   currentChapterId={entry.id}
+  bookSlug="sample"
+  chapterBase=""
 >
   <Content />
 </BookLayout>

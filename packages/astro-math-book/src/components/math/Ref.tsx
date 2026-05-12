@@ -14,9 +14,12 @@ export function Ref({ id }: Props) {
     return <span className="ref ref--unknown" title={`Unknown reference: ${id}`}>[?:{id}]</span>;
   }
 
-  const isEquation = entry.type === 'Equation';
-  const isSection = entry.type === 'Section';
-  const isEnvStyled = !['Equation', 'Figure', 'Table', 'Section', 'Video'].includes(entry.type);
+  // entry.kind is present in registries built after the kind field was added.
+  // Fall back to type-name checks for older registry.json files.
+  const isEquation = entry.kind === 'equation' || (entry.kind == null && entry.type === 'Equation');
+  const isSection  = entry.kind === 'section'  || (entry.kind == null && entry.type === 'Section');
+  const isFloat    = entry.kind === 'float'    || (entry.kind == null && ['Figure', 'Table', 'Video'].includes(entry.type));
+  const isEnvStyled = !isEquation && !isSection && !isFloat;
 
   let label: string;
   if (isEquation) {
@@ -41,7 +44,7 @@ export function Ref({ id }: Props) {
     const titleHTML = entry.title ? `: <em>${renderInlineMath(entry.title)}</em>` : '';
     tooltipHTML = `<strong>Section ${entry.number}</strong>${titleHTML}`;
   } else {
-    const isCaption = entry.type === 'Table' || entry.type === 'Figure' || entry.type === 'Video';
+    const isCaption = isFloat;
     const titleHTML = entry.title
       ? isCaption
         ? `. <em>${renderInlineMath(entry.title)}</em>`

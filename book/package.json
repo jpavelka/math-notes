@@ -1,12 +1,12 @@
 {
-  "name": "sample-site",
+  "name": "book",
   "type": "module",
   "version": "0.1.0",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build && pagefind --site dist",
     "preview": "astro preview",
-    "pdf": "astro build && tsx ../../packages/astro-math-book/scripts/pdf.ts"
+    "pdf": "astro build && tsx ../packages/astro-math-book/scripts/pdf.ts"
   },
   "dependencies": {
     "astro-math-book": "*",

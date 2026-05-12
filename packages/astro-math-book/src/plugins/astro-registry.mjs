@@ -1,7 +1,7 @@
 /**
  * Astro integration: walks all MDX files at build start, assigns
  * globally-consistent chapter.localCount numbers, serialises each
- * labelled item's body to HTML, and writes src/lib/registry.json.
+ * labelled item's body to HTML, and writes .astro/registry.json.
  *
  * Must run before MDX compilation so the remark plugins can read the numbers.
  */
@@ -19,7 +19,7 @@ import katex from 'katex';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const NUMBERED_ENVS = new Set(['Theorem', 'Definition', 'Lemma', 'Corollary', 'Remark', 'Figure', 'Table', 'YouTubeEmbed']);
+const NUMBERED_ENVS = new Set(['Theorem', 'Definition', 'Lemma', 'Corollary', 'Remark', 'Figure', 'Table', 'YouTubeEmbed', 'Algorithm']);
 const LABEL_RE = /\{#([\w:.-]+)(?:\|([^}]*))?\}/;
 
 // ── Filesystem helpers ───────────────────────────────────────────────────────
@@ -317,15 +317,17 @@ function headingToText(children) {
 
 // ── Item collection ──────────────────────────────────────────────────────────
 
-const FLOAT_ENVS = new Set(['Figure', 'Table']);
+const FLOAT_ENVS = new Set(['Figure', 'Table', 'Algorithm']);
 const SECTION_COMMENT_RE = /^\s*\/\*\s*#?([\w:.-]+)\s*\*\/\s*$/;
 
-function collectItems(tree, katexMacros) {
+function collectItems(tree, katexMacros, environments = []) {
   const { nodesToHtml } = makeSerializer(katexMacros);
+  const envMap = new Map(environments.map(e => [e.name, e]));
+  const allNumbered = new Set([...NUMBERED_ENVS, ...envMap.keys()]);
   const items = [];
 
   visit(tree, (node) => {
-    if (node.type === 'mdxJsxFlowElement' && NUMBERED_ENVS.has(node.name)) {
+    if (node.type === 'mdxJsxFlowElement' && allNumbered.has(node.name)) {
       const id = getAttrString(node.attributes, 'id');
       if (!id) return;
       if (node.name === 'YouTubeEmbed') {
@@ -334,22 +336,32 @@ function collectItems(tree, katexMacros) {
         const thumbHTML = videoId
           ? `<img src="https://img.youtube.com/vi/${esc(videoId)}/hqdefault.jpg" alt="${esc(caption ?? 'Video')}" style="max-width:100%;height:auto">`
           : '';
-        items.push({ id, type: 'Video', title: caption ?? undefined, contentHTML: thumbHTML });
+        items.push({ id, type: 'Video', kind: 'float', title: caption ?? undefined, contentHTML: thumbHTML });
       } else if (FLOAT_ENVS.has(node.name)) {
         const caption = getAttrString(node.attributes, 'caption');
         items.push({
           id,
           type: node.name,
+          kind: 'float',
           title: caption ?? undefined,
           contentHTML: nodesToHtml(node.children),
         });
       } else {
-        items.push({
-          id,
-          type: node.name,
-          title: getAttrString(node.attributes, 'title') ?? undefined,
-          contentHTML: nodesToHtml(node.children),
-        });
+        const desc = envMap.get(node.name);
+        if (desc?.kind === 'float') {
+          const caption = getAttrString(node.attributes, 'caption');
+          items.push({ id, type: desc.type ?? node.name, kind: 'float', title: caption ?? undefined, contentHTML: nodesToHtml(node.children) });
+        } else if (desc?.collectContent) {
+          const result = desc.collectContent(node, { getAttrString, nodesToHtml });
+          items.push({ id, type: desc.type ?? node.name, ...result });
+        } else {
+          items.push({
+            id,
+            type: desc?.type ?? node.name,
+            title: getAttrString(node.attributes, 'title') ?? undefined,
+            contentHTML: nodesToHtml(node.children),
+          });
+        }
       }
     } else if (node.type === 'mdxJsxFlowElement' && node.name === 'AnnotatedAlign') {
       const rowsAttr = node.attributes?.find(a => a.name === 'rows');
@@ -364,6 +376,7 @@ function collectItems(tree, katexMacros) {
         items.push({
           id: row.id,
           type: 'Equation',
+          kind: 'equation',
           contentHTML: katex.renderToString(mathClean, {
             displayMode: true,
             throwOnError: false,
@@ -388,6 +401,7 @@ function collectItems(tree, katexMacros) {
       items.push({
         id,
         type: 'Section',
+        kind: 'section',
         title: headingToText(titleChildren),
         contentHTML: '',
       });
@@ -398,6 +412,7 @@ function collectItems(tree, katexMacros) {
           id: m[1],
           ...(m[2] ? { label: m[2].trim() } : {}),
           type: 'Equation',
+          kind: 'equation',
           contentHTML: katex.renderToString(node.value.trim(), {
             displayMode: true,
             throwOnError: false,
@@ -416,7 +431,7 @@ function collectItems(tree, katexMacros) {
           const isMultiLine = stripped.includes('\\\\');
           if (bodyIds.length >= 2 || isMultiLine) {
             // Store raw math — contentHTML is rendered per-id in buildRegistry
-            items.push({ type: 'SubEquationGroup', ids: bodyIds, bodyLabels, rawMath: node.value });
+            items.push({ type: 'SubEquationGroup', kind: 'equation', ids: bodyIds, bodyLabels, rawMath: node.value });
           }
         }
       }
@@ -468,13 +483,15 @@ function buildSubEqContentHTML(rawMath, idNumbers, katexMacros) {
 
 const processor = unified().use(remarkParse).use(remarkMdx).use(remarkMath).use(remarkGfm);
 
-function buildRegistry(root, katexMacros = {}) {
-  const chaptersDir = join(root, 'src/content/chapters');
+function buildRegistry(root, katexMacros = {}, environments = [], bookSlug = 'chapters', contentDir, chapterBase) {
+  const resolvedContentDir = contentDir ?? `src/content/${bookSlug}`;
+  const base = chapterBase !== undefined ? chapterBase : `/${bookSlug}`;
+  const chaptersDir = join(root, resolvedContentDir);
   let files;
   try {
     files = findMdxFiles(chaptersDir);
   } catch {
-    console.warn('[registry] src/content/chapters not found — skipping');
+    console.warn(`[registry] ${resolvedContentDir} not found — skipping`);
     return;
   }
 
@@ -492,7 +509,7 @@ function buildRegistry(root, katexMacros = {}) {
       console.warn(`[registry] parse error in ${file}: ${e.message}`);
       continue;
     }
-    fileData.push({ frontmatter, slug, items: collectItems(tree, katexMacros), proofRefs: collectProofRefs(tree) });
+    fileData.push({ frontmatter, slug, items: collectItems(tree, katexMacros, environments), proofRefs: collectProofRefs(tree) });
   }
 
   // Sort: numeric chapters first (ascending), then string chapters (alphabetical), then null last
@@ -536,11 +553,12 @@ function buildRegistry(root, katexMacros = {}) {
         registry[item.id] = {
           id: item.id,
           type: 'Section',
+          kind: 'section',
           number: `${ch}.${sectionCount}`,
           ...(item.title ? { title: item.title } : {}),
           chapter: ch,
           contentHTML: '',
-          href: `/chapters/${slug}#${item.id}`,
+          href: `${base}/${slug}#${item.id}`,
         };
         continue;
       }
@@ -559,11 +577,12 @@ function buildRegistry(root, katexMacros = {}) {
           registry[id] = {
             id,
             type: 'Equation',
+            kind: 'equation',
             number,
             ...(label ? { label } : {}),
             chapter: ch,
             contentHTML,
-            href: `/chapters/${slug}#${id}`,
+            href: `/${bookSlug}/${slug}#${id}`,
           };
         });
       } else {
@@ -572,12 +591,13 @@ function buildRegistry(root, katexMacros = {}) {
         registry[item.id] = {
           id: item.id,
           type: item.type,
+          ...(item.kind ? { kind: item.kind } : {}),
           number: `${ch}.${count}`,
           ...(item.label ? { label: item.label } : {}),
           ...(item.title ? { title: item.title } : {}),
           chapter: ch,
           contentHTML: item.contentHTML,
-          href: `/chapters/${slug}#${item.id}`,
+          href: `${base}/${slug}#${item.id}`,
         };
       }
     }
@@ -587,7 +607,7 @@ function buildRegistry(root, katexMacros = {}) {
   for (const { slug, proofRefs } of fileData) {
     for (const forId of proofRefs) {
       if (registry[forId]) {
-        registry[forId].proofHref = `/chapters/${slug}#proof-of-${forId}`;
+        registry[forId].proofHref = `${base}/${slug}#proof-of-${forId}`;
       }
     }
   }
@@ -602,19 +622,20 @@ function buildRegistry(root, katexMacros = {}) {
     });
   }
 
-  const libDir = join(root, 'src/lib');
-  mkdirSync(libDir, { recursive: true });
-  writeFileSync(join(libDir, 'registry.json'), JSON.stringify(registry, null, 2));
-  console.log(`[registry] ${Object.keys(registry).length} entries → src/lib/registry.json`);
+  const astroDir = join(root, '.astro');
+  mkdirSync(astroDir, { recursive: true });
+  writeFileSync(join(astroDir, 'registry.json'), JSON.stringify(registry, null, 2));
+  console.log(`[registry] ${Object.keys(registry).length} entries → .astro/registry.json`);
 }
 
 // ── Astro integration ────────────────────────────────────────────────────────
 
 /**
- * @param {{ katexMacros?: Record<string,string> }} [options]
+ * @param {{ katexMacros?: Record<string,string>, environments?: import('../integration.mjs').EnvDescriptor[], bookSlug?: string, contentDir?: string }} [options]
  */
 export function registryIntegration(options = {}) {
-  const { katexMacros = {} } = options;
+  const { katexMacros = {}, environments = [], bookSlug = 'chapters', contentDir, chapterBase } = options;
+  const resolvedContentDir = contentDir ?? `src/content/${bookSlug}`;
   let projectRoot;
   return {
     name: 'astro-registry',
@@ -631,17 +652,17 @@ export function registryIntegration(options = {}) {
               name: 'astro-registry-build',
               buildStart() {
                 if (!projectRoot) return;
-                const chaptersDir = join(projectRoot, 'src/content/chapters');
+                const absContentDir = join(projectRoot, resolvedContentDir);
                 try {
-                  for (const file of findMdxFiles(chaptersDir)) {
+                  for (const file of findMdxFiles(absContentDir)) {
                     this.addWatchFile(file);
                   }
                 } catch {}
-                buildRegistry(projectRoot, katexMacros);
+                buildRegistry(projectRoot, katexMacros, environments, bookSlug, resolvedContentDir, chapterBase);
               },
               watchChange(id) {
-                if (projectRoot && id.endsWith('.mdx') && id.includes('/chapters/')) {
-                  buildRegistry(projectRoot, katexMacros);
+                if (projectRoot && id.endsWith('.mdx') && id.startsWith(join(projectRoot, resolvedContentDir))) {
+                  buildRegistry(projectRoot, katexMacros, environments, bookSlug, resolvedContentDir, chapterBase);
                 }
               },
             }],

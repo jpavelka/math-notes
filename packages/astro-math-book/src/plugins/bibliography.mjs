@@ -1,6 +1,6 @@
 /**
  * Astro integration: parses references.bib at build start and writes
- * src/lib/bibliography.json with formatted entries for use by Cite and
+ * .astro/bibliography.json with formatted entries for use by Cite and
  * Bibliography components.
  */
 
@@ -235,10 +235,10 @@ function buildBibliography(root) {
     };
   }
 
-  const libDir = join(root, 'src/lib');
-  mkdirSync(libDir, { recursive: true });
-  writeFileSync(join(libDir, 'bibliography.json'), JSON.stringify(bibliography, null, 2));
-  console.log(`[bibliography] ${entries.length} entries → src/lib/bibliography.json`);
+  const astroDir = join(root, '.astro');
+  mkdirSync(astroDir, { recursive: true });
+  writeFileSync(join(astroDir, 'bibliography.json'), JSON.stringify(bibliography, null, 2));
+  console.log(`[bibliography] ${entries.length} entries → .astro/bibliography.json`);
 }
 
 // ── Astro integration ────────────────────────────────────────────────────────

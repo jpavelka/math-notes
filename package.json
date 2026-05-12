@@ -1,34 +1,16 @@
 {
-  "name": "math-notes-monorepo",
+  "name": "math-notes",
   "type": "module",
   "version": "0.1.0",
   "private": true,
   "workspaces": [
     "packages/*",
-    "sites/*"
+    "book"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=sites/sample",
-    "build": "npm run build --workspace=sites/sample",
-    "preview": "npm run preview --workspace=sites/sample",
-    "pdf": "npm run pdf --workspace=sites/sample"
-  },
-  "dependencies": {
-    "@astrojs/mdx": "^5.0.4",
-    "@astrojs/react": "^5.0.4",
-    "@fontsource/source-serif-4": "^5.2.9",
-    "astro": "^6.2.2",
-    "katex": "^0.16.45",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6",
-    "rehype-katex": "^7.0.1",
-    "remark-math": "^6.0.0"
-  },
-  "devDependencies": {
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "pagefind": "^1.5.2",
-    "puppeteer": "^24.43.0",
-    "tsx": "^4.21.0"
+    "dev": "npm run dev --workspace=book",
+    "build": "npm run build --workspace=book",
+    "preview": "npm run preview --workspace=book",
+    "pdf": "npm run pdf --workspace=book"
   }
 }

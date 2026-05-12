@@ -19,11 +19,18 @@ interface Props {
   headings?: MarkdownHeading[];
   headingTexts?: string[];
   currentChapterId?: string;
+  /** Content collection name for this book, e.g. "sample". */
+  bookSlug: string;
+  /** URL prefix for chapter links. Defaults to /${bookSlug}. Pass "" for a standalone book at the domain root. */
+  chapterBase?: string;
+  /** Link shown above the book nav — use to navigate back to a books portal. */
+  portalHref?: string;
 }
 
-const { title, siteTitle, siteTitleShort, chapter, headings = [], headingTexts = [], currentChapterId } = Astro.props;
+const { title, siteTitle, siteTitleShort, chapter, headings = [], headingTexts = [], currentChapterId, bookSlug, chapterBase, portalHref } = Astro.props;
+const base = chapterBase !== undefined ? chapterBase : `/${bookSlug}`;
 
-const chapters = await getCollection('chapters');
+const chapters = await getCollection(bookSlug as any);
 chapters.sort((a, b) => {
   const ca = a.data.chapter ?? Infinity;
   const cb = b.data.chapter ?? Infinity;
@@ -71,7 +78,7 @@ const chaptersWithSections = await Promise.all(
 
     <!-- Mobile top bar -->
     <div class="mobile-header">
-      <a href="/" class="site-title">{siteTitleShort ?? siteTitle}</a>
+      <a href={base || '/'} class="site-title">{siteTitleShort ?? siteTitle}</a>
       <div class="mobile-controls">
         <button class="font-size-btn font-decrease" aria-label="Decrease font size">A−</button>
         <button class="font-size-btn font-increase" aria-label="Increase font size">A+</button>
@@ -94,7 +101,7 @@ const chaptersWithSections = await Promise.all(
       <!-- Left sidebar -->
       <aside class="sidebar" id="sidebar" data-pagefind-ignore>
         <div class="sidebar-header">
-          <a href="/" class="site-title">{siteTitle}</a>
+          <a href={base || '/'} class="site-title">{siteTitle}</a>
           <div class="sidebar-controls">
             <button class="font-size-btn font-decrease" aria-label="Decrease font size">A−</button>
             <button class="font-size-btn font-increase" aria-label="Increase font size">A+</button>
@@ -109,6 +116,10 @@ const chaptersWithSections = await Promise.all(
           </div>
         </div>
 
+        {portalHref && (
+          <a href={portalHref} class="portal-link">← All Books</a>
+        )}
+
         {import.meta.env.PROD && (
           <div class="search-wrap" id="search"></div>
         )}
@@ -118,7 +129,7 @@ const chaptersWithSections = await Promise.all(
             {chaptersWithSections.map(ch => (
               <li class="chapter-item">
                 <div class="chapter-row">
-                  <a href={`/chapters/${ch.id}`} class="chapter-link" aria-current={ch.id === currentChapterId ? 'page' : undefined}>
+                  <a href={`${base}/${ch.id}`} class="chapter-link" aria-current={ch.id === currentChapterId ? 'page' : undefined}>
                     {ch.data.chapter !== undefined && (
                       <span class="chapter-num">{ch.data.chapter}.</span>
                     )}
@@ -137,7 +148,7 @@ const chaptersWithSections = await Promise.all(
                     {ch.sections.map((s, i) => (
                       <li class="section-item">
                         <div class="section-row">
-                          <a href={`/chapters/${ch.id}#${s.slug}`}>
+                          <a href={`${base}/${ch.id}#${s.slug}`}>
                             {ch.data.chapter !== undefined && (
                               <span class="section-num">{ch.data.chapter}.{i + 1}</span>
                             )}
@@ -155,7 +166,7 @@ const chaptersWithSections = await Promise.all(
                           <ul class="section-subsections" hidden>
                             {s.subsections.map((sub, j) => (
                               <li>
-                                <a href={`/chapters/${ch.id}#${sub.slug}`}>
+                                <a href={`${base}/${ch.id}#${sub.slug}`}>
                                   {ch.data.chapter !== undefined && (
                                     <span class="section-num">{ch.data.chapter}.{i + 1}.{j + 1}</span>
                                   )}
@@ -442,6 +453,24 @@ const chaptersWithSections = await Promise.all(
           if (e.changedTouches[0].clientY - touchStartY > 60) closeSheet();
         }, { passive: true });
       }
+    </script>
+
+    <script>
+      // ── Code copy buttons ────────────────────────────────────────
+      document.querySelectorAll<HTMLButtonElement>('.copy-code-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const pre = btn.closest('.code-block')?.querySelector('pre');
+          if (!pre) return;
+          navigator.clipboard.writeText(pre.textContent ?? '').then(() => {
+            btn.textContent = 'Copied!';
+            btn.classList.add('is-copied');
+            setTimeout(() => {
+              btn.textContent = 'Copy';
+              btn.classList.remove('is-copied');
+            }, 2000);
+          });
+        });
+      });
     </script>
 
     <script>
