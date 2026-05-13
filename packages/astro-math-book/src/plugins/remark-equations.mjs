@@ -202,37 +202,6 @@ export function remarkEquations({ getRegistryPath } = {}) {
       node.attributes.push(exprAttr('number', i + 1));
     }
 
-    // Remove any explicit <Bibliography /> and a trailing "## References" heading;
-    // they will be re-appended automatically below when citeIds are present.
-    tree.children = tree.children.filter(
-      n => !(n.type === 'mdxJsxFlowElement' && n.name === 'Bibliography')
-    );
-    const lastChild = tree.children[tree.children.length - 1];
-    if (
-      lastChild?.type === 'heading' &&
-      lastChild?.children?.[0]?.value === 'References'
-    ) {
-      tree.children.pop();
-    }
-
-    if (citeIds.size > 0) {
-      const ids = [...citeIds].sort();
-      const hasBibImport = tree.children.some(
-        c => c.type === 'mdxjsEsm' && c.value?.includes('Bibliography')
-      );
-      if (!hasBibImport) tree.children.unshift(makeImportNode('Bibliography'));
-      tree.children.push({
-        type: 'heading',
-        depth: 2,
-        children: [{ type: 'text', value: 'References' }],
-      });
-      tree.children.push({
-        type: 'mdxJsxFlowElement',
-        name: 'Bibliography',
-        attributes: [strArrayAttr('citeIds', ids)],
-        children: [],
-      });
-    }
 
     if (single.length === 0 && subEq.length === 0 && annotAligns.length === 0) return;
 

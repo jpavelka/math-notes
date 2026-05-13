@@ -1,5 +1,6 @@
 
 import bibliographyJson from 'virtual:astro-math-book/bibliography';
+import bibliographyHref from 'virtual:astro-math-book/bibliography-href';
 
 const bibliography = bibliographyJson;
 
@@ -17,7 +18,7 @@ export function Cite({ id, page }: Props) {
   const label = page ? `${entry.label}, p. ${page}` : entry.label;
   return (
     <span className="ref cite">
-      (<a href={`#bib-${id}`} className="ref-link">{label}</a>)
+      (<a href={`${bibliographyHref}#bib-${id}`} className="ref-link">{label}</a>)
       <span className="ref-tooltip">
         {entry.image ? (
           <span className="cite-with-image">

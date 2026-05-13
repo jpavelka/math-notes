@@ -26,6 +26,7 @@ const headingTexts: string[] = remarkPluginFrontmatter.headingTexts ?? [];
   currentChapterId={entry.id}
   bookSlug="sample"
   chapterBase=""
+  pagefind={entry.data.pagefind ?? true}
 >
   <Content />
 </BookLayout>

@@ -13,3 +13,8 @@ declare module 'virtual:astro-math-book/bibliography' {
   const bibliography: Bibliography;
   export default bibliography;
 }
+
+declare module 'virtual:astro-math-book/bibliography-href' {
+  const bibliographyHref: string;
+  export default bibliographyHref;
+}

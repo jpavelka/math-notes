@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { relative, basename } from 'node:path';
 import { visit } from 'unist-util-visit';
 
 function idFromAttrs(attrs) {
@@ -29,7 +30,7 @@ function numberAttr(num) {
  * Injects a `number` prop onto each numbered math environment.
  * Accepts { getRegistryPath, numberedEnvironments, environments }.
  */
-export function remarkNumberEnvs({ getRegistryPath, numberedEnvironments, environments = [] } = {}) {
+export function remarkNumberEnvs({ getRegistryPath, getChaptersDir, numberedEnvironments, environments = [] } = {}) {
   const DEFAULT = ['Theorem', 'Definition', 'Lemma', 'Corollary', 'Remark', 'Figure', 'Table', 'YouTubeEmbed', 'Algorithm'];
   const NUMBERED = new Set([
     ...(numberedEnvironments ?? DEFAULT),
@@ -42,22 +43,30 @@ export function remarkNumberEnvs({ getRegistryPath, numberedEnvironments, enviro
     catch { return {}; }
   }
 
-  return (tree) => {
+  return (tree, vfile) => {
     const registry = getRegistry();
-    const counters = {};
+    const filePath = vfile?.path ?? vfile?.history?.[0] ?? '';
+    const chaptersDir = getChaptersDir?.();
+    const slug = (chaptersDir && filePath)
+      ? relative(chaptersDir, filePath).replace(/\.mdx$/i, '').toLowerCase()
+      : basename(filePath, '.mdx').toLowerCase();
+
+    let envIndex = 0;
+    let fallbackCount = 0;
 
     visit(tree, 'mdxJsxFlowElement', (node) => {
       if (!NUMBERED.has(node.name)) return;
+      const thisIdx = envIndex++;
       if (node.attributes.some((a) => a.name === 'number')) return;
 
       const id = idFromAttrs(node.attributes);
+      const lookupId = id ?? `__auto-${slug}-${thisIdx}`;
       let num;
-      if (id && registry[id]) {
-        num = registry[id].number;
+      if (registry[lookupId]) {
+        num = registry[lookupId].number;
       } else {
-        const t = node.name;
-        counters[t] = (counters[t] ?? 0) + 1;
-        num = String(counters[t]);
+        fallbackCount++;
+        num = String(fallbackCount);
       }
       node.attributes.push(numberAttr(num));
     });

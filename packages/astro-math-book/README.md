@@ -194,6 +194,7 @@ All five environments share the same props:
 |---|---|---|
 | `id` | `string` | Unique identifier used for cross-references |
 | `title` | `string` | Optional title; supports inline math with `$...$` |
+| `alt` | `string` | (`Definition` only) Alternate terms, separated by `\|`; supports `$...$` inline math. See [Glossary](#glossary). |
 | `label` | `string` | Optional custom reference text; replaces `"Theorem 2.3"` in `<Ref>` output |
 | `number` | `number` | Injected automatically; can be overridden manually |
 
@@ -347,6 +348,17 @@ See also <Ref id="fig:diagram" /> for a visual illustration.
 ```
 
 The link text is generated automatically from the registry (e.g. "Theorem 2.3", "equation (2.3)", "Figure 2.1").
+
+Use `altLabel` to override the link text for a specific reference without changing the registry entry. Inline math with `$...$` is supported:
+
+```mdx
+As shown in <Ref id="thm:pythagorean" altLabel="the theorem above" />, ...
+{/* renders: "As shown in the theorem above, ..." */}
+
+By <Ref id="def:limit" altLabel="the definition of $L^2$" />, ...
+```
+
+The hover tooltip still shows the canonical number and full content regardless of `altLabel`.
 
 ---
 
@@ -663,6 +675,42 @@ For the original treatment, see <Cite id="euler1748" page="112" />.
 
 ---
 
+## Glossary
+
+`<Glossary />` renders an alphabetical index of all `<Definition>` environments that have a `title` prop.
+
+```mdx
+import { Glossary } from 'astro-math-book/components';
+
+<Glossary />
+```
+
+Each entry shows the definition title linking back to the definition in the text, with the definition body below it.
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `sortBy` | `'alpha' \| 'chapter'` | `'alpha'` | Sort order: alphabetical by term, or by definition number |
+
+### Alternate terms
+
+Use the `alt` prop on `<Definition>` to add alternate names that should also appear in the glossary. The value is a `|`-separated string; each term supports `$...$` inline math.
+
+```mdx
+<Definition id="def:sigma-algebra" title="$\sigma$-algebra" alt="sigma field | $\sigma$-field">
+  A collection of subsets of $\Omega$ closed under complement and countable union...
+</Definition>
+```
+
+In the glossary, each alt term gets its own alphabetically-sorted entry displaying "See [$\sigma$-algebra](#glossary-def:sigma-algebra)" linking to the primary entry.
+
+Alt terms are also matched in the registry search (⌘K), at the same priority as exact title matches.
+
+> **Note:** Because `alt` is a plain JSX string attribute (no curly braces), backslashes in LaTeX commands are preserved as-is. Do not write `alt={["$\\sigma$-field"]}` — use the string form `alt="$\sigma$-field"` instead.
+
+---
+
 ## Footnotes
 
 Footnotes use two paired components: `<Footnote />` marks the location in the text, and `<FootnoteBody>` holds the content. Numbering is assigned automatically in document order by the remark plugin — you never set `number` manually.
@@ -757,6 +805,7 @@ interface RegistryEntry {
   number: string;      // "2.3"
   label?: string;      // custom label, e.g. "★"
   title?: string;      // environment title
+  alt?: string[];      // alternate terms (Definition only); from the |-separated alt prop
   chapter: number | string;
   contentHTML: string; // serialized HTML used in Ref tooltips
   href: string;        // "/chapters/slug#id"

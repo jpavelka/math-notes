@@ -6,9 +6,10 @@ const registry = registryJson;
 
 interface Props {
   id: string;
+  altLabel?: string;
 }
 
-export function Ref({ id }: Props) {
+export function Ref({ id, altLabel }: Props) {
   const entry = registry[id];
   if (!entry) {
     return <span className="ref ref--unknown" title={`Unknown reference: ${id}`}>[?:{id}]</span>;
@@ -65,7 +66,7 @@ export function Ref({ id }: Props) {
 
   return (
     <span className="ref" {...(entry.type === 'Figure' ? { 'data-figure-id': entry.id } : {})}>
-      <a href={entry.href} className="ref-link">{label}</a>
+      <a href={entry.href} className="ref-link" dangerouslySetInnerHTML={{ __html: renderInlineMath(altLabel ?? label) }} />
       <span
         className={tooltipClass}
         style={tooltipStyle as React.CSSProperties}

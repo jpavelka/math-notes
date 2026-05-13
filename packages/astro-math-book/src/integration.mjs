@@ -16,6 +16,7 @@ import { rehypeCodeCopy } from './plugins/rehype-code-copy.mjs';
 const VM_MACROS   = 'virtual:astro-math-book/katex-macros';
 const VM_REGISTRY = 'virtual:astro-math-book/registry';
 const VM_BIB      = 'virtual:astro-math-book/bibliography';
+const VM_BIB_HREF = 'virtual:astro-math-book/bibliography-href';
 
 /**
  * @typedef {{
@@ -27,11 +28,12 @@ const VM_BIB      = 'virtual:astro-math-book/bibliography';
  */
 
 /**
- * @param {{ katexMacros?: Record<string,string>, numberedEnvironments?: string[], environments?: EnvDescriptor[], bookSlug?: string, contentDir?: string, urlBase?: string }} [options]
+ * @param {{ katexMacros?: Record<string,string>, numberedEnvironments?: string[], environments?: EnvDescriptor[], symbols?: import('./components/math/NotationTable').SymbolEntry[], symbolsSlug?: string, bookSlug?: string, contentDir?: string, urlBase?: string, bibliographyHref?: string }} [options]
  * @returns {import('astro').AstroIntegration}
  */
 export function mathBook(options = {}) {
-  const { katexMacros = {}, numberedEnvironments, environments = [], bookSlug = 'chapters', contentDir, urlBase } = options;
+  const { katexMacros = {}, numberedEnvironments, environments = [], symbols = [], symbolsSlug = 'b-notation', bookSlug = 'chapters', contentDir, urlBase, bibliographyHref = '' } = options;
+  const resolvedContentDir = contentDir ?? `src/content/${bookSlug}`;
   let projectRoot = '';
 
   return {
@@ -45,7 +47,8 @@ export function mathBook(options = {}) {
       'astro:config:setup': ({ updateConfig }) => {
         // Lazy path — safe to use in load/build hooks because projectRoot
         // is set by astro:config:done before Vite buildStart runs.
-        const getRegistryPath = () => join(projectRoot, '.astro/registry.json');
+        const getRegistryPath  = () => join(projectRoot, '.astro/registry.json');
+        const getChaptersDir   = () => join(projectRoot, resolvedContentDir);
         const getBibPath      = () => join(projectRoot, '.astro/bibliography.json');
 
         updateConfig({
@@ -53,9 +56,10 @@ export function mathBook(options = {}) {
             plugins: [{
               name: 'astro-math-book-virtual',
               resolveId(id) {
-                if (id === VM_MACROS)   return '\0' + VM_MACROS;
-                if (id === VM_REGISTRY) return '\0' + VM_REGISTRY;
-                if (id === VM_BIB)      return '\0' + VM_BIB;
+                if (id === VM_MACROS)    return '\0' + VM_MACROS;
+                if (id === VM_REGISTRY)  return '\0' + VM_REGISTRY;
+                if (id === VM_BIB)       return '\0' + VM_BIB;
+                if (id === VM_BIB_HREF)  return '\0' + VM_BIB_HREF;
               },
               load(id) {
                 if (id === '\0' + VM_MACROS) {
@@ -69,11 +73,14 @@ export function mathBook(options = {}) {
                   try { return `export default ${readFileSync(getBibPath(), 'utf-8')};`; }
                   catch { return 'export default {};'; }
                 }
+                if (id === '\0' + VM_BIB_HREF) {
+                  return `export default ${JSON.stringify(bibliographyHref)};`;
+                }
               },
             }],
           },
           integrations: [
-            registryIntegration({ katexMacros, environments, bookSlug, contentDir, chapterBase: urlBase }),
+            registryIntegration({ katexMacros, environments, symbols, symbolsSlug, bookSlug, contentDir, chapterBase: urlBase }),
             bibliographyIntegration(),
             mdx({
               remarkPlugins: [
@@ -81,7 +88,7 @@ export function mathBook(options = {}) {
                 remarkHeadingTexts,
                 remarkMath,
                 [remarkEquations, { getRegistryPath }],
-                [remarkNumberEnvs, { getRegistryPath, numberedEnvironments, environments }],
+                [remarkNumberEnvs, { getRegistryPath, getChaptersDir, numberedEnvironments, environments }],
               ],
               rehypePlugins: [[rehypeKatex, { macros: katexMacros }], rehypeCodeCopy],
             }),

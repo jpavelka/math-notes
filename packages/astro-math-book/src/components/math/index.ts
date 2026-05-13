@@ -27,6 +27,9 @@ export { YouTubeEmbed } from './YouTubeEmbed';
 export { ColabEmbed } from './ColabEmbed';
 export { RegistrySearch } from './RegistrySearch';
 export { Algorithm } from './Algorithm';
+export { Glossary } from './Glossary';
+export { NotationTable } from './NotationTable';
+export type { SymbolEntry } from './NotationTable';
 export {
   AlgoStep, AlgoReturn,
   AlgoFor, AlgoWhile,

@@ -251,6 +251,7 @@
   margin: 2em auto;
   max-width: 100%;
   text-align: center;
+  font-size: 16px;
 }
 
 .math-figure-content {
@@ -260,7 +261,7 @@
 
 .math-figure-caption {
   margin-top: 0.6em;
-  font-size: 0.9em;
+  font-size: 0.9rem;
   color: var(--text-muted);
   text-align: center;
 }
@@ -479,6 +480,11 @@
 
 .ref-link {
   color: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.ref-link .katex .base {
   text-decoration: underline dotted;
   text-underline-offset: 2px;
 }
@@ -739,9 +745,94 @@
   display: none;
 }
 
+/* ── Notation table ── */
+
+.notation-table h3 {
+  margin-top: 1.75em;
+  margin-bottom: 0.25em;
+}
+
+.notation-table table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.25em 0 0.5em;
+}
+
+.notation-table th,
+.notation-table td {
+  padding: 0.35em 0.75em;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: baseline;
+}
+
+.notation-table th {
+  font-weight: 600;
+  border-bottom-width: 2px;
+  font-size: 0.9em;
+}
+
+.notation-table td:first-child {
+  white-space: nowrap;
+  padding-right: 1.5em;
+}
+
 .colab-embed-url {
   margin: 0.4em 0 0;
   font-size: 0.88em;
   color: var(--text-muted);
   word-break: break-all;
+}
+
+/* ── Glossary ── */
+
+.glossary {
+  margin: 0;
+  padding: 0;
+}
+
+.glossary-entry {
+  margin: 0;
+  padding: 1.25em 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.glossary-entry:first-child {
+  padding-top: 0;
+}
+
+.glossary-entry:last-child {
+  border-bottom: none;
+}
+
+.glossary-term {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1em;
+  font-weight: 600;
+  margin: 0 0 0.4em;
+}
+
+.glossary-ref {
+  font-weight: normal;
+  font-size: 0.82em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.glossary-ref:hover { color: var(--text); }
+
+.glossary-body {
+  margin: 0;
+  padding: 0;
+}
+
+.glossary-body > :first-child { margin-top: 0; }
+.glossary-body > :last-child  { margin-bottom: 0; }
+
+.glossary-empty {
+  color: var(--text-muted);
+  font-style: italic;
 }

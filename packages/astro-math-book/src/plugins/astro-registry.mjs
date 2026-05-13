@@ -17,6 +17,30 @@ import remarkGfm from 'remark-gfm';
 import { visit } from 'unist-util-visit';
 import katex from 'katex';
 
+// ── Symbol ID generation ─────────────────────────────────────────────────────
+// Keep in sync with makeSymbolIds in NotationTable.tsx
+
+function slugifyOnce(latex) {
+  const slug = String(latex ?? '')
+    .replace(/\\([A-Za-z]+)/g, '$1')
+    .replace(/[^A-Za-z0-9]/g, '')
+    .slice(0, 40);
+  return slug ? `sym-${slug}` : 'sym';
+}
+
+function makeSymbolIds(symbols) {
+  const used = new Set();
+  return symbols.map(({ latex }) => {
+    const base = slugifyOnce(latex);
+    if (!used.has(base)) { used.add(base); return base; }
+    let n = 2;
+    while (used.has(`${base}-${n}`)) n++;
+    const id = `${base}-${n}`;
+    used.add(id);
+    return id;
+  });
+}
+
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const NUMBERED_ENVS = new Set(['Theorem', 'Definition', 'Lemma', 'Corollary', 'Remark', 'Figure', 'Table', 'YouTubeEmbed', 'Algorithm']);
@@ -150,6 +174,7 @@ function getAttrString(attrs, name) {
   if (lit?.type === 'Literal') return String(lit.value);
   return a.value?.value ?? null;
 }
+
 
 // ── SVG/HTML attribute name helpers ─────────────────────────────────────────
 
@@ -325,11 +350,12 @@ function collectItems(tree, katexMacros, environments = []) {
   const envMap = new Map(environments.map(e => [e.name, e]));
   const allNumbered = new Set([...NUMBERED_ENVS, ...envMap.keys()]);
   const items = [];
+  let envIndex = 0;
 
   visit(tree, (node) => {
     if (node.type === 'mdxJsxFlowElement' && allNumbered.has(node.name)) {
+      const thisIdx = envIndex++;
       const id = getAttrString(node.attributes, 'id');
-      if (!id) return;
       const labelAttr = getAttrString(node.attributes, 'label') ?? undefined;
       if (node.name === 'YouTubeEmbed') {
         const videoId = getAttrString(node.attributes, 'videoId');
@@ -337,11 +363,12 @@ function collectItems(tree, katexMacros, environments = []) {
         const thumbHTML = videoId
           ? `<img src="https://img.youtube.com/vi/${esc(videoId)}/hqdefault.jpg" alt="${esc(caption ?? 'Video')}" style="max-width:100%;height:auto">`
           : '';
-        items.push({ id, type: 'Video', kind: 'float', ...(labelAttr ? { label: labelAttr } : {}), title: caption ?? undefined, contentHTML: thumbHTML });
+        items.push({ id, autoIdx: thisIdx, type: 'Video', kind: 'float', ...(labelAttr ? { label: labelAttr } : {}), title: caption ?? undefined, contentHTML: thumbHTML });
       } else if (FLOAT_ENVS.has(node.name)) {
         const caption = getAttrString(node.attributes, 'caption');
         items.push({
           id,
+          autoIdx: thisIdx,
           type: node.name,
           kind: 'float',
           ...(labelAttr ? { label: labelAttr } : {}),
@@ -352,16 +379,22 @@ function collectItems(tree, katexMacros, environments = []) {
         const desc = envMap.get(node.name);
         if (desc?.kind === 'float') {
           const caption = getAttrString(node.attributes, 'caption');
-          items.push({ id, type: desc.type ?? node.name, kind: 'float', ...(labelAttr ? { label: labelAttr } : {}), title: caption ?? undefined, contentHTML: nodesToHtml(node.children) });
+          items.push({ id, autoIdx: thisIdx, type: desc.type ?? node.name, kind: 'float', ...(labelAttr ? { label: labelAttr } : {}), title: caption ?? undefined, contentHTML: nodesToHtml(node.children) });
         } else if (desc?.collectContent) {
           const result = desc.collectContent(node, { getAttrString, nodesToHtml });
-          items.push({ id, type: desc.type ?? node.name, ...(labelAttr ? { label: labelAttr } : {}), ...result });
+          items.push({ id, autoIdx: thisIdx, type: desc.type ?? node.name, ...(labelAttr ? { label: labelAttr } : {}), ...result });
         } else {
+          const altRaw = getAttrString(node.attributes, 'alt');
+          const altAttr = altRaw
+            ? altRaw.split('|').map(s => s.trim()).filter(Boolean)
+            : undefined;
           items.push({
             id,
+            autoIdx: thisIdx,
             type: desc?.type ?? node.name,
             ...(labelAttr ? { label: labelAttr } : {}),
             title: getAttrString(node.attributes, 'title') ?? undefined,
+            ...(altAttr?.length ? { alt: altAttr } : {}),
             contentHTML: nodesToHtml(node.children),
           });
         }
@@ -487,7 +520,7 @@ function buildSubEqContentHTML(rawMath, idNumbers, katexMacros) {
 
 const processor = unified().use(remarkParse).use(remarkMdx).use(remarkMath).use(remarkGfm);
 
-function buildRegistry(root, katexMacros = {}, environments = [], bookSlug = 'chapters', contentDir, chapterBase) {
+function buildRegistry(root, katexMacros = {}, environments = [], symbols = [], symbolsSlug = 'b-notation', bookSlug = 'chapters', contentDir, chapterBase) {
   const resolvedContentDir = contentDir ?? `src/content/${bookSlug}`;
   const base = chapterBase !== undefined ? chapterBase : `/${bookSlug}`;
   const chaptersDir = join(root, resolvedContentDir);
@@ -590,18 +623,20 @@ function buildRegistry(root, katexMacros = {}, environments = [], bookSlug = 'ch
           };
         });
       } else {
-        checkDupe(item.id);
-        if (item.label) checkDupeLabel(item.label, item.id, slug);
-        registry[item.id] = {
-          id: item.id,
+        const effectiveId = item.id ?? `__auto-${slug}-${item.autoIdx}`;
+        checkDupe(effectiveId);
+        if (item.label) checkDupeLabel(item.label, effectiveId, slug);
+        registry[effectiveId] = {
+          id: effectiveId,
           type: item.type,
           ...(item.kind ? { kind: item.kind } : {}),
           number: `${ch}.${count}`,
           ...(item.label ? { label: item.label } : {}),
           ...(item.title ? { title: item.title } : {}),
+          ...(item.alt?.length ? { alt: item.alt } : {}),
           chapter: ch,
           contentHTML: item.contentHTML,
-          href: `${base}/${slug}#${item.id}`,
+          href: `${base}/${slug}#${effectiveId}`,
         };
       }
     }
@@ -626,6 +661,31 @@ function buildRegistry(root, katexMacros = {}, environments = [], bookSlug = 'ch
     });
   }
 
+  // Inject symbol entries from symbols.ts
+  if (symbols.length > 0) {
+    const symbolsBase = `${base}/${symbolsSlug}`;
+    const ids = makeSymbolIds(symbols);
+    symbols.forEach((sym, i) => {
+      const id = ids[i];
+      if (registry[id]) {
+        console.warn(`[registry] symbol id "${id}" conflicts with existing entry — skipping`);
+        return;
+      }
+      registry[id] = {
+        id,
+        type: 'Symbol',
+        kind: 'symbol',
+        number: '',
+        latex: sym.latex,
+        ...(sym.aliases?.length ? { aliases: sym.aliases } : {}),
+        title: sym.description,
+        chapter: 0,
+        contentHTML: katex.renderToString(sym.latex, { throwOnError: false, macros: katexMacros }),
+        href: `${symbolsBase}#${id}`,
+      };
+    });
+  }
+
   const astroDir = join(root, '.astro');
   mkdirSync(astroDir, { recursive: true });
   writeFileSync(join(astroDir, 'registry.json'), JSON.stringify(registry, null, 2));
@@ -635,10 +695,10 @@ function buildRegistry(root, katexMacros = {}, environments = [], bookSlug = 'ch
 // ── Astro integration ────────────────────────────────────────────────────────
 
 /**
- * @param {{ katexMacros?: Record<string,string>, environments?: import('../integration.mjs').EnvDescriptor[], bookSlug?: string, contentDir?: string }} [options]
+ * @param {{ katexMacros?: Record<string,string>, environments?: import('../integration.mjs').EnvDescriptor[], symbols?: import('../components/math/NotationTable').SymbolEntry[], symbolsSlug?: string, bookSlug?: string, contentDir?: string }} [options]
  */
 export function registryIntegration(options = {}) {
-  const { katexMacros = {}, environments = [], bookSlug = 'chapters', contentDir, chapterBase } = options;
+  const { katexMacros = {}, environments = [], symbols = [], symbolsSlug = 'b-notation', bookSlug = 'chapters', contentDir, chapterBase } = options;
   const resolvedContentDir = contentDir ?? `src/content/${bookSlug}`;
   let projectRoot;
   return {
@@ -662,11 +722,11 @@ export function registryIntegration(options = {}) {
                     this.addWatchFile(file);
                   }
                 } catch {}
-                buildRegistry(projectRoot, katexMacros, environments, bookSlug, resolvedContentDir, chapterBase);
+                buildRegistry(projectRoot, katexMacros, environments, symbols, symbolsSlug, bookSlug, resolvedContentDir, chapterBase);
               },
               watchChange(id) {
                 if (projectRoot && id.endsWith('.mdx') && id.startsWith(join(projectRoot, resolvedContentDir))) {
-                  buildRegistry(projectRoot, katexMacros, environments, bookSlug, resolvedContentDir, chapterBase);
+                  buildRegistry(projectRoot, katexMacros, environments, symbols, symbolsSlug, bookSlug, resolvedContentDir, chapterBase);
                 }
               },
             }],

@@ -26,16 +26,18 @@ interface Props {
   chapterBase?: string;
   /** Link shown above the book nav — use to navigate back to a books portal. */
   portalHref?: string;
+  /** Set to false to exclude this page from Pagefind search indexing. Default true. */
+  pagefind?: boolean;
 }
 
-const { title, siteTitle, siteTitleShort, chapter, headings = [], headingTexts = [], currentChapterId, bookSlug, chapterBase, portalHref } = Astro.props;
+const { title, siteTitle, siteTitleShort, chapter, headings = [], headingTexts = [], currentChapterId, bookSlug, chapterBase, portalHref, pagefind = true } = Astro.props;
 const base = chapterBase !== undefined ? chapterBase : `/${bookSlug}`;
 
 const chapters = await getCollection(bookSlug as any);
 chapters.sort((a, b) => {
-  const ca = a.data.chapter ?? Infinity;
-  const cb = b.data.chapter ?? Infinity;
-  return ca !== cb ? ca - cb : a.id.localeCompare(b.id);
+  const ca = a.data.order ?? a.data.chapter ?? Infinity;
+  const cb = b.data.order ?? b.data.chapter ?? Infinity;
+  return ca !== cb ? (ca as number) - (cb as number) : a.id.localeCompare(b.id);
 });
 
 const chaptersWithSections = await Promise.all(
@@ -76,18 +78,8 @@ const chaptersWithSections = await Promise.all(
 
     <!-- Mobile top bar -->
     <div class="mobile-header">
-      <a href={base || '/'} class="site-title">{siteTitleShort ?? siteTitle}</a>
+      <span class="site-title">{siteTitleShort ?? siteTitle}</span>
       <div class="mobile-controls">
-        <button class="font-size-btn font-decrease" aria-label="Decrease font size">A−</button>
-        <button class="font-size-btn font-increase" aria-label="Increase font size">A+</button>
-        <button class="theme-toggle" aria-label="Toggle theme"></button>
-        <button class="print-btn" aria-label="Print page">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 6 2 18 2 18 9"/>
-            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-            <rect x="6" y="14" width="12" height="8"/>
-          </svg>
-        </button>
         <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle menu">
           <span></span><span></span><span></span>
         </button>
@@ -99,13 +91,13 @@ const chaptersWithSections = await Promise.all(
       <!-- Left sidebar -->
       <aside class="sidebar" id="sidebar" data-pagefind-ignore>
         <div class="sidebar-header">
-          <a href={base || '/'} class="site-title">{siteTitle}</a>
+          <span class="site-title site-title-sidebar">{siteTitle}</span>
           <div class="sidebar-controls">
             <button class="font-size-btn font-decrease" aria-label="Decrease font size">A−</button>
             <button class="font-size-btn font-increase" aria-label="Increase font size">A+</button>
             <button class="theme-toggle" aria-label="Toggle theme"></button>
             <button class="print-btn" aria-label="Print page">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="6 9 6 2 18 2 18 9"/>
                 <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
                 <rect x="6" y="14" width="12" height="8"/>
@@ -120,7 +112,6 @@ const chaptersWithSections = await Promise.all(
 
         <button
           class="reg-search-btn"
-          onclick="document.dispatchEvent(new CustomEvent('open-registry-search'))"
           aria-label="Search theorems, definitions, or text"
         >
           Search… <kbd>⌘K</kbd>
@@ -191,7 +182,7 @@ const chaptersWithSections = await Promise.all(
       <!-- Main content -->
       <main
         class="content"
-        data-pagefind-body
+        data-pagefind-body={pagefind || undefined}
         {...(chapter !== undefined && {
           'data-chapter': String(chapter),
           style: `--chapter-prefix: "${chapter}"; counter-reset: section 0 subsection 0`,
@@ -362,6 +353,12 @@ const chaptersWithSections = await Promise.all(
         });
 
         navBackdrop?.addEventListener('click', () => setMenuOpen(false));
+
+        document.querySelector<HTMLButtonElement>('.reg-search-btn')
+          ?.addEventListener('click', () => {
+            setMenuOpen(false);
+            document.dispatchEvent(new CustomEvent('open-registry-search'));
+          });
       }
 
       // ── Figure tooltip upgrade (desktop hover) ───────────────

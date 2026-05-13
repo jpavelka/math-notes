@@ -7,6 +7,7 @@ const registry = registryJson;
 export interface MathEnvProps {
   id?: string;
   title?: string;
+  alt?: string;
   label?: string;
   number?: number;
   children: ReactNode;
