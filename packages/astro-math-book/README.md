@@ -764,6 +764,38 @@ import 'astro-math-book/styles/print.css';
 
 ---
 
+## PDF Export
+
+Run from the book project root:
+
+```bash
+npm run pdf
+```
+
+This builds the site, starts a local preview server, and uses Puppeteer + Chromium to print each chapter to PDF. Two sets of files are produced:
+
+| Path | Contents |
+|---|---|
+| `pdfs/<Book Title>.pdf` | Single combined PDF of the whole book |
+| `pdfs/chapters/<slug>.pdf` | One PDF per chapter |
+
+The combined PDF includes:
+
+- **Table of contents** — inserted at the front, with dot leaders and clickable links to every chapter, section, and subsection. TOC pages are numbered with lowercase Roman numerals (i, ii, …).
+- **Bookmarks** — a PDF outline tree with numbered entries (e.g. "1.2  Sequences and Series") so readers can navigate via the viewer's sidebar.
+- **Page numbers** — centred in the bottom margin. TOC pages use Roman numerals; content pages use "1 / N" style.
+- **Resolved internal links** — all `<Ref>` and cross-reference links become internal GoTo destinations. Within-chapter links navigate within the page; cross-chapter links jump to the correct page in the merged document.
+
+In individual chapter PDFs, within-chapter links work natively. Cross-chapter links (which cannot navigate to pages not in that file) are removed rather than left as dead browser-opening URIs.
+
+The `pdfs/` directory is listed in `.gitignore` — generated PDFs are not committed to the repository.
+
+### Requirements
+
+Chromium or Google Chrome must be installed and on `PATH`. The script checks for `google-chrome`, `google-chrome-stable`, `chromium`, and `chromium-browser` in that order.
+
+---
+
 ## Advanced: Individual Integrations
 
 `mathBook()` is a convenience wrapper. You can also compose the pieces individually:

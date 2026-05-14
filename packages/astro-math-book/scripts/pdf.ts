@@ -1,13 +1,275 @@
 import puppeteer from 'puppeteer';
+import { PDFDocument, PDFName, PDFNumber, PDFString, PDFRef, PDFDict, PDFArray, StandardFonts, rgb } from 'pdf-lib';
 import { spawn, execSync } from 'child_process';
 import { existsSync } from 'fs';
-import { readdir, mkdir, symlink } from 'fs/promises';
+import { readdir, mkdir, symlink, readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
 
 const ROOT = process.cwd();  // always the project root when invoked via `npm run`
 const PREFERRED_PORT = 4322;
 const OUT = join(ROOT, 'pdfs');
+const CHAPTERS_OUT = join(OUT, 'chapters');
+
+// ─── outline extraction ────────────────────────────────────────────────────
+
+interface OutlineEntry {
+  title: string;
+  pageIndex: number;  // 0-based within source PDF
+  x: number | null;
+  y: number | null;
+  zoom: number | null;
+  children: OutlineEntry[];
+}
+
+function resolveRef(ctx: PDFDocument['context'], obj: unknown): unknown {
+  return (obj instanceof PDFRef) ? ctx.lookup(obj) : obj;
+}
+
+function getText(obj: unknown): string {
+  if (!obj) return '';
+  // pdf-lib represents PDF strings as PDFString or PDFHexString, both have decodeText()
+  if (typeof (obj as any).decodeText === 'function') return (obj as any).decodeText();
+  return (obj as any).toString?.() ?? '';
+}
+
+function extractOutlineFromDoc(doc: PDFDocument): OutlineEntry[] {
+  const ctx = doc.context;
+  const pages = doc.getPages();
+  const pageRefToIndex = new Map<string, number>(
+    pages.map((p, i) => [p.ref.toString(), i])
+  );
+
+  function parseDest(dest: unknown): Pick<OutlineEntry, 'pageIndex' | 'x' | 'y' | 'zoom'> {
+    const arr = resolveRef(ctx, dest);
+    if (!(arr instanceof PDFArray) || arr.size() < 2) return { pageIndex: 0, x: null, y: null, zoom: null };
+    const pageRef = arr.get(0);
+    const pageIndex = pageRefToIndex.get(pageRef?.toString() ?? '') ?? 0;
+    // [page /XYZ x y zoom] or [page /Fit] etc.
+    const type = resolveRef(ctx, arr.get(1));
+    if (type?.toString() === '/XYZ') {
+      const x = (resolveRef(ctx, arr.get(2)) as any)?.asNumber?.() ?? null;
+      const y = (resolveRef(ctx, arr.get(3)) as any)?.asNumber?.() ?? null;
+      const zoom = (resolveRef(ctx, arr.get(4)) as any)?.asNumber?.() ?? null;
+      return { pageIndex, x, y, zoom };
+    }
+    return { pageIndex, x: null, y: null, zoom: null };
+  }
+
+  function walkItems(itemRef: unknown): OutlineEntry[] {
+    const items: OutlineEntry[] = [];
+    let cur = resolveRef(ctx, itemRef);
+    while (cur instanceof PDFDict) {
+      const rawTitle = resolveRef(ctx, cur.get(PDFName.of('Title')));
+      const title = getText(rawTitle);
+      const dest = parseDest(cur.get(PDFName.of('Dest')));
+      const firstChild = cur.get(PDFName.of('First'));
+      const children = firstChild ? walkItems(firstChild) : [];
+      items.push({ title, ...dest, children });
+      const next = cur.get(PDFName.of('Next'));
+      cur = next ? resolveRef(ctx, next) : null;
+    }
+    return items;
+  }
+
+  const outlinesObj = resolveRef(ctx, doc.catalog.get(PDFName.of('Outlines')));
+  if (!(outlinesObj instanceof PDFDict)) return [];
+  const first = outlinesObj.get(PDFName.of('First'));
+  if (!first) return [];
+  return walkItems(first);
+}
+
+// ─── outline writing ───────────────────────────────────────────────────────
+
+// ─── link fixing ──────────────────────────────────────────────────────────
+
+interface AnchorDest { pageRef: PDFRef; x: number | null; y: number | null }
+
+// Remove URI link annotations that point to localhost from a standalone chapter
+// PDF. Those links can never resolve in a document that doesn't contain the
+// other chapters, so removing them is better than having them open a browser.
+function stripExternalLocalhostLinks(doc: PDFDocument) {
+  const ctx = doc.context;
+  for (const page of doc.getPages()) {
+    const annotsRaw = page.node.get(PDFName.of('Annots'));
+    const annots = resolveRef(ctx, annotsRaw);
+    if (!(annots instanceof PDFArray)) continue;
+    const kept: unknown[] = [];
+    for (let i = 0; i < annots.size(); i++) {
+      const entry = annots.get(i);
+      const ann = resolveRef(ctx, entry);
+      if (ann instanceof PDFDict) {
+        const action = resolveRef(ctx, ann.get(PDFName.of('A')));
+        if (action instanceof PDFDict && action.get(PDFName.of('S'))?.toString() === '/URI') {
+          const uri = getText(action.get(PDFName.of('URI')));
+          if (/^https?:\/\/localhost:\d+\//.test(uri)) continue; // drop it
+        }
+      }
+      kept.push(entry);
+    }
+    page.node.set(PDFName.of('Annots'), ctx.obj(kept));
+  }
+}
+
+// Convert every URI link annotation that points to localhost (the Astro preview
+// server URL baked in by Chrome during PDF generation) into an internal GoTo
+// destination, using the named-destination maps extracted from each chapter PDF.
+function fixLinks(
+  doc: PDFDocument,
+  // slug (lowercase) → { first-page offset in merged doc, anchor → dest }
+  slugMap: Map<string, { pageOffset: number; anchors: Map<string, AnchorDest> }>,
+) {
+  const ctx = doc.context;
+  const pages = doc.getPages();
+
+  for (const page of pages) {
+    const annotsRaw = page.node.get(PDFName.of('Annots'));
+    const annots = resolveRef(ctx, annotsRaw);
+    if (!(annots instanceof PDFArray)) continue;
+
+    for (let i = 0; i < annots.size(); i++) {
+      const ann = resolveRef(ctx, annots.get(i));
+      if (!(ann instanceof PDFDict)) continue;
+
+      const actionRaw = ann.get(PDFName.of('A'));
+      const action = resolveRef(ctx, actionRaw);
+      if (!(action instanceof PDFDict)) continue;
+      if (action.get(PDFName.of('S'))?.toString() !== '/URI') continue;
+
+      const uriRaw = action.get(PDFName.of('URI'));
+      const uri = getText(uriRaw);
+
+      const m = uri.match(/^https?:\/\/localhost:\d+\/([^#]*?)(?:#(.*))?$/);
+      if (!m) continue;
+
+      const [, rawSlug, anchor] = m;
+      const slug = rawSlug.toLowerCase();
+
+      // Find the chapter, falling back to stripping a leading letter+dash
+      // (handles e.g. bibliographyHref: '/d-references' → references chapter)
+      let info = slugMap.get(slug) ?? slugMap.get(slug.replace(/^[a-z]-/, ''));
+      if (!info) continue;
+
+      const dest = anchor ? info.anchors.get(anchor) : undefined;
+      const pageRef = dest?.pageRef ?? pages[info.pageOffset].ref;
+      const x = dest?.x ?? null;
+      const y = dest?.y ?? null;
+
+      ann.delete(PDFName.of('A'));
+      ann.set(PDFName.of('Dest'), ctx.obj([pageRef, PDFName.of('XYZ'), x, y, null]));
+    }
+  }
+}
+
+function buildOutline(
+  doc: PDFDocument,
+  // entries are top-level per chapter; pageOffset shifts all page indices
+  chapters: Array<{ entries: OutlineEntry[]; pageOffset: number; chapterNum: string | null }>,
+) {
+  if (chapters.every(c => c.entries.length === 0)) return;
+
+  const ctx = doc.context;
+  const pages = doc.getPages();
+  const outlinesRef = ctx.nextRef();
+
+  function applyOffset(e: OutlineEntry, offset: number): OutlineEntry {
+    return { ...e, pageIndex: e.pageIndex + offset, children: e.children.map(c => applyOffset(c, offset)) };
+  }
+
+  function writeItems(
+    entries: OutlineEntry[],
+    parentRef: PDFRef,
+    numbering: string | null,  // e.g. "1", "1.2", "A" — null = no numbering
+  ): { first: PDFRef; last: PDFRef } {
+    const refs = entries.map(() => ctx.nextRef());
+
+    entries.forEach((entry, i) => {
+      const num = numbering !== null ? `${numbering}.${i + 1}` : null;
+      const displayTitle = num !== null ? `${num}  ${entry.title}` : entry.title;
+
+      const pageRef = pages[Math.min(entry.pageIndex, pages.length - 1)].ref;
+      const destArr: unknown[] = [pageRef, PDFName.of('XYZ'),
+        entry.x !== null ? PDFNumber.of(entry.x) : null,
+        entry.y !== null ? PDFNumber.of(entry.y) : null,
+        entry.zoom !== null ? PDFNumber.of(entry.zoom) : null,
+      ];
+      const dict: Record<string, unknown> = {
+        Title: PDFString.of(displayTitle),
+        Parent: parentRef,
+        Dest: ctx.obj(destArr),
+      };
+      if (i > 0) dict.Prev = refs[i - 1];
+      if (i < refs.length - 1) dict.Next = refs[i + 1];
+
+      if (entry.children.length > 0) {
+        const { first, last } = writeItems(entry.children, refs[i], num);
+        dict.First = first;
+        dict.Last = last;
+        // Negative count = subtree is collapsed by default
+        dict.Count = PDFNumber.of(-entry.children.length);
+      } else {
+        dict.Count = PDFNumber.of(0);
+      }
+
+      ctx.assign(refs[i], ctx.obj(dict));
+    });
+
+    return { first: refs[0], last: refs[refs.length - 1] };
+  }
+
+  // Top level: each chapter is one entry; number its children using the chapter prefix.
+  // We write one entry per chapter rather than one call per chapter so siblings link correctly.
+  const chapterRefs = chapters.map(() => ctx.nextRef());
+  chapters.forEach(({ entries, pageOffset, chapterNum }, ci) => {
+    if (entries.length === 0) return;
+    const entry = applyOffset(entries[0], pageOffset);  // the H1 entry for this chapter
+    const chRef = chapterRefs[ci];
+
+    const pageRef = pages[Math.min(entry.pageIndex, pages.length - 1)].ref;
+    const destArr: unknown[] = [pageRef, PDFName.of('XYZ'),
+      entry.x !== null ? PDFNumber.of(entry.x) : null,
+      entry.y !== null ? PDFNumber.of(entry.y) : null,
+      entry.zoom !== null ? PDFNumber.of(entry.zoom) : null,
+    ];
+    const displayTitle = chapterNum !== null ? `${chapterNum}  ${entry.title}` : entry.title;
+    const dict: Record<string, unknown> = {
+      Title: PDFString.of(displayTitle),
+      Parent: outlinesRef,
+      Dest: ctx.obj(destArr),
+    };
+    const prevNonEmpty = chapterRefs.slice(0, ci).filter((_, j) => chapters[j].entries.length > 0);
+    const nextNonEmpty = chapterRefs.slice(ci + 1).filter((_, j) => chapters[ci + 1 + j].entries.length > 0);
+    if (prevNonEmpty.length > 0) dict.Prev = prevNonEmpty[prevNonEmpty.length - 1];
+    if (nextNonEmpty.length > 0) dict.Next = nextNonEmpty[0];
+
+    // Children = the H2 entries (entry.children), already offset by applyOffset above
+    if (entry.children.length > 0) {
+      const { first: fc, last: lc } = writeItems(entry.children, chRef, chapterNum);
+      dict.First = fc;
+      dict.Last = lc;
+      dict.Count = PDFNumber.of(-entry.children.length);
+    } else {
+      dict.Count = PDFNumber.of(0);
+    }
+
+    ctx.assign(chRef, ctx.obj(dict));
+  });
+
+  const nonEmptyRefs = chapterRefs.filter((_, i) => chapters[i].entries.length > 0);
+  const { first, last } = { first: nonEmptyRefs[0], last: nonEmptyRefs[nonEmptyRefs.length - 1] };
+
+  ctx.assign(outlinesRef, ctx.obj({
+    Type: PDFName.of('Outlines'),
+    Count: PDFNumber.of(nonEmptyRefs.length),
+    First: first,
+    Last: last,
+  }));
+
+  doc.catalog.set(PDFName.of('Outlines'), outlinesRef);
+  doc.catalog.set(PDFName.of('PageMode'), PDFName.of('UseOutlines'));
+}
+
+// ─── server / chrome helpers ───────────────────────────────────────────────
 
 // Parse the actual port from astro's startup line: "Local    http://localhost:PORT/"
 function startPreviewServer(): Promise<{ process: ReturnType<typeof spawn>; base: string }> {
@@ -35,22 +297,71 @@ function startPreviewServer(): Promise<{ process: ReturnType<typeof spawn>; base
     server.on('error', err => { if (!settled) reject(err); });
     server.on('exit', code => { if (!settled) reject(new Error(`Server exited with code ${code}`)); });
 
-    // Fallback if the ready line never appears
     setTimeout(() => { if (!settled) reject(new Error('Preview server did not print a ready URL')); }, 30_000);
   });
 }
 
-async function collectSlugs(dir: string, prefix = ''): Promise<string[]> {
-  const entries = await readdir(dir, { withFileTypes: true });
-  const slugs: string[] = [];
-  for (const e of entries) {
-    if (e.isDirectory()) {
-      slugs.push(...await collectSlugs(join(dir, e.name), `${prefix}${e.name}/`));
-    } else if (e.name.endsWith('.mdx')) {
-      slugs.push(`${prefix}${e.name.slice(0, -4)}`);
+// Read one frontmatter field from an MDX file without a full YAML parser.
+function readFrontmatterField(source: string, key: string): string | undefined {
+  const m = source.match(/^---\n([\s\S]*?)\n---/);
+  if (!m) return undefined;
+  const line = m[1].match(new RegExp(`^${key}:\\s*(.+)`, 'm'));
+  return line?.[1].replace(/^["']|["']$/g, '').trim();
+}
+
+// Returns chapters sorted to match the BookLayout nav order:
+//   primary key = order ?? chapter (numeric) ?? Infinity
+//   tiebreaker  = original filesystem order (stable sort)
+// Single uppercase letter chapter values (A, B, …) use char code (65, 66, …),
+// placing lettered appendices after numeric chapters and before order:101+ back-matter.
+async function collectChapters(dir: string): Promise<Array<{ slug: string; title: string; chapterNum: string | null }>> {
+  async function walk(d: string, prefix = ''): Promise<string[]> {
+    const entries = await readdir(d, { withFileTypes: true });
+    const results: string[] = [];
+    for (const e of entries) {
+      if (e.isDirectory()) {
+        results.push(...await walk(join(d, e.name), `${prefix}${e.name}/`));
+      } else if (e.name.endsWith('.mdx')) {
+        results.push(`${prefix}${e.name.slice(0, -4)}`);
+      }
     }
+    return results;
   }
-  return slugs.sort();
+
+  const slugs = (await walk(dir)).sort();
+
+  const meta = await Promise.all(slugs.map(async (slug, i) => {
+    const src = await readFile(join(dir, `${slug}.mdx`), 'utf8');
+    const title = readFrontmatterField(src, 'title') ?? slug;
+    const order = readFrontmatterField(src, 'order');
+    let key: number;
+    let chapterNum: string | null = null;
+    if (order !== undefined) {
+      key = Number(order);
+      // back-matter (order-only) gets no chapter number
+    } else {
+      const chapter = readFrontmatterField(src, 'chapter');
+      if (chapter !== undefined) {
+        const n = Number(chapter);
+        if (!isNaN(n)) {
+          key = n;
+          chapterNum = String(n);
+        } else if (/^[A-Z]$/.test(chapter)) {
+          key = chapter.charCodeAt(0);
+          chapterNum = chapter;
+        } else {
+          key = Infinity;
+        }
+      } else {
+        key = Infinity;
+      }
+    }
+    return { slug, title, key, i, chapterNum };
+  }));
+
+  return meta
+    .sort((a, b) => a.key !== b.key ? a.key - b.key : a.i - b.i)
+    .map(({ slug, title, chapterNum }) => ({ slug, title, chapterNum }));
 }
 
 function findChrome(): string {
@@ -99,8 +410,221 @@ async function ensureFonts() {
   }
 }
 
+async function readBookTitle(root: string): Promise<string> {
+  const src = await readFile(join(root, 'config.ts'), 'utf8').catch(() => '');
+  const m = src.match(/export const SITE_TITLE\s*=\s*['"](.+?)['"]/);
+  return m?.[1] ?? 'book';
+}
+
+// Replace characters Helvetica (Windows-1252) cannot render cleanly.
+function sanitizeText(text: string): string {
+  return text
+    .replace(//g, '–')    // Chrome PDF misencodes en-dash as 0x13
+    .replace(/[–—]/g, '-') // en/em dash
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[^\x20-\x7e]/g, '');   // drop remaining non-ASCII
+}
+
+// Insert a Table of Contents before the first content page.
+// Returns the number of TOC pages inserted (needed to offset page-number labels).
+async function insertTableOfContents(
+  doc: PDFDocument,
+  chapterOutlines: Array<{ entries: OutlineEntry[]; pageOffset: number; chapterNum: string | null }>,
+): Promise<number> {
+  interface TocItem {
+    title: string;
+    pageIndex: number;  // 0-based in merged doc *before* TOC insertion
+    level: 0 | 1 | 2;
+    pageRef: PDFRef;    // object ref — stays valid after page insertion
+  }
+
+  const docPages = doc.getPages();
+  const items: TocItem[] = [];
+
+  for (const { entries, pageOffset, chapterNum } of chapterOutlines) {
+    if (entries.length === 0) continue;
+    const top = entries[0];
+    const chPageIdx = top.pageIndex + pageOffset;
+    const chTitle = chapterNum
+      ? `${chapterNum}  ${sanitizeText(top.title)}`
+      : sanitizeText(top.title);
+    items.push({ title: chTitle, pageIndex: chPageIdx, level: 0, pageRef: docPages[chPageIdx].ref });
+
+    top.children.forEach((sec, si) => {
+      const secNum = chapterNum ? `${chapterNum}.${si + 1}` : null;
+      const secTitle = secNum ? `${secNum}  ${sanitizeText(sec.title)}` : sanitizeText(sec.title);
+      const secIdx = sec.pageIndex + pageOffset;
+      items.push({ title: secTitle, pageIndex: secIdx, level: 1, pageRef: docPages[secIdx].ref });
+
+      sec.children.forEach((sub, ssi) => {
+        const subNum = secNum ? `${secNum}.${ssi + 1}` : null;
+        const subTitle = subNum ? `${subNum}  ${sanitizeText(sub.title)}` : sanitizeText(sub.title);
+        const subIdx = sub.pageIndex + pageOffset;
+        items.push({ title: subTitle, pageIndex: subIdx, level: 2, pageRef: docPages[subIdx].ref });
+      });
+    });
+  }
+
+  // Page geometry (matches A4 + print.css margins)
+  const PW = 595.92, PH = 841.92;
+  const ML = 72, MR = 72;       // left / right margin
+  const TOP_Y = 740;             // baseline of "Contents" heading
+  const FIRST_Y = TOP_Y - 32;   // first entry y, after heading
+  const CONT_Y = TOP_Y;          // entry start y on continuation pages
+  const BOT_Y = 65;              // lower content boundary
+
+  // Per-level typography
+  const CFG = [
+    { fontSize: 11, lineH: 20, indent: 0,  bold: true },   // chapter
+    { fontSize: 10, lineH: 15, indent: 20, bold: false },  // section
+    { fontSize: 10, lineH: 14, indent: 40, bold: false },  // subsection
+  ] as const;
+  const CH_GAP = 8;  // extra vertical gap before each chapter entry
+
+  // Dry-run layout to determine page count (needed before drawing, to calculate
+  // the final "content page number" = pageIndex + tocPageCount + 1).
+  function countTocPages(): number {
+    let y = FIRST_Y, pages = 1;
+    items.forEach((item, idx) => {
+      if (item.level === 0 && idx > 0) y -= CH_GAP;
+      y -= CFG[item.level].lineH;
+      if (y < BOT_Y) { pages++; y = CONT_Y - CFG[item.level].lineH; }
+    });
+    return pages;
+  }
+
+  const tocPageCount = countTocPages();
+
+  // Insert blank pages at the front of the document
+  for (let i = 0; i < tocPageCount; i++) doc.insertPage(i, [PW, PH]);
+
+  // Embed fonts (Helvetica is a standard PDF font — no file bytes added)
+  const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
+  const regFont  = await doc.embedFont(StandardFonts.Helvetica);
+
+  let tocPgIdx = 0;
+  let pg = doc.getPage(tocPgIdx);
+  let y = TOP_Y;
+
+  // "Contents" heading
+  pg.drawText('Contents', { x: ML, y, size: 20, font: boldFont, color: rgb(0, 0, 0) });
+  y = FIRST_Y;
+
+  for (let idx = 0; idx < items.length; idx++) {
+    const item = items[idx];
+    const cfg = CFG[item.level];
+    const font = cfg.bold ? boldFont : regFont;
+
+    if (item.level === 0 && idx > 0) y -= CH_GAP;
+
+    if (y - cfg.lineH < BOT_Y) {
+      tocPgIdx++;
+      pg = doc.getPage(tocPgIdx);
+      y = CONT_Y;
+    }
+    y -= cfg.lineH;
+
+    const x = ML + cfg.indent;
+    const rightX = PW - MR;
+
+    // Page number label: content pages are numbered starting at tocPageCount+1
+    const pgLabel = String(item.pageIndex + tocPageCount + 1);
+    const pgLabelW = font.widthOfTextAtSize(pgLabel, cfg.fontSize);
+    const pgLabelX = rightX - pgLabelW;
+
+    // Dot leaders
+    const titleW = font.widthOfTextAtSize(item.title, cfg.fontSize);
+    const dotW   = font.widthOfTextAtSize('.', cfg.fontSize);
+    const gapW   = pgLabelX - 4 - (x + titleW + 4);
+    const numDots = Math.max(0, Math.floor(gapW / dotW));
+
+    pg.drawText(item.title, { x, y, size: cfg.fontSize, font, color: rgb(0, 0, 0) });
+    if (numDots > 0) {
+      pg.drawText('.'.repeat(numDots), {
+        x: x + titleW + 4, y,
+        size: cfg.fontSize, font, color: rgb(0.55, 0.55, 0.55),
+      });
+    }
+    pg.drawText(pgLabel, { x: pgLabelX, y, size: cfg.fontSize, font, color: rgb(0, 0, 0) });
+
+    // Clickable link annotation covering the full line width
+    const annotRef = doc.context.nextRef();
+    doc.context.assign(annotRef, doc.context.obj({
+      Type: PDFName.of('Annot'),
+      Subtype: PDFName.of('Link'),
+      Rect: doc.context.obj([x, y - 2, rightX, y + cfg.fontSize + 2]),
+      Border: doc.context.obj([0, 0, 0]),
+      Dest: doc.context.obj([item.pageRef, PDFName.of('XYZ'), null, null, null]),
+    }));
+    const annotsKey = PDFName.of('Annots');
+    const existing = pg.node.get(annotsKey);
+    if (existing instanceof PDFArray) {
+      (existing as PDFArray).push(annotRef);
+    } else {
+      pg.node.set(annotsKey, doc.context.obj([annotRef]));
+    }
+  }
+
+  return tocPageCount;
+}
+
+function toRoman(n: number): string {
+  const vals = [1000,900,500,400,100,90,50,40,10,9,5,4,1];
+  const syms = ['m','cm','d','cd','c','xc','l','xl','x','ix','v','iv','i'];
+  let out = '';
+  for (let i = 0; i < vals.length; i++) {
+    while (n >= vals[i]) { out += syms[i]; n -= vals[i]; }
+  }
+  return out;
+}
+
+// TOC pages get lowercase Roman numerals (i, ii, …).
+// Content pages get Arabic numerals (1 / N, 2 / N, …).
+// PageLabels is also set in the catalog so PDF viewer nav bars agree.
+async function addPageNumbers(doc: PDFDocument, tocPageCount = 0) {
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const fontSize = 10;
+  const color = rgb(0.4, 0.4, 0.4);
+  const pages = doc.getPages();
+  const contentTotal = pages.length - tocPageCount;
+
+  pages.forEach((page, i) => {
+    const { width } = page.getSize();
+    const text = i < tocPageCount
+      ? toRoman(i + 1)
+      : `${i - tocPageCount + 1} / ${contentTotal}`;
+    const textWidth = font.widthOfTextAtSize(text, fontSize);
+    page.drawText(text, {
+      x: (width - textWidth) / 2,
+      y: 35,  // sits in the 3cm bottom margin (≈85 pts)
+      size: fontSize,
+      font,
+      color,
+    });
+  });
+
+  // Set PageLabels so viewer nav bars show the same scheme.
+  // /r = lowercase Roman, /D = decimal Arabic.
+  const ctx = doc.context;
+  const labelsRef = ctx.nextRef();
+  const numsArray: unknown[] = [
+    PDFNumber.of(0), ctx.obj({ S: PDFName.of('r') }),           // TOC: i, ii, …
+    PDFNumber.of(tocPageCount), ctx.obj({ S: PDFName.of('D') }), // content: 1, 2, …
+  ];
+  ctx.assign(labelsRef, ctx.obj({ Nums: ctx.obj(numsArray) }));
+  doc.catalog.set(PDFName.of('PageLabels'), labelsRef);
+}
+
+// ─── main ──────────────────────────────────────────────────────────────────
+
 async function main() {
-  await Promise.all([mkdir(OUT, { recursive: true }), ensureFonts()]);
+  await Promise.all([mkdir(CHAPTERS_OUT, { recursive: true }), ensureFonts()]);
+
+  const [bookTitle, chapters] = await Promise.all([
+    readBookTitle(ROOT),
+    collectChapters(join(ROOT, 'content')),
+  ]);
 
   console.log('Starting preview server…');
   const { process: server, base: BASE } = await startPreviewServer();
@@ -114,12 +638,13 @@ async function main() {
   });
 
   try {
-    const slugs = await collectSlugs(join(ROOT, 'content'));
-    console.log(`Printing ${slugs.length} chapter(s)…\n`);
+    console.log(`Printing ${chapters.length} chapter(s)…\n`);
 
-    for (const slug of slugs) {
+    const generated: Array<{ slug: string; title: string; pdfPath: string; chapterNum: string | null }> = [];
+
+    for (const { slug, title, chapterNum } of chapters) {
       const url = `${BASE}/${slug.toLowerCase()}`;
-      const outFile = join(OUT, `${slug.replace(/\//g, '_')}.pdf`);
+      const outFile = join(CHAPTERS_OUT, `${slug.replace(/\//g, '_')}.pdf`);
       console.log(`  ${url} → ${outFile}`);
       try {
         // Pass 1: load in screen mode so the browser HTTP-caches the web fonts
@@ -141,15 +666,115 @@ async function main() {
         await page.emulateMediaType('print');
         await page.goto(url, { waitUntil: 'domcontentloaded' });
         await new Promise(r => setTimeout(r, 1_000));
-        await page.pdf({ path: outFile, format: 'A4', printBackground: true });
+        await page.pdf({ path: outFile, format: 'A4', printBackground: true, outline: true });
         await page.close();
         console.log(`  ✓ saved`);
+        generated.push({ slug, title, pdfPath: outFile, chapterNum });
       } catch (err) {
         console.error(`  ✗ ${err}`);
       }
     }
 
-    console.log(`\nDone. PDFs saved to pdfs/`);
+    if (generated.length > 1) {
+      const filename = `${bookTitle.replace(/[/\\:*?"<>|]/g, '-')}.pdf`;
+      const combinedPath = join(OUT, filename);
+      console.log(`\nMerging into ${combinedPath}…`);
+
+      const merged = await PDFDocument.create();
+      merged.setTitle(bookTitle);
+
+      const chapterOutlines: Array<{ entries: OutlineEntry[]; pageOffset: number; chapterNum: string | null }> = [];
+      const slugMap = new Map<string, { pageOffset: number; anchors: Map<string, AnchorDest> }>();
+
+      for (const ch of generated) {
+        const bytes = await readFile(ch.pdfPath);
+        const doc = await PDFDocument.load(bytes);
+        const ctx = doc.context;
+        const srcPages = doc.getPages();
+        const pageOffset = merged.getPageCount();
+
+        // Extract outline before copying (page refs belong to this doc's context)
+        const entries = extractOutlineFromDoc(doc);
+        chapterOutlines.push({ entries, pageOffset, chapterNum: ch.chapterNum });
+
+        const copied = await merged.copyPages(doc, doc.getPageIndices());
+        copied.forEach(pg => merged.addPage(pg));
+
+        // Map source page refs → merged page refs (needed to remap anchor dests)
+        const srcToMerged = new Map<string, PDFRef>(
+          srcPages.map((sp, i) => [sp.ref.toString(), copied[i].ref])
+        );
+
+        // Extract named destinations from the source chapter PDF and remap to merged refs
+        const anchors = new Map<string, AnchorDest>();
+        const destsObj = resolveRef(ctx, doc.catalog.get(PDFName.of('Dests')));
+        if (destsObj instanceof PDFDict) {
+          for (const key of destsObj.keys()) {
+            const name = key.encodedName.slice(1);
+            if (!name) continue;
+            const arr = resolveRef(ctx, destsObj.get(key));
+            if (!(arr instanceof PDFArray)) continue;
+            const mergedPageRef = srcToMerged.get(arr.get(0)?.toString() ?? '');
+            if (!mergedPageRef) continue;
+            const isXYZ = arr.get(1)?.toString() === '/XYZ';
+            anchors.set(name, {
+              pageRef: mergedPageRef,
+              x: isXYZ ? (arr.get(2) as any)?.asNumber?.() ?? null : null,
+              y: isXYZ ? (arr.get(3) as any)?.asNumber?.() ?? null : null,
+            });
+          }
+        }
+
+        // Remap within-chapter named-dest annotations in the just-copied pages.
+        // Chrome encodes within-chapter links as PDFName named destinations
+        // (e.g. /def:convergence). copyPages preserves them verbatim but the
+        // merged PDF has no /Dests catalog, so they would fail. Convert each
+        // to a direct [pageRef /XYZ x y null] array using the anchors map.
+        const mergedCtx = merged.context;
+        for (const copiedPage of copied) {
+          const annotsRaw = copiedPage.node.get(PDFName.of('Annots'));
+          const annots = resolveRef(mergedCtx, annotsRaw);
+          if (!(annots instanceof PDFArray)) continue;
+          for (let ai = 0; ai < annots.size(); ai++) {
+            const ann = resolveRef(mergedCtx, annots.get(ai));
+            if (!(ann instanceof PDFDict)) continue;
+            const destRaw = ann.get(PDFName.of('Dest'));
+            if (!destRaw) continue;
+            let anchorName: string | null = null;
+            if (destRaw instanceof PDFName) {
+              anchorName = destRaw.encodedName.slice(1); // strip leading /
+            } else if (typeof (destRaw as any).decodeText === 'function') {
+              anchorName = (destRaw as any).decodeText();
+            }
+            if (!anchorName) continue;
+            const dest = anchors.get(anchorName);
+            if (!dest) continue;
+            ann.set(PDFName.of('Dest'), mergedCtx.obj([dest.pageRef, PDFName.of('XYZ'), dest.x, dest.y, null]));
+          }
+        }
+
+        slugMap.set(ch.slug.toLowerCase(), { pageOffset, anchors });
+      }
+
+      fixLinks(merged, slugMap);
+      buildOutline(merged, chapterOutlines);
+      const tocPageCount = await insertTableOfContents(merged, chapterOutlines);
+      await addPageNumbers(merged, tocPageCount);
+      await writeFile(combinedPath, await merged.save());
+      console.log(`  ✓ saved`);
+
+      // Now that merging is done, strip cross-chapter localhost URIs from the
+      // individual chapter PDFs. The merge step needed the originals; the
+      // standalone files shouldn't try to open a browser for cross-chapter links.
+      console.log('\nStripping external links from individual chapter PDFs…');
+      for (const ch of generated) {
+        const chDoc = await PDFDocument.load(await readFile(ch.pdfPath));
+        stripExternalLocalhostLinks(chDoc);
+        await writeFile(ch.pdfPath, await chDoc.save());
+      }
+    }
+
+    console.log(`\nDone. Combined PDF → pdfs/  |  Chapter PDFs → pdfs/chapters/`);
   } finally {
     await browser.close();
     server.kill();

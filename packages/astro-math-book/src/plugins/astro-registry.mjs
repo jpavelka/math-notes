@@ -619,7 +619,7 @@ function buildRegistry(root, katexMacros = {}, environments = [], symbols = [], 
             ...(label ? { label } : {}),
             chapter: ch,
             contentHTML,
-            href: `/${bookSlug}/${slug}#${id}`,
+            href: `${base}/${slug}#${id}`,
           };
         });
       } else {

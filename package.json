@@ -12,5 +12,8 @@
     "build": "npm run build --workspace=book",
     "preview": "npm run preview --workspace=book",
     "pdf": "npm run pdf --workspace=book"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
   }
 }
