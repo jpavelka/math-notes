@@ -334,6 +334,10 @@
   font-size: 0.9em;
 }
 
+.algo-line[id] {
+  scroll-margin-top: 4rem;
+}
+
 /* Every non-comment line increments and displays the counter */
 .algo-line:not(.algo-comment) {
   counter-increment: algo-line;
@@ -392,14 +396,16 @@
   color: var(--text);
 }
 
-/* ── Print fallback ── */
+/* ── Print fallback / extra ── */
 
-.print-fallback {
+.print-fallback,
+.print-extra {
   display: none;
 }
 
 @media print {
-  .print-fallback {
+  .print-fallback,
+  .print-extra {
     display: block;
   }
 
@@ -506,7 +512,6 @@
   line-height: 1.5;
   text-align: left;
   z-index: 100;
-  pointer-events: none;
   color: var(--text);
 }
 
@@ -538,9 +543,52 @@
 }
 
 @media (hover: hover) {
-  .ref:hover .ref-tooltip {
+  .ref:hover > .ref-tooltip,
+  .ref--pinned > .ref-tooltip {
     display: block;
   }
+
+  /* Bridge the 6px gap so the cursor can travel from link to tooltip */
+  .ref:hover::after {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    height: 6px;
+  }
+}
+
+.ref-pin-btn {
+  position: absolute;
+  top: 0.3em;
+  right: 0.35em;
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--text);
+  opacity: 0.4;
+  line-height: 1;
+  border-radius: 3px;
+}
+
+@media (hover: hover) {
+  .ref-pin-btn:hover {
+    opacity: 0.75;
+    background: var(--border);
+  }
+
+  .ref--pinned .ref-pin-btn {
+    opacity: 1;
+    color: var(--link, #2563eb);
+  }
+}
+
+#ref-sheet-body .ref-pin-btn { display: none; }
+
+@media print {
+  .ref-pin-btn { display: none; }
 }
 
 /* Cloned figures inside tooltip / bottom sheet */
@@ -567,7 +615,9 @@
 }
 
 .ref-tooltip .print-fallback,
-#ref-sheet-body .print-fallback {
+.ref-tooltip .print-extra,
+#ref-sheet-body .print-fallback,
+#ref-sheet-body .print-extra {
   display: none;
 }
 
@@ -599,6 +649,38 @@
 .math-env--corollary { border-color: var(--env-corollary-border);  background: var(--env-corollary-bg); }
 .math-env--remark    { border-color: var(--env-remark-border);     background: var(--env-remark-bg); }
 .math-env--proof     { border-color: var(--env-proof-border);      background: transparent; }
+
+/* ── Problem environment ── */
+
+.math-problem {
+  margin: 1.5em 0;
+  border: 1.5px solid var(--env-problem-border);
+  background: var(--env-problem-bg);
+  border-radius: 3px;
+}
+
+.math-problem-header {
+  font-weight: bold;
+  font-size: 1.05em;
+  padding: 0.5em 1em;
+  border-bottom: 1px solid var(--env-problem-border);
+}
+
+.math-problem-body {
+  padding: 0.6em 1em 0.8em;
+}
+
+.math-problem-section {
+  margin-top: 0.6em;
+}
+
+.math-problem-section:first-child {
+  margin-top: 0;
+}
+
+.math-problem-section-label {
+  font-weight: bold;
+}
 
 /* ── Block quotes ── */
 

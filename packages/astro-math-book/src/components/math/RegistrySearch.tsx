@@ -20,7 +20,7 @@ const plainText = new Map(
 
 function scoreEntry(entry: RegistryEntry, q: string, qNoSlash: string): number {
   const type  = entry.type.toLowerCase();
-  const num   = (entry.number ?? '').toLowerCase();
+  const num   = String(entry.number ?? '').toLowerCase();
   const title = (entry.title  ?? '').toLowerCase();
   const label = (entry.label  ?? '').toLowerCase();
   const tn    = `${type} ${num}`;
@@ -63,7 +63,7 @@ function searchRegistry(query: string): { envResults: RegistryEntry[]; symResult
     .sort((a, b) =>
       b.s - a.s ||
       a.e.type.localeCompare(b.e.type) ||
-      (a.e.number ?? '').localeCompare(b.e.number ?? '', undefined, { numeric: true })
+      String(a.e.number ?? '').localeCompare(String(b.e.number ?? ''), undefined, { numeric: true })
     )
     .slice(0, 6)
     .map(x => x.e);

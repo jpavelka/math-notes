@@ -32,6 +32,7 @@ interface Props {
 
 const { title, siteTitle, siteTitleShort, chapter, headings = [], headingTexts = [], currentChapterId, bookSlug, chapterBase, portalHref, pagefind = true } = Astro.props;
 const base = chapterBase !== undefined ? chapterBase : `/${bookSlug}`;
+const isAppendix = (ch: any) => typeof ch.data.chapter === 'string';
 
 const chapters = await getCollection(bookSlug as any);
 chapters.sort((a, b) => {
@@ -90,43 +91,49 @@ const chaptersWithSections = await Promise.all(
 
       <!-- Left sidebar -->
       <aside class="sidebar" id="sidebar" data-pagefind-ignore>
-        <div class="sidebar-header">
-          <span class="site-title site-title-sidebar">{siteTitle}</span>
-          <div class="sidebar-controls">
-            <button class="font-size-btn font-decrease" aria-label="Decrease font size">A−</button>
-            <button class="font-size-btn font-increase" aria-label="Increase font size">A+</button>
-            <button class="theme-toggle" aria-label="Toggle theme"></button>
-            <button class="print-btn" aria-label="Print page">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 6 2 18 2 18 9"/>
-                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                <rect x="6" y="14" width="12" height="8"/>
-              </svg>
-            </button>
+        <div class="sidebar-top">
+          <div class="sidebar-header">
+            <span class="site-title site-title-sidebar">{siteTitle}</span>
+            <div class="sidebar-controls">
+              <button class="font-size-btn font-decrease" aria-label="Decrease font size">A−</button>
+              <button class="font-size-btn font-increase" aria-label="Increase font size">A+</button>
+              <button class="theme-toggle" aria-label="Toggle theme"></button>
+              <button class="print-btn" aria-label="Print page">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 6 2 18 2 18 9"/>
+                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                  <rect x="6" y="14" width="12" height="8"/>
+                </svg>
+              </button>
+            </div>
           </div>
-        </div>
 
-        {portalHref && (
-          <a href={portalHref} class="portal-link">← All Books</a>
-        )}
+          {portalHref && (
+            <a href={portalHref} class="portal-link">← All Books</a>
+          )}
 
-        <button
-          class="reg-search-btn"
-          aria-label="Search theorems, definitions, or text"
-        >
-          Search… <kbd>⌘K</kbd>
-        </button>
+          <button
+            class="reg-search-btn"
+            aria-label="Search theorems, definitions, or text"
+          >
+            Search… <kbd>⌘K</kbd>
+          </button>
+        </div><!-- /.sidebar-top -->
 
+        <div class="sidebar-scroll" id="sidebar-scroll">
         <nav class="sidebar-nav">
           <ul>
-            {chaptersWithSections.map(ch => (
+            {chaptersWithSections.map((ch, i) => (<>
+              {isAppendix(ch) && !isAppendix(chaptersWithSections[i - 1] ?? {}) && (
+                <li class="nav-appendix-divider">Appendices</li>
+              )}
               <li class="chapter-item">
                 <div class="chapter-row">
                   <a href={`${base}/${ch.id}`} class="chapter-link" aria-current={ch.id === currentChapterId ? 'page' : undefined}>
                     {ch.data.chapter !== undefined && (
                       <span class="chapter-num">{ch.data.chapter}.</span>
                     )}
-                    {ch.data.title}
+                    <span set:html={renderInlineMath(ch.data.title)} />
                   </a>
                   {ch.sections.length > 0 && (
                     <button
@@ -174,9 +181,10 @@ const chaptersWithSections = await Promise.all(
                   </ul>
                 )}
               </li>
-            ))}
+            </>))}
           </ul>
         </nav>
+        </div><!-- /.sidebar-scroll -->
       </aside>
 
       <!-- Main content -->
@@ -196,7 +204,7 @@ const chaptersWithSections = await Promise.all(
             ? (typeof chapter === 'string' ? `Appendix ${chapter}: ` : `${chapter}. `)
             : ''}{title}
         </span>
-        <h1>{title}</h1>
+        <h1 set:html={renderInlineMath(title)} />
         <slot />
       </main>
 
@@ -340,12 +348,25 @@ const chaptersWithSections = await Promise.all(
       {
         const menuBtn = document.getElementById('mobile-menu-btn');
         const sidebar = document.getElementById('sidebar');
+        const sidebarScroll = document.getElementById('sidebar-scroll');
         const navBackdrop = document.getElementById('mobile-nav-backdrop');
+
+        function updateNavFade() {
+          if (!sidebarScroll) return;
+          const atEnd = sidebarScroll.scrollHeight - sidebarScroll.scrollTop <= sidebarScroll.clientHeight + 4;
+          sidebarScroll.classList.toggle('nav-at-end', atEnd);
+        }
+
+        sidebarScroll?.addEventListener('scroll', updateNavFade, { passive: true });
+
+        const navEl = sidebarScroll?.querySelector('.sidebar-nav');
+        if (navEl) new ResizeObserver(updateNavFade).observe(navEl);
 
         function setMenuOpen(open: boolean) {
           sidebar?.classList.toggle('is-open', open);
           navBackdrop?.classList.toggle('is-open', open);
           document.body.style.overflow = open ? 'hidden' : '';
+          if (open) updateNavFade();
         }
 
         menuBtn?.addEventListener('click', () => {
@@ -377,9 +398,26 @@ const chaptersWithSections = await Promise.all(
           const tooltip = refEl.querySelector<HTMLElement>('.ref-tooltip');
           if (!tooltip || tooltip.dataset.upgraded) return;
           tooltip.dataset.upgraded = 'true';
-          cloneFigureInto(tooltip, refEl.dataset.figureId!);
+          const pinBtn = tooltip.querySelector('.ref-pin-btn');
+          if (cloneFigureInto(tooltip, refEl.dataset.figureId!)) {
+            if (pinBtn) tooltip.prepend(pinBtn);
+          }
         });
       });
+
+      // ── Ref tooltip pin (desktop) ────────────────────────────
+      if (!window.matchMedia('(hover: none)').matches) {
+        document.addEventListener('click', e => {
+          const pinBtn = (e.target as Element).closest<HTMLElement>('.ref-pin-btn');
+          if (!pinBtn) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const ref = pinBtn.closest<HTMLElement>('.ref')!;
+          const wasPinned = ref.classList.contains('ref--pinned');
+          document.querySelectorAll<HTMLElement>('.ref--pinned').forEach(r => r.classList.remove('ref--pinned'));
+          if (!wasPinned) ref.classList.add('ref--pinned');
+        });
+      }
 
       // ── Mobile ref bottom sheet ──────────────────────────────
       if (window.matchMedia('(hover: none)').matches) {
@@ -482,12 +520,14 @@ const chaptersWithSections = await Promise.all(
           const n = body.dataset.fnBody!;
           const li = document.createElement('li');
           li.id = `fn-body-${n}`;
-          li.innerHTML = body.innerHTML;
+          li.innerHTML = body.innerHTML.trim();
           const back = document.createElement('a');
           back.href = `#fn-ref-${n}`;
           back.className = 'print-footnote-back';
           back.textContent = '↩';
-          li.appendChild(back);
+          const lastEl = li.lastElementChild;
+          const BLOCK = new Set(['P','DIV','BLOCKQUOTE','UL','OL','PRE','H1','H2','H3','H4','H5','H6','FIGURE','SECTION']);
+          (lastEl && BLOCK.has(lastEl.tagName) ? lastEl : li).appendChild(back);
           ol.appendChild(li);
 
           // Swap inline button → anchor pointing to this footnote

@@ -1,6 +1,6 @@
 import React from 'react';
 
-export function Footnote({ number }: { number?: number }) {
+export function Footnote({ number, id: _id }: { number?: number; id?: string }) {
   const n = number ?? 0;
   const id = `fn-ref-${n}`;
   return (

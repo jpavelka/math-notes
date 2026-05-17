@@ -14,7 +14,7 @@ book/                       # The book — a self-contained Astro project
   content/                  # MDX chapter files
   src/
     content.config.ts
-    components/math/        # Re-exports from astro-math-book
+    components.ts           # Re-exports from astro-math-book
     pages/
       index.astro           # Redirects to first chapter
       [...slug].astro       # Chapter pages (URL: /{chapter-id})

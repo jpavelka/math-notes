@@ -53,7 +53,7 @@ function strArrayAttr(name, arr) {
 function makeImportNode(name) {
   return {
     type: 'mdxjsEsm',
-    value: `import { ${name} } from '@/components/math'`,
+    value: `import { ${name} } from '@/components'`,
     data: {
       estree: {
         type: 'Program',
@@ -64,7 +64,7 @@ function makeImportNode(name) {
             imported: { type: 'Identifier', name },
             local: { type: 'Identifier', name },
           }],
-          source: { type: 'Literal', value: '@/components/math', raw: "'@/components/math'" },
+          source: { type: 'Literal', value: '@/components', raw: "'@/components'" },
         }],
         sourceType: 'module',
       },
@@ -166,11 +166,43 @@ export function remarkEquations({ getRegistryPath } = {}) {
       }
     }
 
-    visit(tree, 'mdxJsxFlowElement', (node) => {
+    // Walk an estree looking for <Footnote> JSX elements embedded in attribute
+    // value expressions (e.g. note={<Footnote/>}). Markers are stored as
+    // { kind: 'estree', openingElement } so the numbering step can patch them.
+    function walkEstreeForFootnotes(estNode, markers) {
+      if (!estNode || typeof estNode !== 'object') return;
+      if (Array.isArray(estNode)) {
+        for (const item of estNode) walkEstreeForFootnotes(item, markers);
+        return;
+      }
+      if (estNode.type === 'JSXElement') {
+        const name = estNode.openingElement?.name;
+        if (name?.type === 'JSXIdentifier' && name.name === 'Footnote') {
+          markers.push({ kind: 'estree', openingElement: estNode.openingElement });
+          return;
+        }
+      }
+      for (const key of Object.keys(estNode)) {
+        if (key === 'loc' || key === 'start' || key === 'end' || key === 'range' || key === 'parent') continue;
+        const val = estNode[key];
+        if (val && typeof val === 'object') walkEstreeForFootnotes(val, markers);
+      }
+    }
+
+    // Single pass in document order: handles flow elements, text elements, and
+    // <Footnote> markers hidden inside JSX attribute value expressions.
+    visit(tree, (node) => {
+      if (node.type !== 'mdxJsxFlowElement' && node.type !== 'mdxJsxTextElement') return;
       collectCite(node);
-      if (node.name === 'Footnote') { footnoteMarkers.push(node); return; }
+      if (node.name === 'Footnote') { footnoteMarkers.push({ kind: 'unist', node }); return; }
       if (node.name === 'FootnoteBody') { footnoteBodies.push(node); return; }
-      if (node.name !== 'AnnotatedAlign') return;
+      // Scan attribute value expressions for embedded <Footnote> elements.
+      for (const attr of node.attributes ?? []) {
+        if (attr.value?.type === 'mdxJsxAttributeValueExpression') {
+          walkEstreeForFootnotes(attr.value.data?.estree, footnoteMarkers);
+        }
+      }
+      if (node.type !== 'mdxJsxFlowElement' || node.name !== 'AnnotatedAlign') return;
       const rowsAttr = node.attributes?.find(a => a.name === 'rows');
       if (!rowsAttr) return;
       const rowsExpr = rowsAttr.value?.data?.estree?.body?.[0]?.expression;
@@ -185,21 +217,58 @@ export function remarkEquations({ getRegistryPath } = {}) {
       annotAligns.push({ node, updated });
     });
 
-    visit(tree, 'mdxJsxTextElement', (node) => {
-      collectCite(node);
-      if (node.name === 'Footnote') footnoteMarkers.push(node);
-    });
-
-    for (let i = 0; i < footnoteMarkers.length; i++) {
-      const node = footnoteMarkers[i];
-      node.attributes = (node.attributes ?? []).filter(a => a.name !== 'number');
-      node.attributes.push(exprAttr('number', i + 1));
+    // Extract the id string from either a unist JSX node or an estree JSXOpeningElement.
+    function getAttrId(marker) {
+      if (marker.kind === 'estree') {
+        const idAttr = marker.openingElement?.attributes?.find(
+          a => a.type === 'JSXAttribute' && a.name?.name === 'id'
+        );
+        return idAttr?.value?.type === 'Literal' ? idAttr.value.value : null;
+      }
+      const node = marker.node ?? marker;
+      const attr = node.attributes?.find(a => a.name === 'id');
+      return typeof attr?.value === 'string' ? attr.value : null;
     }
 
-    for (let i = 0; i < footnoteBodies.length; i++) {
-      const node = footnoteBodies[i];
+    // Inject a number prop into either a unist JSX node or an estree JSXOpeningElement.
+    function setNumber(marker, n) {
+      if (marker.kind === 'estree') {
+        const oe = marker.openingElement;
+        oe.attributes = (oe.attributes ?? []).filter(
+          a => !(a.type === 'JSXAttribute' && a.name?.name === 'number')
+        );
+        oe.attributes.push({
+          type: 'JSXAttribute',
+          name: { type: 'JSXIdentifier', name: 'number' },
+          value: { type: 'JSXExpressionContainer', expression: { type: 'Literal', value: n, raw: String(n) } },
+        });
+        return;
+      }
+      const node = marker.node ?? marker;
       node.attributes = (node.attributes ?? []).filter(a => a.name !== 'number');
-      node.attributes.push(exprAttr('number', i + 1));
+      node.attributes.push(exprAttr('number', n));
+    }
+
+    // Assign display numbers to markers in document order.
+    for (let i = 0; i < footnoteMarkers.length; i++) {
+      setNumber(footnoteMarkers[i], i + 1);
+    }
+
+    // Build id→number map from markers, and collect the numbers of un-id'd markers.
+    const fnIdToNumber = new Map();
+    const unidMarkerNumbers = [];
+    for (let i = 0; i < footnoteMarkers.length; i++) {
+      const id = getAttrId(footnoteMarkers[i]);
+      if (id) fnIdToNumber.set(id, i + 1);
+      else unidMarkerNumbers.push(i + 1);
+    }
+
+    // Assign numbers to bodies: id-matched first, then positional for un-id'd.
+    let unidBodyIndex = 0;
+    for (const node of footnoteBodies) {
+      const id = getAttrId(node);
+      const n = (id && fnIdToNumber.has(id)) ? fnIdToNumber.get(id) : (unidMarkerNumbers[unidBodyIndex++] ?? 0);
+      setNumber(node, n);
     }
 
 

@@ -43,7 +43,7 @@ function makeSymbolIds(symbols) {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const NUMBERED_ENVS = new Set(['Theorem', 'Definition', 'Lemma', 'Corollary', 'Remark', 'Figure', 'Table', 'YouTubeEmbed', 'Algorithm']);
+const NUMBERED_ENVS = new Set(['Theorem', 'Definition', 'Lemma', 'Corollary', 'Remark', 'Figure', 'Table', 'YouTubeEmbed', 'Algorithm', 'Problem']);
 const LABEL_RE = /\{#([\w:.-]+)(?:\|([^}]*))?\}/;
 
 // ── Filesystem helpers ───────────────────────────────────────────────────────
@@ -69,9 +69,13 @@ function parseFrontmatter(content) {
     : /^\d+$/.test(chapterRaw) ? parseInt(chapterRaw)
     : chapterRaw;
   const title = yaml.match(/^title:\s*["']?(.*?)["']?\s*$/m)?.[1];
+  const chapterId = yaml.match(/^chapterId:\s*["']?([\w:.-]+)["']?\s*$/m)?.[1] ?? null;
+  const label = yaml.match(/^label:\s*["']?(.*?)["']?\s*$/m)?.[1];
   return {
     chapter,
     title: title?.trim() ?? null,
+    chapterId,
+    label: label?.trim() ?? null,
   };
 }
 
@@ -84,6 +88,12 @@ function esc(s) {
 function makeSerializer(katexMacros) {
   function nodesToHtml(nodes, svg = false) {
     return (nodes ?? []).map(n => nodeToHtml(n, svg)).join('');
+  }
+
+  function renderAttr(src) {
+    return (src ?? '').replace(/\$([^$]+)\$/g, (_, math) =>
+      katex.renderToString(math, { throwOnError: false, macros: katexMacros })
+    );
   }
 
   function nodeToHtml(node, svg = false) {
@@ -117,6 +127,40 @@ function makeSerializer(katexMacros) {
           const refId = getAttrString(node.attributes, 'id');
           if (refId) return `\x00REF:${refId}\x00`;
         }
+        // Problem sub-components
+        if (node.name === 'ProblemInstance') return `<p><strong>Instance:</strong> ${nodesToHtml(node.children)}</p>`;
+        if (node.name === 'ProblemQuestion') return `<p><strong>Problem:</strong> ${nodesToHtml(node.children)}</p>`;
+        if (node.name === 'ProblemVariants') return `<p><strong>Variants:</strong> ${nodesToHtml(node.children)}</p>`;
+        if (node.name === 'ProblemInEnglish') return `<p><strong>In English:</strong> ${nodesToHtml(node.children)}</p>`;
+        // Algorithm sub-components — emit algo CSS class structure so tooltips get indents + line numbers
+        if (node.name === 'AlgoStep')
+          return `<span class="algo-line"><span class="algo-num"></span><span class="algo-body">${nodesToHtml(node.children)}</span></span>`;
+        if (node.name === 'AlgoReturn')
+          return `<span class="algo-line"><span class="algo-num"></span><span class="algo-body"><strong>return</strong> ${nodesToHtml(node.children)}</span></span>`;
+        if (node.name === 'AlgoComment')
+          return `<span class="algo-line algo-comment"><span class="algo-num" aria-hidden="true"></span><span class="algo-body"><span class="algo-comment-marker" aria-hidden="true">▷</span> ${nodesToHtml(node.children)}</span></span>`;
+        if (node.name === 'AlgoInput')
+          return `<span class="algo-meta" style="display:block"><span class="algo-meta-label">Input:</span> ${nodesToHtml(node.children)}</span>`;
+        if (node.name === 'AlgoOutput')
+          return `<span class="algo-meta" style="display:block"><span class="algo-meta-label">Output:</span> ${nodesToHtml(node.children)}</span>`;
+        if (node.name === 'AlgoFor') {
+          const condHtml = renderAttr(getAttrString(node.attributes, 'each') ?? '');
+          return `<span class="algo-line"><span class="algo-num"></span><span class="algo-body"><strong>for</strong> ${condHtml} <strong>do</strong></span></span><span class="algo-block" style="display:block">${nodesToHtml(node.children)}</span>`;
+        }
+        if (node.name === 'AlgoWhile') {
+          const condHtml = renderAttr(getAttrString(node.attributes, 'cond') ?? '');
+          return `<span class="algo-line"><span class="algo-num"></span><span class="algo-body"><strong>while</strong> ${condHtml} <strong>do</strong></span></span><span class="algo-block" style="display:block">${nodesToHtml(node.children)}</span>`;
+        }
+        if (node.name === 'AlgoIf') {
+          const condHtml = renderAttr(getAttrString(node.attributes, 'cond') ?? '');
+          return `<span class="algo-line"><span class="algo-num"></span><span class="algo-body"><strong>if</strong> ${condHtml} <strong>then</strong></span></span><span class="algo-block" style="display:block">${nodesToHtml(node.children)}</span>`;
+        }
+        if (node.name === 'AlgoElseIf') {
+          const condHtml = renderAttr(getAttrString(node.attributes, 'cond') ?? '');
+          return `<span class="algo-line"><span class="algo-num"></span><span class="algo-body"><strong>else if</strong> ${condHtml} <strong>then</strong></span></span><span class="algo-block" style="display:block">${nodesToHtml(node.children)}</span>`;
+        }
+        if (node.name === 'AlgoElse')
+          return `<span class="algo-line"><span class="algo-num"></span><span class="algo-body"><strong>else</strong></span></span><span class="algo-block" style="display:block">${nodesToHtml(node.children)}</span>`;
         // Serialize lowercase (HTML/SVG) elements; skip PascalCase React components
         if (node.name && /^[a-z]/.test(node.name)) {
           const attrs = (node.attributes ?? [])
@@ -344,9 +388,57 @@ function headingToText(children) {
 
 const FLOAT_ENVS = new Set(['Figure', 'Table', 'Algorithm']);
 const SECTION_COMMENT_RE = /^\s*\/\*\s*#?([\w:.-]+)\s*\*\/\s*$/;
+const ALGO_LINE_COMPONENTS = new Set(['AlgoStep', 'AlgoReturn', 'AlgoFor', 'AlgoWhile', 'AlgoIf', 'AlgoElseIf', 'AlgoElse']);
+
+function makeLineHeaderHTML(node, renderAttr, nodesToHtml) {
+  // No algo-num span: the number is shown in the tooltip header, not inline.
+  const wrap = (body) => `<span class="algo-line"><span class="algo-body">${body}</span></span>`;
+  switch (node.name) {
+    case 'AlgoStep':   return wrap(nodesToHtml(node.children));
+    case 'AlgoReturn': return wrap(`<strong>return</strong> ${nodesToHtml(node.children)}`);
+    case 'AlgoFor':    return wrap(`<strong>for</strong> ${renderAttr(getAttrString(node.attributes, 'each') ?? '')} <strong>do</strong>`);
+    case 'AlgoWhile':  return wrap(`<strong>while</strong> ${renderAttr(getAttrString(node.attributes, 'cond') ?? '')} <strong>do</strong>`);
+    case 'AlgoIf':     return wrap(`<strong>if</strong> ${renderAttr(getAttrString(node.attributes, 'cond') ?? '')} <strong>then</strong>`);
+    case 'AlgoElseIf': return wrap(`<strong>else if</strong> ${renderAttr(getAttrString(node.attributes, 'cond') ?? '')} <strong>then</strong>`);
+    case 'AlgoElse':   return wrap(`<strong>else</strong>`);
+    default: return '';
+  }
+}
+
+// Pre-order depth-first traversal matching the CSS counter order.
+// Handles both mdxJsxFlowElement and mdxJsxTextElement (remark-mdx can produce
+// either depending on context), and recurses through wrapper nodes (e.g. paragraphs)
+// that may appear between JSX siblings when there are no blank lines.
+function collectAlgoLines(node, counter, algoId, items, renderAttr, nodesToHtml) {
+  for (const child of node.children ?? []) {
+    const isJsx = child.type === 'mdxJsxFlowElement' || child.type === 'mdxJsxTextElement';
+    if (isJsx && ALGO_LINE_COMPONENTS.has(child.name)) {
+      const lineNum = ++counter.n;
+      const id = getAttrString(child.attributes, 'id');
+      if (id) {
+        items.push({
+          id,
+          type: 'AlgoLine',
+          kind: 'algoline',
+          lineNumber: lineNum,
+          algoId,
+          contentHTML: makeLineHeaderHTML(child, renderAttr, nodesToHtml),
+        });
+      }
+    }
+    // Always recurse: algo components may be nested inside wrapper nodes or
+    // inside control-flow block bodies.
+    if (child.children?.length) {
+      collectAlgoLines(child, counter, algoId, items, renderAttr, nodesToHtml);
+    }
+  }
+}
 
 function collectItems(tree, katexMacros, environments = []) {
   const { nodesToHtml } = makeSerializer(katexMacros);
+  const renderAttr = (src) => (src ?? '').replace(/\$([^$]+)\$/g, (_, math) =>
+    katex.renderToString(math, { throwOnError: false, macros: katexMacros })
+  );
   const envMap = new Map(environments.map(e => [e.name, e]));
   const allNumbered = new Set([...NUMBERED_ENVS, ...envMap.keys()]);
   const items = [];
@@ -375,6 +467,10 @@ function collectItems(tree, katexMacros, environments = []) {
           title: caption ?? undefined,
           contentHTML: nodesToHtml(node.children),
         });
+        if (node.name === 'Algorithm') {
+          const lineCounter = { n: 0 };
+          collectAlgoLines(node, lineCounter, id, items, renderAttr, nodesToHtml);
+        }
       } else {
         const desc = envMap.get(node.name);
         if (desc?.kind === 'float') {
@@ -583,7 +679,39 @@ function buildRegistry(root, katexMacros = {}, environments = [], symbols = [], 
         seenIds.set(id, slug);
       }
     };
+    if (frontmatter.chapterId) {
+      checkDupe(frontmatter.chapterId);
+      registry[frontmatter.chapterId] = {
+        id: frontmatter.chapterId,
+        type: 'Chapter',
+        kind: 'chapter',
+        number: ch,
+        ...(frontmatter.title ? { title: frontmatter.title } : {}),
+        ...(frontmatter.label ? { label: frontmatter.label } : {}),
+        chapter: ch,
+        contentHTML: '',
+        href: `${base}/${slug}`,
+      };
+    }
     for (const item of items) {
+      if (item.type === 'AlgoLine') {
+        if (item.id) {
+          checkDupe(item.id);
+          const algo = item.algoId ? registry[item.algoId] : undefined;
+          registry[item.id] = {
+            id: item.id,
+            type: 'AlgoLine',
+            kind: 'algoline',
+            number: String(item.lineNumber),
+            algoNumber: algo?.number ?? '?',
+            ...(algo?.label ? { algoLabel: algo.label } : {}),
+            chapter: ch,
+            contentHTML: item.contentHTML,
+            href: `${base}/${slug}#${item.id}`,
+          };
+        }
+        continue;
+      }
       if (item.type === 'Section') {
         sectionCount++;
         checkDupe(item.id);

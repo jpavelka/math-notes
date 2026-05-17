@@ -13,6 +13,23 @@
   --border:       #e8e8e8;
   --code-bg:      #f3f4f6;
 
+  --link:         #2563eb;
+  --link-visited: #7c3aed;
+
+  /* DijkstraExample node colours */
+  --dijk-fill-selected: #f5c518;
+  --dijk-fill-updated:  #a8d8ea;
+  --dijk-fill-explored: #d8d8d8;
+  --dijk-dot-selected:  #b89200;
+  --dijk-dot-updated:   #5ba8c4;
+  --dijk-dot-explored:  #999999;
+  --dijk-path:          #2563eb;
+  --dijk-btn-shadow:    0 1px 3px rgba(0,0,0,0.15);
+  --btn-hover-filter:     brightness(1.07);
+  --dijk-hint:          #c2410c;
+  --dijk-hint-bg:       rgba(194,65,12,0.12);
+  --dijk-finish:        #16a34a;
+
   /* Math environment colours (light) */
   --env-theorem-border:    #1d4ed8; --env-theorem-bg:    #eff6ff;
   --env-definition-border: #15803d; --env-definition-bg: #f0fdf4;
@@ -20,6 +37,7 @@
   --env-corollary-border:  #1d4ed8; --env-corollary-bg:  #eff6ff;
   --env-remark-border:     #6b7280; --env-remark-bg:     #f9fafb;
   --env-proof-border:      #d1d5db;
+  --env-problem-border:    #7c3aed; --env-problem-bg:    #f5f3ff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -31,12 +49,29 @@
     --border:     #1f2937;
     --code-bg:    #1e2433;
 
+    --link:         #60a5fa;
+    --link-visited: #c084fc;
+
+    --dijk-fill-selected: #7a5c10;
+    --dijk-fill-updated:  #1a5068;
+    --dijk-fill-explored: #374151;
+    --dijk-dot-selected:  #d4a017;
+    --dijk-dot-updated:   #4a9ab8;
+    --dijk-dot-explored:  #6b7280;
+    --dijk-path:          #60a5fa;
+    --dijk-btn-shadow:    0 0 0 1px rgba(255,255,255,0.25), 0 2px 8px rgba(255,255,255,0.07);
+    --btn-hover-filter:     brightness(1.25);
+    --dijk-hint:          #fb923c;
+    --dijk-hint-bg:       rgba(251,146,60,0.15);
+    --dijk-finish:        #4ade80;
+
     --env-theorem-border:    #3b82f6; --env-theorem-bg:    rgba(59,130,246,.10);
     --env-definition-border: #22c55e; --env-definition-bg: rgba(34,197, 94,.10);
     --env-lemma-border:      #3b82f6; --env-lemma-bg:      rgba(59,130,246,.10);
     --env-corollary-border:  #3b82f6; --env-corollary-bg:  rgba(59,130,246,.10);
     --env-remark-border:     #6b7280; --env-remark-bg:     rgba(107,114,128,.07);
     --env-proof-border:      #374151;
+    --env-problem-border:    #a78bfa; --env-problem-bg:    rgba(124,58,237,.10);
   }
 }
 
@@ -48,12 +83,70 @@
   --border:     #1f2937;
   --code-bg:    #1e2433;
 
+  --link:         #60a5fa;
+  --link-visited: #c084fc;
+
+  --dijk-fill-selected: #7a5c10;
+  --dijk-fill-updated:  #1a5068;
+  --dijk-fill-explored: #374151;
+  --dijk-dot-selected:  #d4a017;
+  --dijk-dot-updated:   #4a9ab8;
+  --dijk-dot-explored:  #6b7280;
+  --dijk-path:          #60a5fa;
+  --dijk-btn-shadow:    0 0 0 1px rgba(255,255,255,0.25), 0 2px 8px rgba(255,255,255,0.07);
+  --btn-hover-filter:     brightness(1.25);
+  --dijk-finish:        #4ade80;
+
   --env-theorem-border:    #3b82f6; --env-theorem-bg:    rgba(59,130,246,.10);
   --env-definition-border: #22c55e; --env-definition-bg: rgba(34,197, 94,.10);
   --env-lemma-border:      #3b82f6; --env-lemma-bg:      rgba(59,130,246,.10);
   --env-corollary-border:  #3b82f6; --env-corollary-bg:  rgba(59,130,246,.10);
   --env-remark-border:     #6b7280; --env-remark-bg:     rgba(107,114,128,.07);
   --env-proof-border:      #374151;
+  --env-problem-border:    #a78bfa; --env-problem-bg:    rgba(124,58,237,.10);
+}
+
+/* ── Default button style ── */
+button {
+  padding: 0.3rem 0.9rem;
+  border: 1px solid var(--text-muted);
+  border-radius: 999px;
+  background: var(--code-bg);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: transform 0.15s ease, filter 0.12s ease;
+}
+button:hover:not(:disabled) {
+  filter: var(--btn-hover-filter);
+}
+button:active:not(:disabled) {
+  transform: scale(0.97);
+  filter: brightness(0.95);
+  transition: none;
+}
+
+/* ── Animations ── */
+@keyframes dijk-shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-5px); }
+  50%       { transform: translateX(5px); }
+  80%       { transform: translateX(-3px); }
+}
+@keyframes dijk-hint-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes dijk-value-pop {
+  0%   { transform: scale(1.35); }
+  60%  { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+@keyframes dijk-finish-glow {
+  0%   { box-shadow: 0 0 0 0   rgba(34, 197, 94, 0.0); }
+  40%  { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.4); }
+  100% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18); }
 }
 
 /* ── Base ── */
@@ -123,6 +216,20 @@ body {
 }
 
 .sidebar-nav > ul > li { margin-bottom: 0.4rem; }
+
+.nav-appendix-divider {
+  margin-top: 0.75rem;
+  margin-bottom: 0.4rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+  font-family: system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  list-style: none;
+}
 
 .chapter-row {
   display: flex;
@@ -289,7 +396,7 @@ body {
   gap: 0.25rem;
 }
 
-:not(.is-open) > .sidebar-header > .sidebar-controls {
+:not(.is-open) > .sidebar-top > .sidebar-header > .sidebar-controls {
   margin-top: 0.25rem;
   border-top: 1px solid var(--border);
   padding-top: 0.5rem;
@@ -732,6 +839,9 @@ main[data-chapter] h3::before {
 
 .content p { margin: 1rem 0; }
 
+.content a:not(.ref-link)         { color: var(--link); text-underline-offset: 2px; }
+.content a:not(.ref-link):visited { color: var(--link-visited); }
+
 /* ── KaTeX ── */
 
 .katex-display {
@@ -886,16 +996,37 @@ main[data-chapter] h3::before {
   }
 
   .sidebar.is-open {
-    display: block;
+    display: flex;
+    flex-direction: column;
     position: fixed;
     top: var(--mobile-header-height, 49px);
     left: 0;
     right: 0;
-    max-height: calc(50vh - var(--mobile-header-height, 49px));
-    overflow-y: auto;
-    padding: 1rem 1.25rem;
+    max-height: calc(75vh - var(--mobile-header-height, 49px));
+    overflow: hidden;
+    padding: 0;
     z-index: 19;
     border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar.is-open .sidebar-top {
+    padding: 0.75rem 1.25rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .sidebar.is-open .sidebar-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0.75rem 1.25rem 1rem;
+    -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 4rem), transparent 100%);
+    mask-image: linear-gradient(to bottom, black calc(100% - 4rem), transparent 100%);
+  }
+
+  .sidebar.is-open .sidebar-scroll.nav-at-end {
+    -webkit-mask-image: none;
+    mask-image: none;
   }
 
   /* Title is in mobile-header; show controls only */

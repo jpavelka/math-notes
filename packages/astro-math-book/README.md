@@ -279,7 +279,7 @@ export const Listing = createFloatEnv('Listing', { captionPosition: 'top' });
 | `captionPosition` | `'top' \| 'bottom'` | `'bottom'` | Whether the caption appears above or below the content |
 | `cssPrefix` | `string` | `math-{type.toLowerCase()}` | CSS class prefix; generates `{prefix}`, `{prefix}-caption`, `{prefix}-content` |
 
-The component accepts `id`, `caption`, `number`, `invertInDark`, and `children`. Register it with `kind: 'float'` so the registry uses `caption` (not `title`) for tooltip extraction and `<Ref>` renders caption-style labels:
+The component accepts `id`, `caption`, `captionNode`, `number`, `invertInDark`, and `children`. For captions that need JSX (e.g. a `<Ref>`), use the `captionNode` prop — see [Captions with cross-references](#captions-with-cross-references). Register it with `kind: 'float'` so the registry uses `caption` (not `title`) for tooltip extraction and `<Ref>` renders caption-style labels:
 
 ```js
 environments: [{ name: 'Listing', kind: 'float' }]
@@ -456,6 +456,24 @@ import { Figure, Table } from 'astro-math-book/components';
 ```
 
 Both components are numbered automatically and support `<Ref>` links.
+
+### Captions with cross-references
+
+The `caption` prop accepts a plain string (with `$...$` inline math). When the caption needs JSX — for example a `<Ref>` cross-reference — use the `captionNode` prop instead. Astro pre-renders children of server-rendered React components before the parent runs, so child-based approaches cannot work; the `captionNode` prop is passed as an Astro JSX descriptor and converted to a React element at render time.
+
+`captionNode` works on `<Figure>`, `<Table>`, `<Algorithm>`, and any custom `createFloatEnv` component.
+
+```mdx
+import { Figure, Table, Ref } from 'astro-math-book/components';
+
+<Figure id="fig:example2" captionNode={<>A continuation of <Ref id="fig:example" />.</>}>
+  <img src="/images/example2.svg" alt="..." />
+</Figure>
+
+<Table id="tab:comparison" captionNode={<>Comparison with the values from <Ref id="tab:baseline" />.</>}>
+  | ... |
+</Table>
+```
 
 ### Dark mode and figures
 
@@ -746,6 +764,25 @@ On hover (desktop) the content appears in a tooltip; on touch devices it opens i
 
 The `<FootnoteBody>` block can appear anywhere after its corresponding `<Footnote />` marker — it is invisible in the normal page flow.
 
+### Matching by id
+
+When several footnotes appear close together it can be hard to tell which `<FootnoteBody>` belongs to which `<Footnote />` by position alone. Give both the same `id` string and the plugin will pair them explicitly, regardless of the order the bodies appear in the file:
+
+```mdx
+The primal problem has a finite optimum<Footnote id="fn:primal"/> and so
+does the dual<Footnote id="fn:dual"/>.
+
+<FootnoteBody id="fn:dual">
+  The dual bound follows from weak duality applied to any feasible primal solution.
+</FootnoteBody>
+
+<FootnoteBody id="fn:primal">
+  Finiteness requires the feasible region to be non-empty and bounded below.
+</FootnoteBody>
+```
+
+Both components accept an optional `id` prop. Markers without an `id` are still paired with bodies without an `id` in document order as usual. The `id` is local to the file — the same string can be reused in a different chapter without conflict.
+
 ---
 
 ## Styles
@@ -787,6 +824,8 @@ The combined PDF includes:
 - **Resolved internal links** — all `<Ref>` and cross-reference links become internal GoTo destinations. Within-chapter links navigate within the page; cross-chapter links jump to the correct page in the merged document.
 
 In individual chapter PDFs, within-chapter links work natively. Cross-chapter links (which cannot navigate to pages not in that file) are removed rather than left as dead browser-opening URIs.
+
+The entire `pdfs/` directory is deleted and recreated at the start of each run, so any files you have placed there manually will be lost.
 
 The `pdfs/` directory is listed in `.gitignore` — generated PDFs are not committed to the repository.
 
@@ -910,6 +949,25 @@ The mechanism is pure CSS — no JavaScript involved:
 ```
 
 The same pattern works inside any `createFloatEnv` component because they all use a `{cssPrefix}-content` wrapper div whose class the `:has()` selector targets.
+
+### PrintExtra
+
+`<PrintExtra>` is the complement to `<PrintFallback>`: the wrapped content is hidden on screen and shown only when printing, but **without hiding any sibling elements**. Use it to append print-only content alongside the existing content rather than replacing it.
+
+```mdx
+import { PrintExtra } from 'astro-math-book/components';
+
+<Figure id="fig:animation" caption="Convergence of the sequence.">
+  <video src="/anim.mp4" autoplay loop muted />
+  <PrintExtra>
+    <img src="/anim-still.png" alt="Final frame showing convergence" />
+  </PrintExtra>
+</Figure>
+```
+
+On screen only the video is shown. On print both the video element (hidden by the browser's default print behaviour for media) and the still image appear — or more precisely, the still image is added alongside whatever the browser chooses to render from the siblings.
+
+For a clean swap (show one thing on screen, a different thing on print), use `<PrintFallback>` instead.
 
 ---
 

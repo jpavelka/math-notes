@@ -85,7 +85,7 @@ export function mathBook(options = {}) {
             mdx({
               remarkPlugins: [
                 remarkSectionRefs,
-                remarkHeadingTexts,
+                [remarkHeadingTexts, { getRegistryPath }],
                 remarkMath,
                 [remarkEquations, { getRegistryPath }],
                 [remarkNumberEnvs, { getRegistryPath, getChaptersDir, numberedEnvironments, environments }],

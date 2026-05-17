@@ -31,7 +31,7 @@ function numberAttr(num) {
  * Accepts { getRegistryPath, numberedEnvironments, environments }.
  */
 export function remarkNumberEnvs({ getRegistryPath, getChaptersDir, numberedEnvironments, environments = [] } = {}) {
-  const DEFAULT = ['Theorem', 'Definition', 'Lemma', 'Corollary', 'Remark', 'Figure', 'Table', 'YouTubeEmbed', 'Algorithm'];
+  const DEFAULT = ['Theorem', 'Definition', 'Lemma', 'Corollary', 'Remark', 'Figure', 'Table', 'YouTubeEmbed', 'Algorithm', 'Problem'];
   const NUMBERED = new Set([
     ...(numberedEnvironments ?? DEFAULT),
     ...environments.map(e => e.name),

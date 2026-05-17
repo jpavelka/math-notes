@@ -1,8 +1,9 @@
 import puppeteer from 'puppeteer';
 import { PDFDocument, PDFName, PDFNumber, PDFString, PDFRef, PDFDict, PDFArray, StandardFonts, rgb } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
 import { spawn, execSync } from 'child_process';
 import { existsSync } from 'fs';
-import { readdir, mkdir, symlink, readFile, writeFile } from 'fs/promises';
+import { readdir, mkdir, rm, symlink, readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
 
@@ -185,7 +186,7 @@ function buildOutline(
 
     entries.forEach((entry, i) => {
       const num = numbering !== null ? `${numbering}.${i + 1}` : null;
-      const displayTitle = num !== null ? `${num}  ${entry.title}` : entry.title;
+      const displayTitle = num !== null ? `${num}  ${latexToUnicode(entry.title)}` : latexToUnicode(entry.title);
 
       const pageRef = pages[Math.min(entry.pageIndex, pages.length - 1)].ref;
       const destArr: unknown[] = [pageRef, PDFName.of('XYZ'),
@@ -194,14 +195,15 @@ function buildOutline(
         entry.zoom !== null ? PDFNumber.of(entry.zoom) : null,
       ];
       const dict: Record<string, unknown> = {
-        Title: PDFString.of(displayTitle),
+        Title: unicodePdfString(displayTitle),
         Parent: parentRef,
         Dest: ctx.obj(destArr),
       };
       if (i > 0) dict.Prev = refs[i - 1];
       if (i < refs.length - 1) dict.Next = refs[i + 1];
 
-      if (entry.children.length > 0) {
+      const isNotation = /^notation\b/i.test(entry.title.trim());
+      if (entry.children.length > 0 && !isNotation) {
         const { first, last } = writeItems(entry.children, refs[i], num);
         dict.First = first;
         dict.Last = last;
@@ -231,9 +233,9 @@ function buildOutline(
       entry.y !== null ? PDFNumber.of(entry.y) : null,
       entry.zoom !== null ? PDFNumber.of(entry.zoom) : null,
     ];
-    const displayTitle = chapterNum !== null ? `${chapterNum}  ${entry.title}` : entry.title;
+    const displayTitle = chapterNum !== null ? `${chapterNum}  ${latexToUnicode(entry.title)}` : latexToUnicode(entry.title);
     const dict: Record<string, unknown> = {
-      Title: PDFString.of(displayTitle),
+      Title: unicodePdfString(displayTitle),
       Parent: outlinesRef,
       Dest: ctx.obj(destArr),
     };
@@ -242,8 +244,10 @@ function buildOutline(
     if (prevNonEmpty.length > 0) dict.Prev = prevNonEmpty[prevNonEmpty.length - 1];
     if (nextNonEmpty.length > 0) dict.Next = nextNonEmpty[0];
 
-    // Children = the H2 entries (entry.children), already offset by applyOffset above
-    if (entry.children.length > 0) {
+    // Children = the H2 entries (entry.children), already offset by applyOffset above.
+    // Suppress subsections for notation-like chapters in the backmatter (non-numeric chapter numbers).
+    const isNotationChapter = !/^\d+$/.test(chapterNum ?? '') && /^notation\b/i.test(entry.title.trim());
+    if (entry.children.length > 0 && !isNotationChapter) {
       const { first: fc, last: lc } = writeItems(entry.children, chRef, chapterNum);
       dict.First = fc;
       dict.Last = lc;
@@ -416,14 +420,115 @@ async function readBookTitle(root: string): Promise<string> {
   return m?.[1] ?? 'book';
 }
 
+const LATEX_CMD_MAP: Record<string, string> = {
+  // Greek lowercase
+  alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ',
+  epsilon: 'ε', varepsilon: 'ε', zeta: 'ζ', eta: 'η',
+  theta: 'θ', vartheta: 'ϑ', iota: 'ι', kappa: 'κ',
+  lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ',
+  pi: 'π', varpi: 'ϖ', rho: 'ρ', varrho: 'ϱ',
+  sigma: 'σ', varsigma: 'ς', tau: 'τ', upsilon: 'υ',
+  phi: 'φ', varphi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω',
+  // Greek uppercase
+  Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ',
+  Xi: 'Ξ', Pi: 'Π', Sigma: 'Σ', Upsilon: 'Υ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω',
+  // Relations
+  leq: '≤', le: '≤', geq: '≥', ge: '≥', neq: '≠', ne: '≠',
+  approx: '≈', equiv: '≡', sim: '∼', simeq: '≃', cong: '≅',
+  subset: '⊂', subseteq: '⊆', supset: '⊃', supseteq: '⊇',
+  in: '∈', notin: '∉', ni: '∋', ll: '≪', gg: '≫',
+  prec: '≺', preceq: '⪯', succ: '≻', succeq: '⪰',
+  // Operators / logic
+  cup: '∪', cap: '∩', setminus: '∖', times: '×',
+  cdot: '·', circ: '∘', pm: '±', mp: '∓', div: '÷',
+  oplus: '⊕', otimes: '⊗',
+  wedge: '∧', land: '∧', vee: '∨', lor: '∨', lnot: '¬', neg: '¬',
+  // Misc
+  infty: '∞', partial: '∂', nabla: '∇',
+  forall: '∀', exists: '∃', nexists: '∄',
+  emptyset: '∅', varnothing: '∅',
+  ldots: '…', cdots: '⋯', dots: '…', vdots: '⋮', ddots: '⋱',
+  mid: '∣', nmid: '∤', perp: '⊥',
+  int: '∫', sum: '∑', prod: '∏',
+  // Arrows
+  to: '→', gets: '←',
+  rightarrow: '→', leftarrow: '←', leftrightarrow: '↔',
+  Rightarrow: '⇒', Leftarrow: '⇐', Leftrightarrow: '⇔',
+  mapsto: '↦', implies: '⟹', iff: '⟺',
+};
+
+// Convert LaTeX math markup in a string to Unicode equivalents.
+// Designed for section/chapter headings — handles common symbols and strips
+// unknown commands gracefully rather than leaving raw markup.
+function latexToUnicode(text: string): string {
+  let s = text;
+  // Strip display math (shouldn't appear in headings, but be safe)
+  s = s.replace(/\$\$[\s\S]*?\$\$/g, '');
+  // Strip inline math delimiters, keep content
+  s = s.replace(/\$(.*?)\$/gs, (_, inner) => inner);
+  // \not\in → ∉ etc. (handle negation before generic pass)
+  s = s.replace(/\\not\\in\b/g, '∉').replace(/\\not\\subset\b/g, '⊄').replace(/\\not\\subseteq\b/g, '⊄');
+  // \mathbb{X} → blackboard bold
+  const BB: Record<string, string> = { R: 'ℝ', Z: 'ℤ', N: 'ℕ', Q: 'ℚ', C: 'ℂ', F: '𝔽', P: 'ℙ', E: '𝔼' };
+  s = s.replace(/\\mathbb\{([A-Z])\}/g, (_, c) => BB[c] ?? c);
+  // Math font wrappers — strip command, keep content
+  s = s.replace(/\\math(?:cal|bf|rm|it|sf|tt|frak|scr)\{([^}]*)\}/g, '$1');
+  s = s.replace(/\\(?:text|operatorname|textbf|textit|textrm)\{([^}]*)\}/g, '$1');
+  // Accent/decoration commands — strip command, keep content
+  s = s.replace(/\\(?:overline|underline|hat|tilde|bar|dot|ddot|vec|widehat|widetilde)\{([^}]*)\}/g, '$1');
+  // \frac{a}{b} → a/b
+  s = s.replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '$1/$2');
+  // \sqrt{x} → √x
+  s = s.replace(/\\sqrt\{([^}]*)\}/g, '√$1');
+  // Known commands → Unicode; unknown → removed
+  s = s.replace(/\\([a-zA-Z]+)/g, (_, cmd) => LATEX_CMD_MAP[cmd] ?? '');
+  // Subscripts: single digit/letter → Unicode sub, multi-char → _content
+  s = s.replace(/_{(\d)}/g, (_, d) => '₀₁₂₃₄₅₆₇₈₉'[Number(d)]);
+  s = s.replace(/_(\d)/g,   (_, d) => '₀₁₂₃₄₅₆₇₈₉'[Number(d)]);
+  s = s.replace(/_{([^}]*)}/g, '_$1');
+  // Superscripts: single digit → Unicode sup, multi-char → ^content
+  s = s.replace(/\^{(\d)}/g, (_, d) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[Number(d)]);
+  s = s.replace(/\^(\d)/g,   (_, d) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[Number(d)]);
+  s = s.replace(/\^{([^}]*)}/g, '^$1');
+  // Strip remaining backslash sequences and bare braces
+  s = s.replace(/\\./g, '').replace(/[{}]/g, '');
+  // Normalise whitespace
+  s = s.replace(/\s+/g, ' ').trim();
+  return s;
+}
+
+// Create a PDFString that survives non-ASCII characters by encoding as UTF-16BE
+// with a BOM. copyStringIntoBuffer writes charCodeAt() per char, so a JS string
+// whose char codes are the UTF-16BE byte sequence produces the correct PDF bytes.
+function unicodePdfString(text: string): PDFString {
+  if (!/[^\x20-\x7e]/.test(text)) return PDFString.of(text);
+  const bytes: number[] = [0xFE, 0xFF]; // UTF-16BE BOM
+  for (let i = 0; i < text.length; ) {
+    const cp = text.codePointAt(i)!;
+    if (cp < 0x10000) {
+      bytes.push(cp >> 8, cp & 0xFF);
+      i += 1;
+    } else {
+      const hi = Math.floor((cp - 0x10000) / 0x400) + 0xD800;
+      const lo = ((cp - 0x10000) % 0x400) + 0xDC00;
+      bytes.push(hi >> 8, hi & 0xFF, lo >> 8, lo & 0xFF);
+      i += 2;
+    }
+  }
+  return PDFString.of(String.fromCharCode(...bytes));
+}
+
 // Replace characters Helvetica (Windows-1252) cannot render cleanly.
+// NFKD normalization maps mathematical Unicode variants to ASCII base letters
+// before the non-ASCII strip (e.g. 𝒫→P, 𝒩𝒫→NP, ℝ→R).
 function sanitizeText(text: string): string {
   return text
+    .normalize("NFKD")
     .replace(//g, '–')    // Chrome PDF misencodes en-dash as 0x13
     .replace(/[–—]/g, '-') // en/em dash
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')
-    .replace(/[^\x20-\x7e]/g, '');   // drop remaining non-ASCII
+    ; // Non-ASCII preserved — Liberation Sans covers Greek and common math symbols.
 }
 
 // Insert a Table of Contents before the first content page.
@@ -437,13 +542,27 @@ async function insertTableOfContents(
     pageIndex: number;  // 0-based in merged doc *before* TOC insertion
     level: 0 | 1 | 2;
     pageRef: PDFRef;    // object ref — stays valid after page insertion
+    pageLabel?: string; // overrides the computed Arabic page label
+    isSeparator?: boolean;
   }
 
   const docPages = doc.getPages();
   const items: TocItem[] = [];
 
+  let seenNumericChapter = false;
+  let appendixSeparatorInserted = false;
+
   for (const { entries, pageOffset, chapterNum } of chapterOutlines) {
     if (entries.length === 0) continue;
+
+    const isNumeric = chapterNum !== null && /^\d+$/.test(chapterNum);
+    const isAppendix = chapterNum !== null && /^[A-Z]$/.test(chapterNum);
+    if (isNumeric) seenNumericChapter = true;
+    if (isAppendix && seenNumericChapter && !appendixSeparatorInserted) {
+      items.push({ title: 'Appendices', pageIndex: 0, level: 0, pageRef: null as unknown as PDFRef, isSeparator: true });
+      appendixSeparatorInserted = true;
+    }
+
     const top = entries[0];
     const chPageIdx = top.pageIndex + pageOffset;
     const chTitle = chapterNum
@@ -451,18 +570,24 @@ async function insertTableOfContents(
       : sanitizeText(top.title);
     items.push({ title: chTitle, pageIndex: chPageIdx, level: 0, pageRef: docPages[chPageIdx].ref });
 
+    // Suppress subsections for notation-like chapters in the backmatter (non-numeric chapter numbers)
+    const isNotationChapter = !isNumeric && /^notation\b/i.test(top.title.trim());
+    if (isNotationChapter) continue;
+
     top.children.forEach((sec, si) => {
       const secNum = chapterNum ? `${chapterNum}.${si + 1}` : null;
       const secTitle = secNum ? `${secNum}  ${sanitizeText(sec.title)}` : sanitizeText(sec.title);
       const secIdx = sec.pageIndex + pageOffset;
       items.push({ title: secTitle, pageIndex: secIdx, level: 1, pageRef: docPages[secIdx].ref });
 
-      sec.children.forEach((sub, ssi) => {
-        const subNum = secNum ? `${secNum}.${ssi + 1}` : null;
-        const subTitle = subNum ? `${subNum}  ${sanitizeText(sub.title)}` : sanitizeText(sub.title);
-        const subIdx = sub.pageIndex + pageOffset;
-        items.push({ title: subTitle, pageIndex: subIdx, level: 2, pageRef: docPages[subIdx].ref });
-      });
+      if (!/^notation\b/i.test(sec.title.trim())) {
+        sec.children.forEach((sub, ssi) => {
+          const subNum = secNum ? `${secNum}.${ssi + 1}` : null;
+          const subTitle = subNum ? `${subNum}  ${sanitizeText(sub.title)}` : sanitizeText(sub.title);
+          const subIdx = sub.pageIndex + pageOffset;
+          items.push({ title: subTitle, pageIndex: subIdx, level: 2, pageRef: docPages[subIdx].ref });
+        });
+      }
     });
   }
 
@@ -480,13 +605,20 @@ async function insertTableOfContents(
     { fontSize: 10, lineH: 15, indent: 20, bold: false },  // section
     { fontSize: 10, lineH: 14, indent: 40, bold: false },  // subsection
   ] as const;
-  const CH_GAP = 8;  // extra vertical gap before each chapter entry
+  const CH_GAP = 8;       // extra vertical gap before each chapter entry
+  const SEP_EXTRA_GAP = 8; // additional gap above the "Appendices" separator label
 
   // Dry-run layout to determine page count (needed before drawing, to calculate
   // the final "content page number" = pageIndex + tocPageCount + 1).
   function countTocPages(): number {
     let y = FIRST_Y, pages = 1;
     items.forEach((item, idx) => {
+      if (item.isSeparator) {
+        if (idx > 0) y -= CH_GAP;
+        y -= SEP_EXTRA_GAP + CFG[0].lineH;
+        if (y < BOT_Y) { pages++; y = CONT_Y - (SEP_EXTRA_GAP + CFG[0].lineH); }
+        return;
+      }
       if (item.level === 0 && idx > 0) y -= CH_GAP;
       y -= CFG[item.level].lineH;
       if (y < BOT_Y) { pages++; y = CONT_Y - CFG[item.level].lineH; }
@@ -499,9 +631,51 @@ async function insertTableOfContents(
   // Insert blank pages at the front of the document
   for (let i = 0; i < tocPageCount; i++) doc.insertPage(i, [PW, PH]);
 
-  // Embed fonts (Helvetica is a standard PDF font — no file bytes added)
-  const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
-  const regFont  = await doc.embedFont(StandardFonts.Helvetica);
+  // Prepend a "Contents" bookmark to the outline built by buildOutline
+  const tocPage0Ref = doc.getPage(0).ref;
+  const bCtx = doc.context;
+  const outlinesRawRef = doc.catalog.get(PDFName.of('Outlines'));
+  const outlinesObj = resolveRef(bCtx, outlinesRawRef);
+  if (outlinesObj instanceof PDFDict && outlinesRawRef instanceof PDFRef) {
+    const contentsBookmarkRef = bCtx.nextRef();
+    const oldFirst = outlinesObj.get(PDFName.of('First'));
+    const dict: Record<string, unknown> = {
+      Title: PDFString.of('Contents'),
+      Parent: outlinesRawRef,
+      Dest: bCtx.obj([tocPage0Ref, PDFName.of('XYZ'), null, null, null] as any),
+      Count: PDFNumber.of(0),
+    };
+    if (oldFirst) dict.Next = oldFirst;
+    bCtx.assign(contentsBookmarkRef, bCtx.obj(dict as any));
+    if (oldFirst) {
+      const oldFirstDict = resolveRef(bCtx, oldFirst);
+      if (oldFirstDict instanceof PDFDict) oldFirstDict.set(PDFName.of('Prev'), contentsBookmarkRef);
+    }
+    outlinesObj.set(PDFName.of('First'), contentsBookmarkRef);
+    if (!oldFirst) outlinesObj.set(PDFName.of('Last'), contentsBookmarkRef);
+    const prevCount = (outlinesObj.get(PDFName.of('Count')) as any)?.asNumber?.() ?? 0;
+    outlinesObj.set(PDFName.of('Count'), PDFNumber.of(prevCount + 1));
+  }
+
+  // Embed Liberation Sans (metrically identical to Helvetica, but with Unicode coverage for Greek etc.)
+  // Falls back to built-in Helvetica if the TTF files are unavailable.
+  doc.registerFontkit(fontkit);
+  const fontsDir = join(homedir(), '.local/share/fonts');
+  let boldFont: Awaited<ReturnType<typeof doc.embedFont>>;
+  let regFont:  Awaited<ReturnType<typeof doc.embedFont>>;
+  try {
+    const [boldBytes, regBytes] = await Promise.all([
+      readFile(join(fontsDir, 'LiberationSans-Bold.ttf')),
+      readFile(join(fontsDir, 'LiberationSans-Regular.ttf')),
+    ]);
+    [boldFont, regFont] = await Promise.all([
+      doc.embedFont(boldBytes, { subset: true }),
+      doc.embedFont(regBytes,  { subset: true }),
+    ]);
+  } catch {
+    boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
+    regFont  = await doc.embedFont(StandardFonts.Helvetica);
+  }
 
   let tocPgIdx = 0;
   let pg = doc.getPage(tocPgIdx);
@@ -513,6 +687,19 @@ async function insertTableOfContents(
 
   for (let idx = 0; idx < items.length; idx++) {
     const item = items[idx];
+
+    if (item.isSeparator) {
+      if (idx > 0) y -= CH_GAP;
+      if (y - SEP_EXTRA_GAP - CFG[0].lineH < BOT_Y) {
+        tocPgIdx++;
+        pg = doc.getPage(tocPgIdx);
+        y = CONT_Y;
+      }
+      y -= SEP_EXTRA_GAP + CFG[0].lineH;
+      pg.drawText(item.title, { x: ML, y, size: CFG[0].fontSize, font: boldFont, color: rgb(0.5, 0.5, 0.5) });
+      continue;
+    }
+
     const cfg = CFG[item.level];
     const font = cfg.bold ? boldFont : regFont;
 
@@ -529,7 +716,7 @@ async function insertTableOfContents(
     const rightX = PW - MR;
 
     // Page number label: content pages are numbered starting at tocPageCount+1
-    const pgLabel = String(item.pageIndex + tocPageCount + 1);
+    const pgLabel = item.pageLabel ?? String(item.pageIndex + tocPageCount + 1);
     const pgLabelW = font.widthOfTextAtSize(pgLabel, cfg.fontSize);
     const pgLabelX = rightX - pgLabelW;
 
@@ -616,14 +803,109 @@ async function addPageNumbers(doc: PDFDocument, tocPageCount = 0) {
   doc.catalog.set(PDFName.of('PageLabels'), labelsRef);
 }
 
+// ─── heading text extraction ──────────────────────────────────────────────
+
+async function loadRegistry(root: string): Promise<Record<string, any>> {
+  const src = await readFile(join(root, '.astro/registry.json'), 'utf8').catch(() => '{}');
+  try { return JSON.parse(src); } catch { return {}; }
+}
+
+function refLabel(entry: any, altLabel?: string): string {
+  if (altLabel) return altLabel;
+  const { kind, type, number, label } = entry;
+  const isEquation = kind === 'equation' || (kind == null && type === 'Equation');
+  const isSection  = kind === 'section'  || (kind == null && type === 'Section');
+  const isChapter  = kind === 'chapter';
+  if (isEquation) return `(${label ?? number})`;
+  if (isSection)  return `§${number}`;
+  if (isChapter)  return label ?? (typeof number === 'string' ? `Appendix ${number}` : `Chapter ${number}`);
+  return label ?? `${type} ${number}`;
+}
+
+// Read katex-macros.ts and return a map of { '\cmd': 'expansion' }.
+// The file uses JS string literals so `\\P` on disk = the command \P.
+async function loadKatexMacros(root: string): Promise<Record<string, string>> {
+  const src = await readFile(join(root, 'katex-macros.ts'), 'utf8').catch(() => '');
+  const macros: Record<string, string> = {};
+  const re = /['"]([^'"]+)['"]\s*:\s*['"]([^'"]*)['"]/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src)) !== null) {
+    const key = m[1].replace(/\\\\/g, '\\');
+    const val = m[2].replace(/\\\\/g, '\\');
+    if (key.startsWith('\\')) macros[key] = val;
+  }
+  return macros;
+}
+
+// Expand KaTeX macros (no-arg and single-arg) in a string.
+// Processes longest commands first to avoid prefix collisions (\NP before \P).
+function expandMacros(text: string, macros: Record<string, string>): string {
+  let s = text;
+  const sorted = Object.entries(macros).sort((a, b) => b[0].length - a[0].length);
+  for (const [cmd, expansion] of sorted) {
+    const name = cmd.slice(1);
+    if (expansion.includes('#1')) {
+      s = s.replace(new RegExp(`\\\\${name}\\{([^}]*)\\}`, 'g'),
+        (_, arg) => expansion.replace(/#1/g, arg));
+    } else {
+      s = s.replace(new RegExp(`\\\\${name}(?![a-zA-Z])`, 'g'), expansion);
+    }
+  }
+  return s;
+}
+
+// Parse heading texts from an MDX source file in document order.
+// Expands macros and converts LaTeX to Unicode so the results are suitable
+// for both PDF bookmarks (unicodePdfString) and the TOC page (sanitizeText).
+async function mdxHeadingTexts(
+  filePath: string,
+  macros: Record<string, string>,
+  registry: Record<string, any>,
+): Promise<string[]> {
+  const src = await readFile(filePath, 'utf8').catch(() => '');
+  const body = src.replace(/^---[\s\S]*?\n---\n?/, '');
+  const texts: string[] = [];
+  for (const line of body.split('\n')) {
+    const m = line.match(/^#{1,6}\s+(.+)/);
+    if (!m) continue;
+    let text = m[1]
+      .replace(/\{\/\*.*?\*\/\}/g, '')  // strip {/* sec:id */} anchors
+      .replace(/<Ref\s+[^>]*\/>/g, (tag) => {
+        const idM  = tag.match(/\bid=["']([^"']+)["']/);
+        const altM = tag.match(/\baltLabel=["']([^"']+)["']/);
+        const entry = idM ? registry[idM[1]] : null;
+        return entry ? refLabel(entry, altM?.[1]) : '';
+      })
+      .trim();
+    text = expandMacros(text, macros);
+    text = latexToUnicode(text);
+    texts.push(text);
+  }
+  return texts;
+}
+
+// Overwrite outline entry titles with parsed MDX heading texts in depth-first
+// (document) order, which matches the order Chrome uses when building its outline.
+function patchEntryTitles(entries: OutlineEntry[], texts: string[], idx = { n: 0 }): void {
+  for (const entry of entries) {
+    if (idx.n < texts.length) entry.title = texts[idx.n++];
+    patchEntryTitles(entry.children, texts, idx);
+  }
+}
+
 // ─── main ──────────────────────────────────────────────────────────────────
 
 async function main() {
+  await rm(OUT, { recursive: true, force: true });
   await Promise.all([mkdir(CHAPTERS_OUT, { recursive: true }), ensureFonts()]);
 
   const [bookTitle, chapters] = await Promise.all([
     readBookTitle(ROOT),
     collectChapters(join(ROOT, 'content')),
+  ]);
+  const [macros, registry] = await Promise.all([
+    loadKatexMacros(ROOT),
+    loadRegistry(ROOT),
   ]);
 
   console.log('Starting preview server…');
@@ -695,6 +977,13 @@ async function main() {
 
         // Extract outline before copying (page refs belong to this doc's context)
         const entries = extractOutlineFromDoc(doc);
+        // Chrome can't extract text from aria-hidden KaTeX spans, so replace
+        // the titles with heading text parsed directly from the MDX source.
+        // The chapter H1 comes from frontmatter (rendered by the layout), so
+        // prepend it manually — it won't appear as a # heading in the MDX body.
+        const mdxTexts = await mdxHeadingTexts(join(ROOT, 'content', `${ch.slug}.mdx`), macros, registry);
+        const h1 = latexToUnicode(expandMacros(ch.title, macros));
+        patchEntryTitles(entries, [h1, ...mdxTexts]);
         chapterOutlines.push({ entries, pageOffset, chapterNum: ch.chapterNum });
 
         const copied = await merged.copyPages(doc, doc.getPageIndices());

@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import { renderInlineMath } from './renderInlineMath';
+import { fromAstroJSX } from './createFloatEnv';
 
 // ── Internal primitives ───────────────────────────────────────────────────────
 
-function Line({ children }: { children: ReactNode }) {
+function Line({ id, children }: { id?: string; children: ReactNode }) {
   return (
-    <div className="algo-line">
+    <div className="algo-line" id={id}>
       <span className="algo-num" />
       <span className="algo-body">{children}</span>
     </div>
@@ -26,54 +27,54 @@ function CondSpan({ src }: { src: string }) {
 
 // ── Public components ─────────────────────────────────────────────────────────
 
-export function AlgoStep({ children }: { children: ReactNode }) {
-  return <Line>{children}</Line>;
+export function AlgoStep({ id, children }: { id?: string; children: ReactNode }) {
+  return <Line id={id}>{children}</Line>;
 }
 
-export function AlgoReturn({ children }: { children: ReactNode }) {
-  return <Line><Kw>return</Kw> {children}</Line>;
+export function AlgoReturn({ id, children }: { id?: string; children: ReactNode }) {
+  return <Line id={id}><Kw>return</Kw> {children}</Line>;
 }
 
-export function AlgoFor({ each, children }: { each: string; children?: ReactNode }) {
+export function AlgoFor({ each, note, id, children }: { each: string; note?: ReactNode; id?: string; children?: ReactNode }) {
   return (
     <>
-      <Line><Kw>for</Kw> <CondSpan src={each} /> <Kw>do</Kw></Line>
+      <Line id={id}><Kw>for</Kw> <CondSpan src={each} />{fromAstroJSX(note)} <Kw>do</Kw></Line>
       {children && <Block>{children}</Block>}
     </>
   );
 }
 
-export function AlgoWhile({ cond, children }: { cond: string; children?: ReactNode }) {
+export function AlgoWhile({ cond, note, id, children }: { cond: string; note?: ReactNode; id?: string; children?: ReactNode }) {
   return (
     <>
-      <Line><Kw>while</Kw> <CondSpan src={cond} /> <Kw>do</Kw></Line>
+      <Line id={id}><Kw>while</Kw> <CondSpan src={cond} />{fromAstroJSX(note)} <Kw>do</Kw></Line>
       {children && <Block>{children}</Block>}
     </>
   );
 }
 
-export function AlgoIf({ cond, children }: { cond: string; children?: ReactNode }) {
+export function AlgoIf({ cond, note, id, children }: { cond: string; note?: ReactNode; id?: string; children?: ReactNode }) {
   return (
     <>
-      <Line><Kw>if</Kw> <CondSpan src={cond} /> <Kw>then</Kw></Line>
+      <Line id={id}><Kw>if</Kw> <CondSpan src={cond} />{fromAstroJSX(note)} <Kw>then</Kw></Line>
       {children && <Block>{children}</Block>}
     </>
   );
 }
 
-export function AlgoElseIf({ cond, children }: { cond: string; children?: ReactNode }) {
+export function AlgoElseIf({ cond, note, id, children }: { cond: string; note?: ReactNode; id?: string; children?: ReactNode }) {
   return (
     <>
-      <Line><Kw>else if</Kw> <CondSpan src={cond} /> <Kw>then</Kw></Line>
+      <Line id={id}><Kw>else if</Kw> <CondSpan src={cond} />{fromAstroJSX(note)} <Kw>then</Kw></Line>
       {children && <Block>{children}</Block>}
     </>
   );
 }
 
-export function AlgoElse({ children }: { children?: ReactNode }) {
+export function AlgoElse({ id, children }: { id?: string; children?: ReactNode }) {
   return (
     <>
-      <Line><Kw>else</Kw></Line>
+      <Line id={id}><Kw>else</Kw></Line>
       {children && <Block>{children}</Block>}
     </>
   );
