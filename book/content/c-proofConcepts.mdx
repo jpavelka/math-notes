@@ -1,0 +1,153 @@
+---
+title: "Proof Concepts"
+chapter: C
+chapterId: "sec:proofs"
+---
+
+import { Theorem, Lemma, Corollary, Definition, Proof, Remark, Ref, Figure, Table, AnnotatedAlign } from '@/components';
+
+<Definition id="def:proof" title="Proof">
+A deductive argument for the validity of some mathematical statement.
+</Definition>
+
+Proofs are important for this course, since we'd like to be able to explain why (say) a given process for solving some problem is guaranteed to work.
+
+
+In case you haven't encountered very many proofs before, I want to use this space to highlight some concepts that frequently arise in proofs in the class.
+
+## The contrapositive {/* sec:contrapositive */}
+
+<Definition id="def:contrapositive" title="Contrapositive">
+Given a deductive statement "if $A$ then $B$", the **contrapositive** statement is "if not $B$ then not $A$". The contrapositive is equivalent to the original statement.
+</Definition>
+
+Mathematical proofs are generally built on implications of the form "if condition $A$ holds, then condition $B$ must also hold", or more succinctly "if $A$ then $B$". The _contrapositive_ of such a statement involves negating the two conditions and switching their order. So the contrapositive of the statement "if $A$ then $B$" is "if not $B$ then not $A$".
+
+Crucially, the original statement and its contrapositive are _logically equivalent_. Why should this be? A first step to seeing this may be to think of any mundane "if $A$ then $B$" type of statement. Something like, "if you just bought a refrigerator, you just bought a kitchen appliance". Consider how this automatically implies the statement "if you did not just buy a kitchen appliance, then you did not just buy a refrigerator".
+
+It's maybe easier to see visually. To that end, consider the Venn diagram in <Ref id="fig:contrapositiveVenn"/>. Clearly, in order to be in the circle representing $A$, one must also be in the circle representing $B$. At the same time, if you are not in the circle representing $B$, you have no chance of being in the circle representing $A$.
+
+<Figure id="fig:contrapositiveVenn" caption={'A Venn diagram illustrating the equivalence of "if $A$ then $B$" and its contrapositive "if not $B$ then not $A$". Clearly any point inside circle $A$ must also fall inside circle $B$. Similarly, any point outside of circle $B$ has no chance to be inside circle $A$.'}>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 230" style={{maxWidth:'420px',width:'100%',display:'block',margin:'0 auto'}}>
+  {/* Universe boundary */}
+  <rect x="8" y="8" width="364" height="214" rx="8" fill="#eeeeee" stroke="#94a3b8" strokeWidth="1.5"/>
+  {/* B circle */}
+  <circle cx="195" cy="117" r="92" fill="#bfdbfe" fillOpacity="0.55" stroke="#3b82f6" strokeWidth="2"/>
+  {/* A circle — fully inside B */}
+  <circle cx="163" cy="117" r="50" fill="#3b82f6" fillOpacity="0.45" stroke="#2563eb" strokeWidth="2"/>
+  {/* Label A */}
+  <text x="153" y="124" textAnchor="middle"
+        style={{fontSize:'28px',fontFamily:"Georgia,'Times New Roman',serif",fontStyle:'italic',fill:'#222222'}}>A</text>
+  {/* Label B — in the B ring, right of A */}
+  <text x="240" y="106" textAnchor="middle"
+        style={{fontSize:'28px',fontFamily:"Georgia,'Times New Roman',serif",fontStyle:'italic',fill:'#222222'}}>B</text>
+</svg>
+</Figure>
+
+This is an important fact to remember, because sometimes thinking in terms of the contrapositive makes a claim easier to work with and ultimately prove.
+
+## Proof by contradiction {/* sec:proofByContradiction */}
+
+<Definition id="def:proofByContradiction" title="Proof by Contradiction">
+A method of proof that starts by assuming that the statement to be proven is false, then deriving a contradiction to a known fact as a result.
+</Definition>
+
+The _proof by contradiction_ is an indirect proof method. It is not a constructive argument that positively affirms the validity of the statement at hand. It's more like saying "this statement _must_ be true, because if it weren't, weird things would happen"! This style of argument is also known by the delightful latin phrase _reductio ad absurdum_.
+
+As an example, we'll point to the classic proof that $\sqrt{2}$ is irrational, which we present below. A few useful facts before we start:
+
+1. A number is even if it can be written as $2k$ for some integer $k$
+2. A number is odd if it can be written as $2k+1$ for some integer $k$
+3. The result of multiplying two odd numbers together is also odd, since
+
+   $$
+   \begin{align*}
+   (2k_1+1)(2k_2+1) &= 4k_1k_2 + 2k_1 + 2k_2 + 1 \\
+                    &= 2(\underbrace{2k_1k_2 + k_1 + k_2}_{\text{integer}}) + 1
+   \end{align*}
+   $$
+
+<Theorem id="thm:contradictionExample">
+$\sqrt{2}$ is irrational, i.e. there are no integers $a,b\in\Z$ such that $\sqrt{2}=\frac{a}{b}$.
+</Theorem>
+
+<Proof>
+Suppose for contradiction that there were in fact two integers $a,b\in\Z$ such that $\sqrt{2}=\frac{a}{b}$. In fact, we can choose $a$ and $b$ such that they share no factors in common (we could just divide out common factors from our initial selections until this were true).
+
+Since $\sqrt{2}=\frac{a}{b}$, we also have $\frac{a^2}{b^2} = 2$ and hence $a^2=2b^2$. This means that $a^2$ is an even number, and hence $a$ is also even (otherwise $a^2$, the product of two odd numbers, would be odd).
+
+Since $a$ is even, it can be written as $2k$ for some integer $k$. So the above relation $a^2=2b^2$ can be written as $4k^2=2b^2$, which reduces to $2k^2=b^2$, hence $b$ is also even. But $a$ and $b$ both being even means they are both divisible by 2, contradicting that they share no common factors.
+</Proof>
+
+## Proof by induction {/* sec:proofByInduction */}
+
+<Definition id="def:induction" title="Induction">
+  A **proof by induction** is a style of proof that shows a statement holds over the natural numbers $\{0, 1, 2, \dots\}$. It requires two steps:
+  1. The base case: showing that the statement holds for 0.
+  2. The inductive step: showing that if the statement holds for any integer $k-1$, then it must also hold for $k$.
+</Definition>
+
+It should be plain to see that the combination of the above two steps suffices to prove a statement holds for all numbers in $\{0, 1, 2, \dots\}$. The base case covers 0. The inductive step shows that since the statement holds for 0, it must also hold for 1. But holding for 1 means (also by the inductive step) that it holds for 2. Which means it holds for 3, which means it holds for 4, which means...
+
+Note: while the definition says that induction proves statements over $\{0, 1, 2, ...\}$, it can work just as well for similar sets (e.g. $\{1, 2, 3, ...\}$, the set of odd integers, etc.)
+
+Let's go ahead and prove something by induction, to give you a feel for it.
+
+<Theorem id="thm:inductionExample">
+The sum of the first $n$ positive integers is given by
+
+$$
+\sum_{i=1}^n i = \frac{n(n+1)}{2}
+$$
+</Theorem>
+
+<Proof>
+The proof goes by induction. For the base case, note that for $n=1$
+
+$$
+1 = \sum_{i=1}^1 i = \frac{1(1 + 1)}{2}
+$$
+
+For the inductive step, suppose that the statement holds for some integer $k-1$, i.e. we have
+
+$$
+\sum_{i=1}^{k-1} i = \frac{(k-1)(k)}{2}
+$$
+
+Then clearly we have
+
+<AnnotatedAlign
+  rows = {[
+    {
+      math: "\\sum_{i=1}^k i &= k + \\sum_{i=1}^{k-1} i"
+    },
+    {
+      math: "&= k + \\frac{(k-1)(k)}{2}",
+      reason: "by assumption"
+    },
+    {
+      math: "&= \\frac{2k}{2} + \\frac{k^2-k}{2}",
+      reason: "multiply $k$ by $\\frac{2}{2}$"
+    },
+    {
+      math: "&= \\frac{k^2 + k}{2}",
+      reason: "add the fractions"
+    },
+    {
+      math: "&= \\frac{k(k+1)}{2}",
+    },
+  ]}
+/>
+
+as required.
+</Proof>
+
+There is another form of induction, called _strong_ induction, that works much the same way as above.
+
+<Definition id="def:strongInduction" title="Strong Induction">
+  A **proof by strong induction** is a style of proof that shows a statement holds over the natural numbers $\{0, 1, 2, \dots\}$. It requires two steps:
+  1. The base case: showing that the statement holds for 0.
+  2. The inductive step: showing that if the statement holds for _all_ integers less than $k$, then it must also hold for $k$.
+</Definition>
+
+The difference is that in the inductive step, instead of just assuming that the statement holds for $k-1$, we assume it holds for _all_ the values $k-1, k-2, \dots 0$. This is really no different from the regular style of induction, since iterating the inductive assumption gives you the same thing. But it is sometimes more convenient to frame a proof in this manner.

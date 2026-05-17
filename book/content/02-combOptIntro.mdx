@@ -1,0 +1,863 @@
+---
+title: "Intro to Combinatorial Optimization"
+chapter: 2
+chapterId: sec:combOptIntro
+---
+
+import { Theorem, Definition, Proof, Ref, Figure, Cite, Footnote, FootnoteBody, BlockQuote, Problem, ProblemInstance, ProblemQuestion, ProblemVariants, ProblemInEnglish, Algorithm, AlgoStep, AlgoFor, AlgoWhile, AlgoIf, AlgoElse, AlgoReturn, AlgoComment, PrintFallback } from '@/components';
+import { Graph } from '@/components/Graph';
+import { DijkstraAlgo } from '@/components/DijkstraAlgo';
+
+In this section, we'll introduce the field of combinatorial optimization. We'll describe several common problems that fall under the combinatorial optimization umbrella. For a few of these problems, we'll also present special-case algorithms used to solve them.
+
+## Definitions {/* sec:combOptDefs */}
+
+So, what is combinatorial optimization? Maybe we should break it down into parts. As of the time of writing, the [dictionary.com](https://www.dictionary.com/browse/optimization) definition of "optimization" is:
+
+<BlockQuote>
+<ol>
+<li>the fact of optimizing; making the best of anything.</li>
+<li>the condition of being optimized.</li>
+<li>Mathematics. a mathematical technique for finding a maximum or minimum value of a function of several variables subject to a set of constraints, as linear programming or systems analysis.</li>
+</ol>
+</BlockQuote>
+
+Definition number 3 matches perfectly with what we mean in this course. Abstractly, we're talking about maximizing or minimizing a function over some set of feasible solutions. Concretely, it could be something like a shipping company determining how to deliver packages with the least overall cost. Or an airline determining what flights to offer, considering crew/fuel/airport costs, subject to meeting projected customer demand.
+
+Meanwhile, the definition of "combinatorial" (also from [dictionary.com](https://www.dictionary.com/browse/combinatorial)) is:
+
+<BlockQuote>
+<ol>
+<li>of, relating to, or involving the combination of elements, as in phonetics or music.</li>
+<li>of or relating to the enumeration of the number of ways of doing some specific task or of arranging items in a specific configuration.</li>
+<li>Mathematics. of or relating to combination, or the modes, properties, etc., of combinations.</li>
+</ol>
+</BlockQuote>
+
+Most useful for us is definition number 2, "of or relating to the enumeration of the number of ways of doing some specific task or of arranging items in a specific configuration." We will see that "combinatorial" describes the set of feasible solutions in the problems we are about to study.
+
+Time to bring it all together. The [Wikipedia page](https://en.wikipedia.org/wiki/Combinatorial_optimization) on combinatorial optimization describes it as:
+
+<BlockQuote>
+a subfield of mathematical optimization that consists of finding an optimal object from a finite set of objects, where the set of feasible solutions is discrete or can be reduced to a discrete set
+</BlockQuote>
+
+<Definition id="def:combOpt" title="Combinatorial Optimization">
+A subfield of mathematical optimization that consists of finding an optimal object from a finite set of objects, where the set of feasible solutions is discrete or can be reduced to a discrete set.
+</Definition>
+
+For this class, we will adopt the formalism of <Cite id="wolsey2020"/> and define a combinatorial optimization problem as<Footnote/>:
+
+<FootnoteBody>
+Notation alert! We'll be using lots of mathematical notation like this in the course. Most of it is standard, and you might already be familiar with it if you've taken some higher-level math course. I'll try to point out new notation in class as we go along, but you can always check <Ref id="sec:symbols"/> in the appendix for information on the symbols used.
+</FootnoteBody>
+
+<Problem id="prob:combOpt" title="Combinatorial Optimization Problem" label="COPT">
+<ProblemInstance>
+A finite set $N=\lbrace1,\dots,n\rbrace$, weights $c_j\in\R$ for each $j\in N$, a set $\mathcal F$ of feasible subsets of $N$.
+</ProblemInstance>
+<ProblemQuestion>
+Find a minimum weight feasible subset, i.e.
+
+$$
+\min_{S\subseteq N}\left\{\sum_{j\in S}c_j:S\in\mathcal{F}\right\}
+$$
+</ProblemQuestion>
+</Problem>
+
+## Example COPTs {/* sec:exampleCOPTs */}
+
+It might take a few examples to really internalize the definition. So, let's go ahead and present a few <Ref id="prob:combOpt"/>s and examine how they fit the framework. Several of these are most convenient to define in the language of graph theory. If you've seen graphs before, then great! If not, you can brush up on the preliminaries in <Ref id="sec:graphTheory"/>.
+
+### Shortest paths {/* sec:shortestPathDef */}
+
+We'll start with a basic one:
+
+<Problem id="prob:shortestPath" title="Shortest Path Problem" label="ShortPath">
+<ProblemInstance>
+Digraph $G=(V,E)$, two nodes $s,t\in V$, positive integer edge costs $c_{ij}$ for each $(i,j)\in E$.
+</ProblemInstance>
+<ProblemQuestion>
+Find a minimum-cost path in $G$ from $s$ to $t$, i.e.
+
+$$
+\min_{P\subseteq E}\left\{\sum_{(i,j)\in P}c_{ij}:P\text{ is a path from }s\text{ to }t\right\}
+$$
+</ProblemQuestion>
+</Problem>
+
+Pretty simple setup. We have some directed graph, maybe like the one below in <Ref id="fig:shortestPathFirstExample"/>. We want to find the lowest-cost path from node $s$ on the left of the graph to node $t$ on the right, where edge costs are written directly on each edge in the figure<Footnote/>.
+
+<FootnoteBody>
+Why don't you go ahead and try to figure out the best path by visual inspection. We'll come back and solve this example later.
+</FootnoteBody>
+
+<Figure id="fig:shortestPathFirstExample" captionNode={<>An example <Ref id='prob:shortestPath'/> instance.</>}>
+  <Graph
+    width={500} height={300}
+    nodeRadius={30}
+    labelFontSize={18}
+    edgeWeightFontSize={18}
+    directed
+    nodes={[
+      {id: 's', x: 0, y: 0.5},
+      {id: 'a', x: 0.3, y: 1},
+      {id: 'b', x: 0.3, y: 0},
+      {id: 'c', x: 0.7, y: 1},
+      {id: 'd', x: 0.7, y: 0},
+      {id: 't', x: 1, y: 0.5}
+    ]}
+    edges={[
+      {'from': 's', 'to': 'a', 'weight': 3},
+      {'from': 's', 'to': 'b', 'weight': 2},
+      {'from': 'a', 'to': 'c', 'weight': 5},
+      {'from': 'a', 'to': 'd', 'weight': 2},
+      {'from': 'b', 'to': 'd', 'weight': 4},
+      {'from': 'd', 'to': 'c', 'weight': 2},
+      {'from': 'c', 'to': 't', 'weight': 2},
+      {'from': 'd', 'to': 't', 'weight': 6}
+    ]}
+  />
+</Figure>
+
+How does this fit into our definition of a <Ref id="prob:combOpt"/>? Well, our finite set $N$ is the set of edges in the network, so
+
+$$
+\begin{align*}
+N = \{&(s,a), (s,b), (a,d), (a,c),\\
+        &(b,d), (c,t), (d,c), (d,t) \}
+\end{align*}
+$$
+
+The weights $c_j$ for each $j\in N$ are the edge distances displayed in the diagram, so $c_{sa}=3$, $c_{sb}=4$, and so on. And the set $\mathcal{F}$ of feasible subsets of $N$ are sets of edges that create a valid path from $s$ to $t$. So for example we have
+
+$$
+\begin{align*}
+\{(s,b),(b,d),(d,t)\}&\in\mathcal{F},\\
+\{(s,a),(a,d),(d,c),(c,t)\}&\in\mathcal{F}
+\end{align*}
+$$
+
+since they all denote paths from $s$ to $t$, but
+
+$$
+\{(s,a),(a,c)\}\not\in\mathcal{F}
+$$
+
+since that path doesn't end at $t$. So we can see that the <Ref id="prob:shortestPath"/> indeed fits the <Ref id="prob:combOpt"/> framework, since finding the minimum-cost $s$-$t$ path corresponds to finding
+
+$$
+\min_{S\subseteq N}\left\{\sum_{j\in S}c_j:S\in\mathcal{F}\right\}
+$$
+
+with $N$, $c$, and $\mathcal{F}$ as we've just defined them.
+
+While it may not be obvious from the graph theory framing, the <Ref id="prob:shortestPath"/> has [several applications](https://en.wikipedia.org/wiki/Shortest_path_problem#Applications). For example, if you were to model a road network as a graph with edge costs representing travel times or distances, a shortest path problem can be used by a navigation app to decide how to route you from one location to another.
+
+Lastly, an important technical note: You may be wondering why we stated the edge costs $c_{ij}$ must be integers. What would be wrong with, say, an edge cost of 2.1? The answer is that there's really nothing _wrong_ with it. But the requirement stems from an acknowledgement that we solve these problems on computers, and computers can only handle so much precision, and indeed really can't represent irrational numbers like $\pi$. Further, there are technical reasons why some of the algorithmic analysis we do only makes sense if the data being used are integers. Besides, if you want to solve an instance where you have an edge cost of 2.1, it should be safe to multiply all your costs by ten, effectively changing the units so that 2.1 turns into the integer 21 (and so on for other constants as needed).
+
+### Knapsack {/* sec:knapsackDef */}
+
+Here's another intuitive problem that fits the <Ref id="prob:combOpt"/> framework:
+
+<Problem id="prob:knapsack" title="Knapsack Problem" label="KNAPSACK">
+<ProblemInstance>
+A set $J$, positive integers $w_j$ and $v_j$ for each $j\in J$, positive integer $b$.
+</ProblemInstance>
+<ProblemQuestion>
+Find a maximum-value subset of items fitting within the weight limit, i.e.
+
+$$
+\max_{S\subseteq J}\left\{\sum_{j\in S}v_j:\sum_{j\in S}w_j\leq b\right\}
+$$
+</ProblemQuestion>
+<ProblemInEnglish>
+You are going on a camping trip. There is some set of objects $J$ you are considering taking with you. Each object $j\in J$ weighs some amount $w_j$, and has a value to you of $v_j$ if you bring it on the trip. You are only constrained by the weight limit $b$ of your backpack. How can you maximize the value of items brought on the trip?
+</ProblemInEnglish>
+</Problem>
+
+The fit here is pretty natural. The set $N$ from the <Ref id="prob:combOpt"/> definition is simply the set of objects $J$. The weights $c_j$ for the <Ref id="prob:combOpt"/> are the values $v_j$, although since <Ref id="prob:knapsack"/> is a maximization problem and <Ref id="prob:combOpt"/> is defined as minimization, we have $c_j=-v_j$. The feasible subsets $\mathcal{F}$ are simply the subsets of objects which together do not exceed the weight limit, i.e.
+
+$$
+\mathcal{F} = \left\{S\subseteq J: \sum_{j\in S}w_j\leq b\right\}
+$$
+
+The stereotypical framing for the <Ref id="prob:knapsack"/> is that of a hiker trying to decide what items to bring along on a trip. But the [applications](https://en.wikipedia.org/wiki/Knapsack_problem#Applications) are numerous, with of course most not involving any type of backpack at all.
+
+### Other examples {/* sec:otherExampleDefs */}
+
+Now that we've worked through it on a few examples, we'll skip formally specifying $N$, $\mathcal{F}$, and $c$ for the next set of problems<Footnote/>.
+
+<FootnoteBody>
+In fact, I'd say the formal specifications were never really the point. What we have is a collection of problems that feel similar, in that the possible solutions are "combinatorial" in some sense. The definition was developed post-hoc because mathematicians like definitions.
+</FootnoteBody>
+
+<Problem id="prob:assignment" title="Assignment Problem" label="ASSIGN">
+<ProblemInstance>
+A complete bipartite graph $G=(V_1,V_2,E)$ with $|V_1|=|V_2|$, integer edge costs $c_{ij}$ for each $i\in V_1$, $j\in V_2$.
+</ProblemInstance>
+<ProblemQuestion>
+Find a minimum-cost perfect matching in $G$.
+</ProblemQuestion>
+<ProblemInEnglish>
+There are $n$ people available to carry out $n$ jobs. Each person is assigned to carry out exactly one job. Some individuals are better suited to particular jobs than others, so there is an estimated cost $c_{ij}$ if person $i$ is assigned to job $j$. How can you assign people to jobs such that the sum of the assignment costs is minimized?
+</ProblemInEnglish>
+</Problem>
+
+An example where this might come up: Suppose a ride-hailing app has recently received four ride requests, and there are currently five drivers in the area that can pick them up. The app may decide to assign drivers to riders (with the fifth driver "assigned" to do nothing) by pairing them up in a way that minimizes the sum of distances the drivers travel to pick up their riders.
+
+Let's look at another graph-centric problem:
+
+<Problem id="prob:mst" title="Minimum Spanning Tree Problem" label="MST">
+<ProblemInstance>
+A connected graph $G=(V,E)$, integer costs $c_{ij}$ for each edge $(i,j)\in E$.
+</ProblemInstance>
+<ProblemQuestion>
+Find a minimum-cost spanning tree in $G$.
+</ProblemQuestion>
+</Problem>
+
+An example application here: A utility company is trying to build connections to all the houses in some neighborhood. They need _some_ physical connection from their service to each house, i.e. they need a spanning tree connecting all of the houses.
+
+Here's another common problem. Admittedly, the mathematical definition is a little harder to parse initially. Hopefully the "in English" example helps you work through it.
+
+<Problem id="prob:setCover" title="Set Covering Problem" label="SetCover">
+<ProblemInstance>
+Two sets $M$ and $N$, subsets $S_j\subseteq M$ for each $j\in N$, integer costs $c_j$ for each $j\in N$.
+</ProblemInstance>
+<ProblemQuestion>
+Find a minimum-cost cover of $M$, i.e.
+
+$$
+\min_{C\subseteq N}\left\{\sum_{j\in C}c_j: \bigcup_{j\in C}S_j=M\right\}
+$$
+</ProblemQuestion>
+<ProblemInEnglish>
+A telecommunications company is deciding where to build cell towers in a rural area. The set $M$ is the set of cities that require service, and the set $N$ is a set of potential tower locations. For each location $j\in N$, there is a set of cities $S_j\subseteq M$ that can be served by a tower in that location. There is also a cost $c_j$ associated with building in that location. What is the lowest-cost collection of towers the company can build that brings service to all the cities?
+</ProblemInEnglish>
+</Problem>
+
+We'll wrap up this section with perhaps the most famous <Ref id="prob:combOpt"/> of all. The description here is lifted verbatim from <Cite id="wolsey2020"/>.
+
+<Problem id="prob:tsp" title="Traveling Salesman Problem" label="TSP">
+<ProblemInstance>
+A complete graph $G=(V,E)$, non-negative integer costs $c_{ij}$ for each edge $(i,j)\in E$.
+</ProblemInstance>
+<ProblemQuestion>
+Find a minimum-distance tour in $G$.
+</ProblemQuestion>
+<ProblemVariants>
+Metric TSP: Edge costs satisfy the _triangle inequality_, i.e. we have
+
+$$
+c_{ij}+c_{jk}\geq c_{ik}
+$$
+
+for any three vertices $i,j,k\in V$<Footnote/>.
+</ProblemVariants>
+<ProblemInEnglish>
+A salesman must visit each of $n$ cities exactly once and then return to his starting point. The time taken to travel from city $i$ to city $j$ is $c_{ij}$. Find the order in which he should make his tour so as to finish as quickly as possible.
+</ProblemInEnglish>
+</Problem>
+
+<FootnoteBody>
+This is a pretty natural condition that holds for many TSP applications. If you take the nodes of the graph to be cities on a map, then it just says that the quickest way from city $i$ to city $k$ is to go directly between them. Maybe some other city $j$ is on the route between them, so that $c_{ij} + c_{jk} = c_{ik}$, but it wouldn't make sense for it to be _quicker_ to travel through $j$ first.
+</FootnoteBody>
+
+This intuitive problem, with obvious applications to e.g. routing delivery drivers, has a long and storied history in the world of optimization. We'll revisit it (as well as all the problems we've discussed so far) several times this course.
+
+## COPT Algorithms {/* sec:combOptAlgos */}
+
+After the previous section you hopefully have a good feel for the kind of problems we can solve as <Ref id="prob:combOpt"/>s. In this section, we turn to actually solving several of the <Ref id="prob:combOpt"/>s we've seen. We will be presenting algorithms, working through examples, and proving that the algorithms work as claimed. We won't be describing algorithms for all the <Ref id="prob:combOpt"/>s we've seen, but what we show will illustrate how these algorithms generally work. Some of the concepts we present are common to algorithms for several classes of problems.
+
+But before we get started, we really ought to define that "a"-word we've been using. An algorithm is a finite sequence of instructions for solving some class of problem. In common parlance, an algorithm is usually just some prescription for doing something, but in this class we require the algorithm _actually solves_ the problem at hand. So, an algorithm for a given problem should find not just a _valid_ solution, not even just a _good_ solution, but an _optimal_ solution. To emphasize the meaning, we may sometimes use the term exact algorithm instead.
+
+<Definition id="def:algorithm" title="Algorithm">
+A finite sequence of instructions for solving some class of problem that is guaranteed to find an optimal solution.
+</Definition>
+
+Contrast this with a heuristic, which like an algorithm is a sequence of instructions for finding an answer to a problem. However, a heuristic comes with no guarantee of solution quality, and may not even return a valid solution in every case.
+
+<Definition id="def:heuristic" title="Heuristic">
+A sequence of instructions for finding an answer to a problem. However, unlike an <Ref id="def:algorithm"/>, the solutions found have no guarantee to be optimal. A heuristic may even fail to find a valid solution at all.
+</Definition>
+
+Lying somewhere in the middle of these two is the approximation algorithm, which is like an algorithm except that the solution produced is not necessarily optimal, but instead is provably within some pre-defined distance of the optimal value. So while an algorithm may find the optimal value to some minimization problem, an approximation algorithm will find a solution that is, say, at most 10% more than optimal (or 50% more, or \$2 more, or whatever).
+
+<Definition id="def:approximationAlgorithm" title="Approximation Algorithm">
+A finite sequence of instructions for finding solutions to a problem. Instead of finding optimal solutions, the solution is provably within some pre-defined distance of the optimal value.
+</Definition>
+
+In what follows, we will present both algorithms and approximation algorithms for a few of the <Ref id="prob:combOpt"/>s defined in the previous section. We will return to the concept of heuristics later in the course, specifically in the context of integer programming.
+
+### Dijkstra's shortest path algorithm {/* sec:dijkstraShortestPath */}
+
+We'll first talk about an algorithm for <Ref id="prob:shortestPath"/> known as Dijkstra's algorithm. Let's use the graph in <Ref id="fig:shortestPathFirstExample"/> as we illustrate the mechanics of the algorithm. Now, before we even start, we already know the shortest path from $s$ to one other vertex. Namely, the shortest path from $s$ to itself starts at $s$ and goes... well, nowhere! You're already at your destination!<Footnote/>
+
+<FootnoteBody>
+There are actually a couple subtly important points here: We know that 0 is the minimum distance because our definition of the <Ref id="prob:shortestPath"/> specifies that all distances are non-negative. Furthermore, here as with every path we define in the algorithm, the path we give is _a_ shortest path, though not necessarily _the_ (unique) shortest path. It's always possible that alternate paths of equal distance will exist.
+</FootnoteBody>
+
+So the shortest path from $s$ to $s$ has distance 0.
+
+Our next step will be to examine which vertices we can reach directly from $s$. The answer is that we can reach vertex $a$ by traveling 3 units of distance, and we can reach vertex $b$ by traveling 2 units of distance. I claim this means the shortest path from $s$ to $b$ has distance 2, and is achievable via the single-edge path $s\rightarrow b$. How do we know this? Well, the definition of the <Ref id="prob:shortestPath"/> specifies that all distances are non-negative. Further, we've seen that getting from $s$ to _any_ other vertex requires traveling a distance of 2 or greater. So there can be no other way to get to vertex $b$ in a distance shorter than 2.
+
+The algorithm will then continue in this manner. In each iteration, we'll find a shortest path from $s$ to some other vertex. We then examine the edges leaving this new vertex, observe the distances of the paths using these edges, and pick the shortest possible remaining path. For example, let's describe the next iteration over the graph in <Ref id="fig:shortestPathFirstExample"/>. From the previous iteration, we know the shortest paths from $s$ to $s$ or $b$, and we know that we can get from $s$ to $a$ with a path of distance 3 (though we don't know if that is optimal or not). Now let's examine the edges exiting $b$. There is only one, the edge from $b$ to $d$ with length 4, which implies a path from $s$ to $d$ with length 6 ($s\rightarrow b\rightarrow d$).
+
+So now we know of two paths out of $s$, one to $a$ with distance 3, and one to $d$ with distance 6. With what we've examined so far, we don't yet know if that $s$-$d$ path is optimal, since it might still be possible to take that $s$ to $a$ at a distance of 3, then take a path shorter than 3 units to $d$<Footnote/>. But we _do_ know that the length-3 path to $a$ is optimal. Why? Well, clearly any path from $s$ to $a$ will either go through $b$ or it won't. But we've just seen that any path routing through $b$ will be length at least 6! So that single-edge path $s\rightarrow a$ must be the shortest path to $a$.
+
+<FootnoteBody>
+In fact, we can see pretty plainly that one of those paths does exist! But remember, at this point of the algorithm we've only really studied the edges out of $s$ and $b$.
+</FootnoteBody>
+
+We continue on like this. Continuing out of $a$, we find a path from $s$ to $c$ ($s\rightarrow a\rightarrow c$) with length 8, and a path from $s$ to $d$ ($s\rightarrow a\rightarrow d$) with length 5. This new $s$-$d$ path is an improvement over the last one we found ($s\rightarrow b\rightarrow d$), so we disregard the previous, inferior path. Of the two paths we've found, the $s$-$d$ path is the shortest, and so by logic similar to what we went through above, the $s$-$d$ path must be optimal.
+
+The algorithm continues like this until we eventually reach vertex $t$ and prove a shortest $s-t$ path. (Though we don't need to stop there, the algorithm could continue on until we've found a shortest path from $s$ to _any other_ vertex it can reach in the graph.)
+
+For a formal specification of the algorithm, we'll need to define a few more objects used for bookkeeping. We'll let $U\subseteq V$ be the set of "unexplored" vertices for which we have _not_ yet found a shortest path from $s$. We'll define functions $d:V\rightarrow \R$ and $p:V\rightarrow V$ where $d(v)$ is the distance of the currently-best-known path from $s$ to $v$, and $p(v)$ is the _predecessor_ vertex for $v$ in the currently-best-known $s$-$v$ path (i.e. the vertex $u$ such that our currently-best-known $s$-$v$ path concludes by taking the edge between $u$ and $v$). Finally, at the end we will return a list of vertices $P$ as the final path. The full algorithm is as follows:
+
+<Algorithm id="alg:dijkstra" caption="Dijkstra's Algorithm" label="Dijkstra's Algorithm">
+<AlgoComment>Initialize</AlgoComment>
+<AlgoStep>Set $U\leftarrow V$</AlgoStep>
+<AlgoStep>Set $p(v)\leftarrow$ undefined for all $v\in V$</AlgoStep>
+<AlgoStep>Set $d(s)\leftarrow 0$</AlgoStep>
+<AlgoStep>Set $d(v)\leftarrow\infty$ for all $v\in V$, $v\neq s$</AlgoStep>
+<AlgoComment>Main iteration</AlgoComment>
+<AlgoWhile cond="$t\in U$ and $d(v)<\infty$ for some $v\in U$">
+  <AlgoStep>Set $u$ as a vertex in $U$ minimizing $d(v)$<Footnote/></AlgoStep>
+  <AlgoStep>Set $U\leftarrow U\setminus\lbrace u\rbrace$</AlgoStep>
+  <AlgoFor each="$v\in U: (u, v)\in E$">
+    <AlgoStep>Set $d'\leftarrow d(u) + c_{uv}$<Footnote/></AlgoStep>
+    <AlgoIf cond="$d' < d(v)$">
+      <AlgoStep>Set $d(v)\leftarrow d'$<Footnote/></AlgoStep>
+      <AlgoStep>Set $p(v)\leftarrow u$<Footnote/></AlgoStep>
+    </AlgoIf>
+  </AlgoFor>
+</AlgoWhile>
+<AlgoComment>Recover path</AlgoComment>
+<AlgoIf cond="$d(t)=\infty$">
+  <AlgoStep>No $s$-$t$ path exists</AlgoStep>
+</AlgoIf>
+<AlgoElse>
+  <AlgoStep>Set $P\leftarrow (t)$<Footnote/></AlgoStep>
+  <AlgoStep>Set $u\leftarrow t$</AlgoStep>
+  <AlgoWhile cond="$u\neq s$">
+    <AlgoStep>Prepend $p(u)$ to $P$</AlgoStep>
+    <AlgoStep>Set $u\leftarrow p(u)$</AlgoStep>
+  </AlgoWhile>
+  <AlgoReturn>$P$ as a minimum-distance $s$-$t$ path with distance $d(t)$</AlgoReturn>
+</AlgoElse>
+</Algorithm>
+
+<FootnoteBody>
+Choose the vertex with the shortest currently-best-known path from $s$. Ties may be broken arbitrarily.
+</FootnoteBody>
+
+<FootnoteBody>
+Let $d'$ be the distance of an $s$-$v$ path passing through $u$.
+</FootnoteBody>
+
+<FootnoteBody>
+Update the distance of the best-known $s$-$v$ path.
+</FootnoteBody>
+
+<FootnoteBody>
+Update the predecessor of $v$ to be $u$.
+</FootnoteBody>
+
+<FootnoteBody>
+Initialize the path to an empty list.
+</FootnoteBody>
+
+You can click through the buttons in <Ref id="fig:dijkstraExample"/> to work through a full example of <Ref id="alg:dijkstra"/>.
+
+<Figure id="fig:dijkstraExample" captionNode={<>Stepping through an example of <Ref id="alg:dijkstra"/>. Under the label for each vertex $v\in V$ is the pair $(d(v),p(v))$, i.e. the distance of the best-known $s$-$v$ path and the predecessor to $v$ on that path.</>}>
+  <DijkstraAlgo
+    client:load
+    source="s"
+    target="t"
+    width={500}
+    height={300}
+    nodeRadius={40}
+    labelFontSize={24}
+    edgeWeightFontSize={20}
+    annotFontSize={18}
+    nodes={[
+      {id: 's', x: 0,   y: 0.5},
+      {id: 'a', x: 0.3, y: 1},
+      {id: 'b', x: 0.3, y: 0},
+      {id: 'c', x: 0.7, y: 1},
+      {id: 'd', x: 0.7, y: 0},
+      {id: 't', x: 1,   y: 0.5},
+    ]}
+    edges={[
+      {from: 's', to: 'a', weight: 3},
+      {from: 's', to: 'b', weight: 2},
+      {from: 'a', to: 'c', weight: 5},
+      {from: 'a', to: 'd', weight: 2},
+      {from: 'b', to: 'd', weight: 4},
+      {from: 'd', to: 'c', weight: 2},
+      {from: 'c', to: 't', weight: 2},
+      {from: 'd', to: 't', weight: 6},
+    ]}
+  />
+</Figure>
+
+After you finish the above example, how about working through this longer one?
+
+<Figure id="fig:dijkstraExample2" captionNode={<>Stepping through <Ref id='alg:dijkstra'/> on a larger <Ref id='prob:shortestPath'/> instance.</>}>
+  <DijkstraAlgo
+    client:load
+    source="s"
+    target="t"
+    width={600}
+    height={350}
+    nodeRadius={32}
+    labelFontSize={28}
+    edgeWeightFontSize={24}
+    nodes={[
+      {id: 's', x: 0,    y: 1},
+      {id: 'a', x: 0.33, y: 1},
+      {id: 'b', x: 0.67, y: 1},
+      {id: 'c', x: 1,    y: 1},
+      {id: 'd', x: 0.2, y: 0.5},
+      {id: 'e', x: 0.8, y: 0.5},
+      {id: 'f', x: 0,    y: 0},
+      {id: 'g', x: 0.33, y: 0},
+      {id: 't', x: 0.67, y: 0},
+      {id: 'h', x: 1,    y: 0},
+    ]}
+    edges={[
+      {from: 's', to: 'a', weight: 3},
+      {from: 's', to: 'd', weight: 3},
+      {from: 's', to: 'f', weight: 7},
+      {from: 'a', to: 'b', weight: 2},
+      {from: 'a', to: 'd', weight: 2},
+      {from: 'a', to: 'g', weight: 4},
+      {from: 'a', to: 't', weight: 10},
+      {from: 'b', to: 'c', weight: 9},
+      {from: 'b', to: 'e', weight: 2},
+      {from: 'b', to: 't', weight: 8},
+      {from: 'c', to: 'h', weight: 5},
+      {from: 'd', to: 'f', weight: 3},
+      {from: 'e', to: 'c', weight: 7},
+      {from: 'e', to: 'h', weight: 4},
+      {from: 'f', to: 'g', weight: 2},
+      {from: 'g', to: 't', weight: 6},
+      {from: 'h', to: 't', weight: 1},
+    ]}
+  />
+</Figure>
+
+<Figure id="fig:dijkstraRandom" captionNode={<>Using <Ref id='alg:dijkstra'/> to solve randomly generated <Ref id='prob:shortestPath'/> instances.</>}>
+  <DijkstraAlgo client:only="react"
+    randomMinEdges={10}
+    randomMaxEdges={14}
+   />
+  <PrintFallback>_Interactive content not available - see it on the website._</PrintFallback>
+</Figure>
+
+Now that you've seen the algorithm in action, there is one more thing left to do. We've said Dijkstra's is an _algorithm_ for the <Ref id="prob:shortestPath"/>. According to our definition, to be an algorithm you must guarantee the output is an optimal solution to the problem at hand. To wrap up this section, we will now prove that <Ref id="alg:dijkstra"/> is indeed a valid algorithm.
+
+<Theorem id="thm:dijkstra" title="Correctness of Dijkstra's Algorithm">
+<Ref id="alg:dijkstra"/> solves <Ref id="prob:shortestPath"/> by returning a shortest $s$-$t$ path.
+</Theorem>
+
+<Proof>
+For each vertex $v\in V$, let $\mathrm{dist}(v)$ represent the length of a shortest $s$-$v$ path in $G$ (contrast this with $d(v)$, which is the length of the best-known path at any given time while running the algorithm). We intend to show that throughout the main iterations of <Ref id="alg:dijkstra"/>, whichever vertex $u$ we select as the minimizer of $d$ over $U$ will satisfy $d(u) = \mathrm{dist}(u)$. That is, at each iteration, we have found the best path to each vertex we remove from $U$.
+
+The proof goes by induction on the number of iterations of the algorithm. As a base case, it is clear that in the first iteration $u=s$ and $d(s)=\mathrm{dist}(s)=0$.
+
+Now for the inductive step. Let's suppose for contradiction that, for the first time while running the algorithm, the vertex $u$ we've removed from $U$ actually has $d(u) > \mathrm{dist}(u)$. That would mean there is a shorter $s$-$u$ path than the one found by the algorithm. The shortest path will look something like
+
+$$
+v_0\rightarrow v_1\rightarrow \cdots\rightarrow v_{k-1}\rightarrow v_k
+$$
+
+where $v_0=s$ and $v_k=u$.
+
+Let $i$ be the smallest index with $v_i\in U$.<Footnote/> Then since $v_{i-1}$ is _not_ in $U$, we know it was removed from $U$ in an earlier iteration, and thus by the inductive assumption we have $d(v_{i-1}) = \mathrm{dist}(v_{i-1})$.
+
+Furthermore, since $v_{i-1}$ precedes $v_i$ in the shortest $s$-$u$ path, the path
+
+$$
+v_0\rightarrow v_1\rightarrow\cdots v_{i-1}\rightarrow v_i
+$$
+
+must be a shortest $s$-$v_i$ path.<Footnote/> Bringing it all together, we have
+
+$$
+d(v_i)\leq d(v_{i-1}) + c_{v_{i-1}v_i}= \mathrm{dist}(v_{i-1}) + c_{v_{i-1}v_i}=\mathrm{dist}(v_i)
+$$
+
+Since $v_i$ precedes $u$ on the shortest $s$-$u$ path, we also have $\mathrm{dist}(v_i)\leq\mathrm{dist}(u)$. Combining these two inequalities with the initial assumption $\mathrm{dist}(u)<d(u)$ gives
+
+$$
+d(v_i)\leq \mathrm{dist}(v_i)\leq\mathrm{dist}(u) < d(u)
+$$
+
+Thus $v_i$ is a vertex in $U$ with strictly smaller $d$ value than $u$, contradicting the selection of $u$ as the vertex to remove from $U$.
+</Proof>
+
+<FootnoteBody>
+We know $i$ exists, since at the very least $v_k=u\in U$.
+</FootnoteBody>
+
+<FootnoteBody>
+Otherwise, there would be a shorter $s$-$u$ path that incorporates the shorter $s$-$v_i$ path.
+</FootnoteBody>
+
+### Prim's MST algorithm {/* sec:primAlgo */}
+
+We now turn our attentions to the <Ref id="prob:mst"/>, which can be solved by a fairly simple algorithm. The algorithm begins with an empty set $T$, which we will iteratively fill with edges from $E$ until the minimum spanning tree is found. Here's the algorithm:
+
+<Algorithm id="alg:prim" caption="Prim's Algorithm">
+<AlgoComment>Initialize</AlgoComment>
+<AlgoStep>Select an arbitrary vertex $r\in V$</AlgoStep>
+<AlgoStep>Set $U\leftarrow\lbrace r\rbrace$</AlgoStep>
+<AlgoStep>Set $T\leftarrow\emptyset$</AlgoStep>
+<AlgoWhile cond="T\text{ is not a spanning tree of }G">
+<AlgoStep>Select $(u,v)$ as a minimum-cost edge with $u\in U$ and $v\in V\setminus U$</AlgoStep>
+<AlgoStep>Set $T\leftarrow T\cup\lbrace(u,v)\rbrace$</AlgoStep>
+<AlgoStep>Set $U\leftarrow U\cup\lbrace v\rbrace$</AlgoStep>
+</AlgoWhile>
+<AlgoReturn>$T$ as a minimum spanning tree of $G$</AlgoReturn>
+</Algorithm>
+
+And... that's it! Seems too simple, doesn't it? Just pick the lowest-cost edge that keeps $T$ a tree, and keep going? Though it may seem too short-sighted to finish with the optimal solution, it actually does work! Let's prove that now. (Note that this proof makes use of a claim (<Ref id="thm:newSpanningTree"/>) proven in the appendix — check that one out too if you're curious!)
+
+<Theorem id="thm:prim" title="Correctness of Prim's Algorithm">
+<Ref id="alg:prim"/> solves <Ref id="prob:mst"/> by returning a minimum-cost spanning tree in $G$.
+</Theorem>
+
+<Proof>
+We will show by induction that at any point in the algorithm, the tree $T$ that we build is a subset of some minimum spanning tree of $G$. Since the algorithm terminates with $T$ itself being a spanning tree, this will complete the proof. Note that since we start with $T=\emptyset$, this hypothesis is trivially true in the base case<Footnote/>.
+
+For the inductive step, suppose we are at some point in the algorithm having $T$ as a subset of some minimum spanning tree $M$. Let $e$ be the edge the algorithm identifies for addition to $T$. We need to have that $T\cup\lbrace e\rbrace$ is the subset of some minimum spanning tree of $G$.
+
+If $e\in M$ then we are done, so suppose $e\not\in M$. By <Ref id="thm:newSpanningTree"/>, if we add $e$ to $M$ we create a cycle $C$. Since $e$ comes from <Ref id="alg:prim"/>, one end of $e$ is in $U$ while the other is in $V\setminus U$. Since $C$ is a cycle, it must return to $U$ at some point, so let $e'$ be another edge in $C$ which also has one end in $V\setminus U$ and the other in $U$.
+
+Now consider the set of edges $M'=(M\setminus\lbrace e\rbrace)\cup\lbrace e'\rbrace$. Also by <Ref id="thm:newSpanningTree"/>, $M'$ is a spanning tree. Then $M$ and $M'$ are both spanning trees, with the only differences being that $M$ contains $e'$ while $M'$ contains $e$. Furthermore, since both edges have one end in $U$ and one end in $V\setminus U$, the fact that $e$ was selected by the algorithm implies $c_e\leq c_{e'}$. Thus $M'$ has cost no greater than the cost of $M$, completing the proof.
+</Proof>
+
+<FootnoteBody>
+By definition, the empty set is a subset of any other set.
+</FootnoteBody>
+
+Ready to see it in action? Go ahead and work through an example in <Ref id="fig:primExample"/>.
+
+<Figure id="fig:primExample" caption="Stepping through an example of Prim's algorithm.">
+{/* TODO: come back to figure content later */}
+</Figure>
+
+<Ref id="alg:prim"/> is an example of what is called a greedy algorithm, which means that it makes a locally-optimal decision at each step. In this case, the algorithm selects the lowest-cost edge that keeps the edges of $T$ as a tree. There is no thought to the future, or to whether we may need to undo any short-sighted decisions made in earlier steps. The algorithm just goes along greedily selecting the smallest edges possible.
+
+<Definition id="def:greedyAlgorithm" title="Greedy Algorithm">
+An algorithm that proceeds by making a locally-optimal decision at each step.
+</Definition>
+
+It should be clear that a greedy algorithm will not work for every kind of optimization problem. We could take <Ref id="prob:shortestPath"/> as an example. Maybe our "greedy" process for that problem would be to start with vertex $s$, add the lowest-cost edge out of $s$, then keep adding lowest-cost edges until we find our way to $t$.
+
+It's not too hard to create examples where this type of process fails. Consider the graph in <Ref id="fig:shortestPathGreedyFail"/>. Our greedy heuristic would be enticed by the low cost of edge $(s,a)$. But that greedy first step would take us immediately to a portion of the graph with very high-cost edges, leading to a final path of $s\rightarrow a\rightarrow c\rightarrow t$, with cost 17. A bad outcome when the actual optimal path $s\rightarrow b\rightarrow d\rightarrow t$ only has cost 4<Footnote/>.
+
+<FootnoteBody>
+In fact, the greedy heuristic we just outlined may fail to find any $s$-$t$ path at all, if one of the greedy steps takes us to a portion of the graph with no connections to $t$.
+</FootnoteBody>
+
+<Figure id="fig:shortestPathGreedyFail" caption="An example failure case for our greedy shortest path heuristic.">
+{/* TODO: come back to figure content later */}
+</Figure>
+
+So we know greedy algorithms do not work for all <Ref id="prob:combOpt"/>s. Is there a way to tell when a problem can be solved by a greedy algorithm? It turns out that <Ref id="prob:combOpt"/> theory _does_ have something to tell us about which problems greedy algorithms can and can't solve. We'll return to that topic later in the class.
+
+### Knapsack DP algorithm {/* sec:knapsackDP */}
+
+Let's turn our attention now to the <Ref id="prob:knapsack"/>, a simple-looking but deceptively complicated problem. It turns out that a greedy algorithm (iteratively taking the highest-value item that won't put you over the weight limit $b$) will not work for this problem<Footnote/>. You might want to try something slightly more complicated, like ordering the items by their "value to weight" ratio $v_j/w_j$ and taking items with the best ratio. But that won't do it either.
+
+<FootnoteBody>
+It's not too hard to create an example that proves greedy doesn't work. See if you can come up with one yourself!
+</FootnoteBody>
+
+What does work? The algorithm we will discuss uses a common algorithmic technique known as dynamic programming, a particular approach to solving problems that requires a recursive breaking down of the problems into simpler subproblems<Footnote/>. We've actually already seen an example of dynamic programming in <Ref id="alg:dijkstra"/>. Adding a second example should help you see how the technique can work generally.
+
+<FootnoteBody>
+If you're familiar with operations research already, you may find the name _dynamic programming_ a little confusing. Other similarly-named concepts in the field (linear programming, integer programming) are classes of _problems_ to be solved, in contrast to dynamic programming which is a class of _algorithms_ for solving problems.
+</FootnoteBody>
+
+<Definition id="def:dynamicProgramming" title="Dynamic Programming">
+An algorithmic technique that involves recursively breaking down a problem into smaller, easier-to-solve subproblems. The solutions to these subproblems inform the solutions to the larger problems in a particular way.
+</Definition>
+
+We'll now define the particular subproblems of interest for us. For a given instance $P$ of the <Ref id="prob:knapsack"/>, let's assume that the set of items $J$ has $n$ elements, and in particular $J=\{1,2,\cdots,n\}$<Footnote/>. For $r\in J$ and integer $s\leq b$, let $P_r(s)$ be a knapsack instance identical to $P$, except with $J=\{1,\cdots,r\}$ (if $r=0$, let $J=\emptyset$) and $b=s$<Footnote/>. Let $f_r(s)$ be the value of the optimal solution to $P_r(s)$. Note that with these definitions, the original problem is $P=P_n(b)$ and has optimal value $f_n(b)$.
+
+<FootnoteBody>
+Also important to this discussion is that we've defined the <Ref id="prob:knapsack"/> so that the item weights $w_j$ and overall weight limit $b$ are integers. This might seem like an unnecessary limitation, surely we want to allow for items that weigh, say, 0.5 pounds! The thing to keep in mind is that, so long as all the numbers are rational, we can convert them all to integers by simple multiplication. And rational numbers are not a big assumption either, since in practical cases you only need a finite amount of precision for your item weights.
+</FootnoteBody>
+
+<FootnoteBody>
+In other words, restrict the set of items to only the first $r$ items, and reduce the weight limit from $b$ to $s$.
+</FootnoteBody>
+
+The key to dynamic programming is relating the optimal value of some instance to the optimal value of smaller instances. To that end, let's think about what we can say about $f_r(s)$ for some setting of the values $r$ and $s$. In particular, let's think about the $r$th item. Obviously, an optimal solution to $P_r(s)$ will either include item $r$ or it will not.
+
+If the optimal solution to $P_r(s)$ _does_ include item $r$, then it must be true that $f_r(s)=v_r + f_{r-1}(s-w_r)$. Why is that? Because once item $r$ has been included (giving the $v_r$ portion of the term), we must optimally fill the remaining weight ($s-w_r$) with the remaining items $\{1,2,\cdots,r-1\}$, giving us exactly the setup for $P_{r-1}(s-w_r)$.
+
+On the other hand, if the optimal solution to $P_r(s)$ _does not_ include item $r$, then it must be true that $f_r(s)=f_{r-1}(s)$. Why? Because the optimal solution to $P_r(s)$ uses only items $\{1,2,\cdots,r-1\}$ to fill the entire weight $s$.
+
+So we have two possible scenarios, one of which must hold true. Since we are maximizing, the one that holds must be the maximum of the two. So we can write the recursive equation<Footnote/>:
+
+$$ {#eq:knapsackRecursion}
+f_r(s) = \max\{f_{r-1}(s), v_r + f_{r-1}(s-w_r)\}
+$$
+
+<FootnoteBody>
+In the terminology of dynamic programming, this type of equation is called a [Bellman equation](https://en.wikipedia.org/wiki/Bellman_equation).
+</FootnoteBody>
+
+(Note that for this to hold in all cases, we should define $f_r(s)=-\infty$ when $s<0$. That way the $v_r + f_{r-1}(s-w_r)$ term is never the maximum when the $r$th item's weight is over the weight limit.)
+
+So we can find values of $f_r(s)$ for larger $r$ and $s$ by checking the solutions to smaller versions of the problem. And, luckily, the smallest knapsack problems are very easy. Trivially, $f_r(0)=0$ for all $r\in\{1,2,\cdots,n\}$<Footnote/>. The values of $f_1(s)$ are pretty easy to find as well: either $f_1(s)=v_1$ if $w_1\leq s$ or otherwise $f_1(s)=0$.
+
+<FootnoteBody>
+Since the weight limit is 0, but all item weights are greater than 0.
+</FootnoteBody>
+
+The above is the basis of our dynamic programming algorithm. For a simple implementation, we need to keep track of $f_r(s)$ for all feasible values of $r$ and $s$, i.e. $r\in\{0,1,\cdots,n\}$ and $s\in\{0,1,\cdots,b\}$. As well, we need to know the set of items selected for each setting of $r,s$, which we'll denote by $S_r(s)$. The first several $r,s$ values are easy, and subsequent ones are calculated from earlier solutions using the recursion of <Ref id="eq:knapsackRecursion"/>.
+
+The full algorithm looks like this:
+
+<Algorithm id="alg:knapsackDP" caption="Knapsack DP Algorithm">
+<AlgoComment>Initialize</AlgoComment>
+<AlgoStep>
+For all $r\in\lbrace0,1,\dots,n\rbrace$ and $s\in\lbrace0,1,\dots,b\rbrace$, set:
+
+$$
+f_r(s) \leftarrow \begin{cases}
+    0 & \text{if } s=0 \text{ or } r=0 \\
+    \text{undefined} & \text{otherwise}
+\end{cases}
+$$
+
+and
+
+$$
+S_r(s) \leftarrow \begin{cases}
+    \emptyset & \text{if } s=0 \text{ or } r=0 \\
+    \text{undefined} & \text{otherwise}
+\end{cases}
+$$
+</AlgoStep>
+<AlgoStep>Set $r\leftarrow 1$</AlgoStep>
+<AlgoStep>Set $s\leftarrow 1$</AlgoStep>
+<AlgoComment>Main iteration</AlgoComment>
+<AlgoWhile cond="r\leq n">
+<AlgoWhile cond="s\leq b">
+<AlgoIf cond="s\geq w_r \text{ and } v_r + f_{r-1}(s-w_r) > f_{r-1}(s)">
+<AlgoStep>
+
+$$f_r(s) \leftarrow v_r + f_{r-1}(s-w_r)$$
+
+</AlgoStep>
+<AlgoStep>
+
+$$S_r(s) \leftarrow S_{r-1}(s-w_r)\cup\lbrace r\rbrace$$
+
+</AlgoStep>
+</AlgoIf>
+<AlgoElse>
+<AlgoStep>
+
+$$f_r(s) \leftarrow f_{r-1}(s)$$
+
+</AlgoStep>
+<AlgoStep>
+
+$$S_r(s) \leftarrow S_{r-1}(s)$$
+
+</AlgoStep>
+</AlgoElse>
+<AlgoStep>Set $s\leftarrow s+1$</AlgoStep>
+</AlgoWhile>
+<AlgoStep>Set $r\leftarrow r+1$</AlgoStep>
+<AlgoStep>Set $s\leftarrow 1$</AlgoStep>
+</AlgoWhile>
+<AlgoReturn>$S_n(b)$ as the maximum-value subset with total value $f_n(b)$</AlgoReturn>
+</Algorithm>
+
+Let's work through an example in <Ref id="fig:knapsackExample"/>:
+
+<Figure id="fig:knapsackExample" caption="Stepping through an example of the Knapsack DP algorithm.">
+{/* TODO: come back to figure content later */}
+</Figure>
+
+We've already discussed why this algorithm works in our discussions on <Ref id="eq:knapsackRecursion"/>, but let's go ahead and formalize it with a proof.
+
+<Theorem id="thm:knapsackDP" title="Correctness of Knapsack DP Algorithm">
+<Ref id="alg:knapsackDP"/> solves the <Ref id="prob:knapsack"/> by returning a maximum-value set of items whose combined weight does not exceed the weight limit.
+</Theorem>
+
+<Proof>
+The key to this proof is to show the correctness of the recursive equation <Ref id="eq:knapsackRecursion"/>, which we will prove by induction. For the base case, since by definition of the <Ref id="prob:knapsack"/> we have $w_j>0$ for all $j\in J$, it is clear that $f_j(0)=0$ for any $j\in J$, which satisfies <Ref id="eq:knapsackRecursion"/>.
+
+For the inductive step, suppose we have some $s$ with $0<s\leq b$ and $j\in J$. It is clear that the solution to $P_r(s)$ either includes item $r$ or it does not. If item $r$ is not included, then the optimal solution to $P_r(s)$ is a subset of $\{1,\cdots,r-1\}$, meaning the solution value is $f_{r-1}(s)$.
+
+If item $r$ _is_ included, then the optimal value is at least $v_r$. Furthermore, there is still $s-w_r$ available from the weight limit to include items from the set $\{1,\cdots,r-1\}$. By definition, the highest value we may attain for that is $f_{r-1}(s-w_r)$.
+
+So the optimal value $f_r(s)$ must be the best of these two values, i.e.
+
+$$
+f_r(s) = \max\{f_{r-1}(s), v_r + f_{r-1}(s-w_r)\}
+$$
+
+as prescribed by <Ref id="eq:knapsackRecursion"/>.
+</Proof>
+
+### TSP approximation {/* sec:tspApprox */}
+
+Let's switch gears a little bit now. Where in the previous sections we were discussing _algorithms_ for <Ref id="prob:combOpt"/>s, we will now give our first example _approximation algorithm_.
+
+Why an approximation, instead of an algorithm proper? The problem of interest here is the <Ref id="prob:tsp"/> which is a pretty hard problem! There are algorithms to solve it, of course, but they're either simple but hopelessly slow (like enumerating every possible tour in the graph and selecting the shortest one) or too complicated to fit neatly into this section of the notes.
+
+What makes <Ref id="prob:tsp"/> so hard? We'll tackle that question formally later in the class. For now let's just convince ourselves that several simple methods you may come up with don't work.
+
+Let's start with a simple, "greedy" type heuristic known as the "nearest neighbor" heuristic. To start, you select some vertex as your starting vertex. Now choose the vertex in the graph closest to the start vertex, i.e. the vertex whose connecting edge has the lowest cost. Now, among the vertices not yet visited, choose the one closest to the vertex you last selected. Then, iterate like this until all the vertices have been chosen, and finish off the tour by returning to the start vertex.
+
+It may seem like this should give you a good (maybe optimal?) solution, but it turns out this can go hilariously wrong. Consider the graph in <Ref id="fig:nearestNeighborBad"/>.
+
+<Figure id="fig:nearestNeighborBad" caption="An example TSP instance where the nearest neighbor heuristic fails miserably.">
+{/* TODO: come back to figure content later */}
+</Figure>
+
+Say you start at vertex 1. The nearest neighbor is vertex 2, with an edge cost of 1. Then the nearest neighbor to vertex 2 is vertex 4, and vertex 4's nearest neighbor is vertex 3. Having visited every vertex, you must now return to vertex 1 with an edge cost of... _1000!_ So the heuristic returns a tour of cost 1003, while an optimal tour (say $1\rightarrow2\rightarrow3\rightarrow4\rightarrow1$) would have cost only 6.
+
+The failure mode of nearest neighbor and other greedy algorithms should be pretty clear: By making certain choices early in the algorithm, you may lock yourself into suboptimal decisions later on. A hallmark of greedy algorithms is the lack of ability to alter your path in later portions of the algorithm. Only certain types of problems can be solved by greedy algorithms<Footnote/>, and <Ref id="prob:tsp"/> is not one of them.
+
+<FootnoteBody>
+Reminder: we'll discuss later in the course precisely which problems _can_ be solved by greedy algorithms.
+</FootnoteBody>
+
+You might object that this is a pretty contrived example. Indeed, in practice most <Ref id="prob:tsp"/> instances are of the "metric" variety, which you may recall from our definitions requires that the triangle inequality
+
+$$
+c_{ij} + c_{jk} \geq c_{ik}
+$$
+
+be satisfied for any three vertices $i,j,k\in V$. That cost-1000 edge in <Ref id="fig:nearestNeighborBad"/> makes the inequality fail. Alas, it is not too hard to find metric instances for which nearest neighbor fails to find an optimal solution (though it's a little trickier to show on small graphs, and the failures are less dramatic). Indeed, in most natural instances, the greedy algorithm will not find an optimal solution.
+
+To convince yourself of this, I'd suggest visiting [tspvis.com](https://tspvis.com), a slick site that will let you try various <Ref id="prob:tsp"/> heuristics on instances you create on a map. Since these are using real-world distances, the triangle inequality will always be satisfied. Note that the exact solution methods they provide are not at all state-of-the-art, so if you want to find optimal solutions in a short amount of time I'd suggest creating instances with a small (single-digit) number of cities.
+
+While there are exact algorithms for <Ref id="prob:tsp"/> that work better than those provided in the above website, we won't be talking about them here. We'll instead take the opportunity to talk about approximation algorithms. As you may recall from earlier, approximation algorithms occupy a middle ground between exact algorithms (which provably find an optimal solution) and heuristics (which may find a solution, but with no guarantee on the quality of the solution). An approximation algorithm finds a solution to a problem that is provably within some pre-specified distance from an optimal solution. This distance may be multiplicative or additive. If we let $z^*$ be the value of an optimal solution and $z^{\text{approx}}$ be the value of the solution returned by the approximation algorithm, then (assuming the problem is a minimization problem) we should be able to prove that
+
+$$
+z^{\text{approx}}\leq\alpha z^*\qquad\text{or}\qquad z^{\text{approx}}\leq z^* + \beta
+$$
+
+where in the multiplicative case $\alpha>1$ and in the additive case $\beta>0$.
+
+I should stress that this is often more of a theoretical win than a practical one. The algorithm we are about to show gives a multiplicative guarantee with $\alpha=2$. Is that good? Well, maybe and maybe not. If you told the titular salesman that you can get him on his way and he'll need to drive perhaps twice as far as his best route, he may not be too happy. Of course, these are worst-case guarantees, and in practice most applications of the algorithm will return a solution noticeably better than the guarantee. But in practice, many heuristics may perform better as well.
+
+Anyway, let's put that matter aside and talk about the actual algorithm! Throughout, we'll use the graph <Ref id="fig:tsp2ApproxExBase"/> to guide our discussion.
+
+<Figure id="fig:tsp2ApproxExBase" caption="An example graph for demonstrating our TSP approximation algorithm.">
+{/* TODO: come back to figure content later */}
+</Figure>
+
+The first step uses something we already know. Take the graph $G$ and find a minimum spanning tree $T$, using e.g. <Ref id="alg:prim"/> from <Ref id="sec:primAlgo"/>. Now, $T$ is not an optimal solution to the problem, nor is it even a tour in $G$. But, we can still say something about the costs of the edges in $T$ in relation to the optimal tour. Let $z^*$ represent the value of the optimal solution to our <Ref id="prob:tsp"/> instance. We know that the sum of the costs of the edges in $T$ is no more than $z^*$, i.e.
+
+$$ {#eq:tsp2ApproxObservation1}
+\sum_{e\in T} c_e\leq z^*
+$$
+
+Why is that? We know that $z^*$ comes from a minimum-cost tour in $G$. If you remove any edge from that tour, what remains is a spanning tree on $G$<Footnote/> (see <Ref id="fig:removeEdgeFromTour"/> if you need convincing), which we'll call $T'$. Since all edge costs are nonnegative, clearly $z^*\geq\sum_{e\in T'} c_e$, and since both $T$ and $T'$ are spanning trees and $T$ is also a minimum spanning tree, $\sum_{e\in T'} c_e\geq\sum_{e\in T} c_e$. Combining these two inequalities yields <Ref id="eq:tsp2ApproxObservation1"/>.
+
+<FootnoteBody>
+It's actually important that we're dealing with a metric TSP here, which implies that the minimum-cost tour must visit every node exactly once (i.e. is a Hamiltonian cycle).
+</FootnoteBody>
+
+<Figure id="fig:removeEdgeFromTour" caption="An illustration of how removing an edge from a tour creates a spanning tree.">
+{/* TODO: come back to figure content later */}
+</Figure>
+
+Let's return to our example graph <Ref id="fig:tsp2ApproxExBase"/>. We can quickly find a minimum spanning tree on this graph (using <Ref id="alg:prim"/> or just simply by visual inspection). In this case, the set of edges $\{(1,2), (2,4), (2,5), (3,5)\}$ define a minimum spanning tree, which we can see in <Ref id="fig:tsp2ApproxExMST"/>.
+
+<Figure id="fig:tsp2ApproxExMST" caption="A minimum spanning tree in the example graph.">
+{/* TODO: come back to figure content later */}
+</Figure>
+
+So we have a spanning tree, but what we really need is a tour! How do we get there from here? Well, for any tree you can build what is known as a traversal of the tree, which is a particular way of visiting every vertex in the tree via the edges. We won't formally specify the algorithm (though you can [check here](https://en.wikipedia.org/wiki/Tree_traversal) for more discussion), but the notion is very simple. Pick some arbitrary vertex as your starting point, then in a "depth-first" manner, select one of its neighbors, then one of the neighbor's neighbors, and on and on until you reach a node with no other unvisited neighbors. Then you traverse back up the tree until you find a node with an unvisited neighbor, and repeat the process.
+
+<Definition id="def:traversal" title="Traversal">
+A way of visiting every vertex in a <Ref id="def:tree"/> using its edges.
+</Definition>
+
+Let's go ahead and do that for our tree found in <Ref id="fig:tsp2ApproxExMST"/>, starting from vertex 1. You can follow through the process using <Ref id="fig:tsp2ApproxExTraversal"/>.
+
+<Figure id="fig:tsp2ApproxExTraversal" caption="Building a tree traversal, starting from node 1.">
+{/* TODO: come back to figure content later */}
+</Figure>
+
+So we build a traversal, which in this case looks like $1\rightarrow2\rightarrow5\rightarrow3\rightarrow5\rightarrow2\rightarrow4\rightarrow2\rightarrow1$. This is technically a tour, though a seemingly wasteful one since it visits several vertices multiple times. Nevertheless, we can say something about the length of this tour, which we'll call $R$, in relation to the optimal solution for our <Ref id="prob:tsp"/> instance. In particular, we already knew that $\sum_{e\in T} c_e\leq z^*$ where $z^*$ was the cost of the optimal tour, and $T$ was a minimum spanning tree on the graph. Well, by construction, $R$ contains all the edges from $T$ exactly twice, so that means
+
+$$
+\sum_{e\in R} c_e\leq 2z^*
+$$
+
+i.e. we have a tour whose cost is at most twice the optimal cost.
+
+But we can do better! Recall the wastefulness of our traversal. For instance, the traversal ends with $2\rightarrow4\rightarrow2\rightarrow1$. We visit vertex $2$ twice in this sequence. Wouldn't it be better to just go directly from $4$ back to $1$ without visiting $2$ again? Yes it would! Since we said we'll be dealing with the metric variant of <Ref id="prob:tsp"/>, we know in particular that
+
+$$
+c_{41} \leq c_{42} + c_{21}
+$$
+
+and so it would be shorter to take the shortcut and simply do $2\rightarrow4\rightarrow1$.
+
+So the final step of the algorithm is to take the traversal we built and simply "skip" each vertex that we've already visited (and finish by returning to the start vertex). So our traversal from above, $1\rightarrow2\rightarrow5\rightarrow3\rightarrow5\rightarrow2\rightarrow4\rightarrow2\rightarrow1$, becomes simply $1\rightarrow2\rightarrow5\rightarrow3\rightarrow4\rightarrow1$. As we saw above, none of these shortcuts will add any cost to the resultant tour. So the final tour still has the same guarantee, to be no more than twice the cost of the optimal tour. (In fact, in this instance we got lucky and the solution returned is indeed an optimal solution.)
+
+<Figure id="fig:tsp2ApproxFinalTour" caption="The tour created by the TSP 2-approximation algorithm on our sample graph.">
+{/* TODO: come back to figure content later */}
+</Figure>
+
+There you have it, your first approximation algorithm! Let's formalize this by presenting the algorithm and writing the proof of correctness.
+
+<Algorithm id="alg:tsp2Approx" caption="TSP 2-Approximation">
+<AlgoStep>Find a minimum spanning tree $T$ of $G$.</AlgoStep>
+<AlgoStep>Find a traversal $R$ of $T$.</AlgoStep>
+<AlgoStep>Build the final tour by iterating through $R$ and skipping any vertices that have already been visited.</AlgoStep>
+<AlgoReturn>The final tour with cost at most $2z^*$, where $z^*$ is the cost of an optimal tour.</AlgoReturn>
+</Algorithm>
+
+<Theorem id="thm:tsp2Approx" title="TSP 2-Approximation Guarantee">
+<Ref id="alg:tsp2Approx"/> returns a tour with cost at most $2z^*$, where $z^*$ is the cost of an optimal tour.
+</Theorem>
+
+<Proof>
+We've already gone through the logic of the proof in the preceding discussion. Since the optimal tour consists of a spanning tree plus one extra edge and $T$ is a minimum spanning tree, it is clear that
+
+$$
+\sum_{e\in T} c_e\leq z^*
+$$
+
+and since the traversal built has all the edges of $T$ exactly twice,
+
+$$
+\sum_{e\in R} c_e\leq 2z^*
+$$
+
+Finally, since we are dealing with the metric variant of <Ref id="prob:tsp"/>, shortcutting vertices already visited in $R$ does not add any cost to the tour. Thus
+
+$$
+\sum_{e\in R^{\text{final}}}c_e\leq \sum_{e\in R}c_e\leq 2z^*
+$$
+
+as required.
+</Proof>
+
+A few notes before we wrap up:
+
+- When an approximation algorithm satisfies $z^{\text{approx}}\leq\alpha z^*$ for some $\alpha$, we often refer to the algorithm as an $\alpha$-approximation algorithm. Hence why we named this algorithm the TSP 2-approximation algorithm.
+- There is another famous approximation algorithm for the metric <Ref id="prob:tsp"/>, known as the [Christofides algorithm](https://en.wikipedia.org/wiki/Christofides_algorithm). It is similar to <Ref id="alg:tsp2Approx"/> in that it starts by finding a minimum spanning tree, but it gets slightly more complicated from there. What it gains from the minor complication is an improved approximation ratio, namely the final solution is guaranteed to be within a factor 1.5 of the optimal instead of 2.
+
+Hopefully you've found this section informative, and maybe even a little fun! We've seen a variety of <Ref id="prob:combOpt"/> problems and gotten a feel for how they might be useful in real-life applications. Beyond that, we've gotten into the details of how to find solutions, with both exact and approximation algorithms, along the way introducing common techniques like greedy algorithms and dynamic programming.
+
+As fun as that all can be, you might be getting the feeling that <Ref id="prob:combOpt"/> is a somewhat disjointed field. Instead of treating each individual problem as its own walled garden, with its own quirks and solution techniques, wouldn't it be nice if there were a unified way to approach these problems? Luckily such approaches and frameworks _do_ exist. Many of the common toolsets derive from integer programming, which we will study next.

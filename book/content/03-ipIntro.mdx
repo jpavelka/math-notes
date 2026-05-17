@@ -1,0 +1,501 @@
+---
+title: "Intro to Integer Programming"
+chapter: 3
+chapterId: "sec:ipIntro"
+---
+
+import { Definition, Ref, Cite, Footnote, FootnoteBody, BlockQuote, Problem, ProblemInstance, ProblemQuestion, Figure } from '@/components';
+
+We've made it now to the second major topic in the course, integer programming. But it wouldn't be right to see it as a separate topic from <Ref id="prob:combOpt"/>. Really it is a framework for solving many optimization problems, most <Ref id="prob:combOpt"/>s included. It's one of the most powerful and broadly-applicable optimization techniques available.
+
+But we're not ready to talk about solving them yet. Our first step is to define the technique, and then show how it can be used to model many types of problems, <Ref id="prob:combOpt"/>s and beyond.
+
+## Definitions {/* sec:ipDefs */}
+
+What is integer programming? Clearly it has something to do with the integers, i.e. the whole numbers $0, 1, -1, 2, -2, 3, -3,\dots$
+
+Now to the "programming" part. In most modern contexts, when we talk about programming we're talking about writing computer code. That is _not_ what we mean here. We're using an older sense of the term, from a time when the word _program_ was often used as a synonym for the word _plan_. Thus the broad term _mathematical programming_ is essentially just "using math to help make a plan." This makes sense, as the goal of solving an optimization problem is to ultimately use the solution and do something with it in the real world.
+
+From mathematical programming we get to _linear programming_, so named because (as we'll see shortly) all the constraints and objectives are _linear_ functions of the variables. Then we get to _integer linear programming_, so-named because it looks just like a linear program except that now the variables are required to take integer values. This term is often shortened to simply _integer programming_<Footnote/>.
+
+<FootnoteBody>
+This is a little confusing, since you can certainly formulate a mathematical programming problem with nonlinear functions that also require integer variables. However, these problems are generally not described as "integer programs".
+</FootnoteBody>
+
+There are a few common components to mathematical programming or optimization problems, integer programming included. A _variable_ (or _decision variable_) is a quantity for which the solver gets to decide the value, with the particular decisions affecting the quality of the final solution. A _constraint_ is a condition that the variables must satisfy. The _objective function_ (or simply _objective_) is some function of the variables that is to be maximized or minimized.
+
+<Definition id="def:variable" title="Variable">
+See <Ref id="def:decisionVariable"/>.
+</Definition>
+
+<Definition id="def:decisionVariable" title="Decision Variable">
+A quantity that can be adjusted while solving an optimization problem.
+</Definition>
+
+<Definition id="def:constraint" title="Constraint">
+A condition that the variables must satisfy while solving an optimization problem.
+</Definition>
+
+<Definition id="def:objectiveFunction" title="Objective Function">
+A function of the variables that is to be maximized or minimized in an optimization problem.
+</Definition>
+
+<Definition id="def:objective" title="Objective">
+See <Ref id="def:objectiveFunction"/>.
+</Definition>
+
+A _solution_ to an optimization problem is any specification for values of a problem's variables. A solution is called a _feasible solution_ if it satisfies all the problem's constraints. In contrast, any solution that does not satisfy all constraints is called an _infeasible solution_.
+
+<Definition id="def:solution" title="Solution">
+A specification of the values of the variables in an optimization problem.
+</Definition>
+
+<Definition id="def:feasibleSolution" title="Feasible Solution">
+A solution to an optimization problem that satisfies all the constraints.
+</Definition>
+
+<Definition id="def:infeasibleSolution" title="Infeasible Solution">
+A solution to an optimization problem that does not satisfy all constraints (i.e. violates at least one constraint).
+</Definition>
+
+The goal of an optimization problem is to find an _optimal solution_, a feasible solution that gives the most favorable value (maximum for a maximization problem, or minimum for a minimization problem) to the objective function. It is important to note that we're looking for _an_ optimal solution, not _the_ optimal solution. It is very possible for an optimization problem to have multiple optimal solutions, but we are generally only tasked with finding one of them. Conversely, it is also possible for a problem to have _no_ feasible solutions (a so-called _infeasible problem_), in which case there are no optimal solutions either.
+
+<Definition id="def:optimalSolution" title="Optimal Solution">
+A feasible solution that gives the most favorable value (maximum for a maximization problem, or minimum for a minimization problem) to the objective function.
+</Definition>
+
+<Definition id="def:infeasibleProblem" title="Infeasible Problem">
+An optimization problem for which all solutions are infeasible (see <Ref id="def:infeasibleSolution"/>).
+</Definition>
+
+We now have the vocabulary to properly define linear programming, which is an optimization problem where the objective and constraints are all linear functions of the variables.
+
+<Problem id="prob:lp" title="Linear Program" label="LP">
+<ProblemInstance>
+A matrix $A\in\R^{m\times n}$ and vectors $b\in\R^m$, $c\in\R^n$.
+</ProblemInstance>
+<ProblemQuestion>
+Find
+
+$$
+\argmax_{x\in\R_{\geq0}^n} \{cx: Ax\leq b\}
+$$
+
+i.e. find nonnegative vector $x\in\R^n_{\geq0}$ satisfying the constraints $Ax\leq b$ that maximizes the objective $cx$.
+</ProblemQuestion>
+</Problem>
+
+If you've only ever seen linear programming in the context of an undergrad operations research course, you might not be used to seeing <Ref id="prob:lp"/> written in matrix form. We do this here because the matrix form is much more convenient for stating results and proving theorems. But rest assured that this is still the linear programming you are used to, since we have:
+
+$$
+\begin{align*}
+Ax\leq b
+& \quad\Leftrightarrow\quad
+\begin{bmatrix}
+a_{11} & a_{12} & \cdots & a_{1n} \\
+a_{21} & a_{22} & \cdots & a_{2n} \\
+\vdots & \vdots & \ddots & \vdots \\
+a_{m1} & a_{m2} & \cdots & a_{mn} \\
+\end{bmatrix}
+\begin{bmatrix}
+x_1 \\ x_2 \\ \vdots \\ x_n
+\end{bmatrix}
+\leq
+\begin{bmatrix}
+b_1 \\ b_2 \\ \vdots \\ b_m
+\end{bmatrix}
+\\ \\
+& \quad\Leftrightarrow\quad
+\begin{align*}
+    a_{11}x_1 + a_{12}x_2 + \cdots + a_{1n}x_n &\leq b_1 \\
+    a_{21}x_1 + a_{22}x_2 + \cdots + a_{2n}x_n &\leq b_2 \\
+    &\vdots \\
+    a_{m1}x_1 + a_{m2}x_2 + \cdots + a_{mn}x_n &\leq b_m \\
+\end{align*}
+\end{align*}
+$$
+
+Basically, we just require that the constraints are of the form
+
+$$
+(\text{constant1})\cdot(\text{variable1}) + (\text{constant2})\cdot(\text{variable2}) + \cdots \leq (\text{constant})
+$$
+
+and the objective function is similarly
+
+$$
+(\text{constant1})\cdot(\text{variable1}) + (\text{constant2})\cdot(\text{variable2}) + \cdots
+$$
+
+From linear programming, we come to integer programming simply by requiring that all variables take integer values.
+
+<Problem id="prob:ip" title="Integer (Linear) Program" label="IP">
+<ProblemInstance>
+A matrix $A\in\R^{m\times n}$ and vectors $b\in\R^m$, $c\in\R^n$.
+</ProblemInstance>
+<ProblemQuestion>
+Find
+
+$$
+\argmax_{x\in\Z_{\geq0}^n} \{cx: Ax\leq b\}
+$$
+
+i.e. find nonnegative integer vector $x\in\Z^n_{\geq0}$ satisfying the constraints $Ax\leq b$ that maximizes the objective $cx$.
+</ProblemQuestion>
+</Problem>
+
+Often when formulating <Ref id="prob:ip"/>s for <Ref id="prob:combOpt"/>s, the variables will further be restricted to equaling either $0$ or $1$. The subset of integer programming that requires all variables be either $0$ or $1$ is called binary programming or binary integer programming:
+
+<Problem id="prob:bip" title="Binary Integer Program" label="BIP">
+<ProblemInstance>
+A matrix $A\in\R^{m\times n}$ and vectors $b\in\R^m$, $c\in\R^n$.
+</ProblemInstance>
+<ProblemQuestion>
+Find
+
+$$
+\argmax_{x\in\{0,1\}^n} \{cx: Ax \leq b\}
+$$
+</ProblemQuestion>
+</Problem>
+
+Lastly, we should note that sometimes we don't want _all_ variables restricted to integer values, but only some of them. If this is the case, we call the problem a _mixed_ integer program, which we can define as:
+
+<Problem id="prob:mip" title="Mixed Integer (Linear) Program" label="MIP">
+<ProblemInstance>
+A matrix $A\in\R^{m\times n}$, $G\in\R^{m\times p}$ and vectors $b\in\R^m$, $c\in\R^n$, $h\in\R^p$.
+</ProblemInstance>
+<ProblemQuestion>
+Find
+
+$$
+\argmax_{x\in\Z^n_{\geq0},y\in\R_{\geq0}^p} \{cx: Ax + Gy\leq b\}
+$$
+</ProblemQuestion>
+</Problem>
+
+Sometimes a regular <Ref id="prob:ip"/> is referred to as a _pure_ integer program, as a way to distinguish it from <Ref id="prob:mip"/>. We will not spend much time discussing <Ref id="prob:mip"/> in this class, but you should know that most of the results we present for <Ref id="prob:ip"/> have a close analogue in the world of <Ref id="prob:mip"/>, though the corresponding result is usually more difficult to prove.
+
+## Formulation {/* sec:ipFormulations */}
+
+It might not be immediately obvious just looking at the definition, but all kinds of problems can be modeled as <Ref id="prob:ip"/>s. At the start of your textbook <Cite id="wolsey2020"/>, in section 1.1, the author describes applications such as train scheduling, airline crew scheduling, production planning, electricity generation, telecommunications, radiation therapy, and kidney exchanges.
+
+How does this work? Let's start with a very simple production planning example:
+
+<BlockQuote>
+Your fruit farm produced 400 apples and 300 oranges this year. You've found that fruit juice is more profitable than raw fruit. One gallon of apple juice requires 15 apples and 3.5 tablespoons of sugar, while one gallon of orange juice requires 12 oranges and 5 tablespoons of sugar. A retailer is willing to buy any gallon bottle you can fill, at a price of \$2 per gallon of apple juice and \$2.75 per gallon of orange juice. Assuming you have 160 tablespoons of sugar, how much of each should you make?
+</BlockQuote>
+
+How do we formulate this as an <Ref id="prob:ip"/>? Let's first determine the variables in this problem, which represent the decisions we can make. In this case, our decision is how many gallons of apple and orange juice to make. So let's have $x_a$ represent the number of gallons of apple juice we produce, and similarly have $x_o$ represent the number of gallons of orange juice.
+
+Now let's think about the objective. Clearly, your goal is to make as much money as possible. You get \$2 per gallon of apple juice, so the total amount you make from apple juice is represented by $2x_a$. Similarly, $2.75x_o$ represents the number of dollars made off orange juice. Then the full objective to maximize is $2x_a + 2.75x_o$.
+
+But we can't make unlimited money. The amount of apple juice we make is ultimately constrained by our stock of apples and sugar. For one thing, we need 15 apples per gallon of apple juice and we only have 400 apples total. So $15x_a\leq400$ is a constraint in our problem. Similarly, we have a constraint $12x_o\leq 300$ imposed by our stock of oranges. The sugar is shared between the apple juice and the orange juice, with a constraint of $3.5x_a+5x_o\leq160$. One final technical constraint is that we can't produce a _negative_ amount of juice, i.e. we must have $x_a\geq0, x_o\geq0$.
+
+Bringing it all together, the final formulation can be written like this:
+
+$$
+\begin{align*}
+    \max && 2x_a + 2.75x_o \\
+    \st  && 15x_a & \leq 400 \\
+         && 12x_o & \leq 300 \\
+         && 3.5x_a + 5x_o & \leq 160 \\
+         && x_o,x_a & \geq 0
+\end{align*}
+$$
+
+You'll often see mathematical programs written in this form. The "$\max$" at the start indicates that this is a maximization problem, and the particular function to maximize follows. The "$\st$" is shorthand for "subject to", and the lines that follow list out the problem's constraints.
+
+Does this fit the definition of an <Ref id="prob:ip"/>? If we define $A$, $b$, and $c$ required in the definition of <Ref id="prob:ip"/> as<Footnote/>:
+
+<FootnoteBody>
+You'll notice that I write $b$ here as a column vector and $c$ as a row vector. Why the difference? It's really just because these are the shapes I need for all the multiplications from the definition of <Ref id="prob:ip"/> to be properly defined. That said, I'll be a little sloppy with this at times, but you should usually be able to determine the true dimensions from context.
+</FootnoteBody>
+
+$$
+A=\begin{bmatrix}15&0\\0&12\\3.5&5\end{bmatrix} \qquad
+b=\begin{bmatrix}400\\300\\160\end{bmatrix} \qquad
+c=\begin{bmatrix}2&2.75\end{bmatrix}
+$$
+
+Then multiplying through with variable vector
+
+$$
+x=\begin{bmatrix}x_a\\x_o\end{bmatrix}
+$$
+
+will recover the formulation from above. So this is indeed an integer program.
+
+## Equivalent forms {/* sec:ipForms */}
+
+Looking at the definitions for <Ref id="prob:lp"/> and <Ref id="prob:ip"/>, you may initially think the form is overly limiting. Even accepting the linearity restrictions, the definitions require maximizing a function, and less-than-or-equal-to constraints. What if I want to minimize? Or add equality constraints? Do I need to use something else.
+
+The answer to that question is no, your problem is still an <Ref id="prob:ip"/>. We stick to the one form in the definition because it makes writing algorithms and theorems simpler. But if you know the right tricks, there are other constraint and objective forms that can be transformed into the form from the definition.
+
+For example, suppose you want to solve a minimization problem. The simple trick is to realize that for two numbers $a$ and $b$, if $a\leq b$ then $-b\geq-a$. Hence minimizing the objective function $cx$ is the same as maximizing $-cx$. So to state your problem in the maximization form required for <Ref id="prob:ip"/>, you need only negate the objective vector<Footnote/>.
+
+<FootnoteBody>
+Such a negation is allowed since the definition of <Ref id="prob:ip"/> requires $c\in\R^n$, i.e. its entries could be positive or negative.
+</FootnoteBody>
+
+By a similar argument, one can readily use greater-than-or-equal-to constraints in an <Ref id="prob:ip"/>, since for $a_i\in\R^n$ and $b_i\in\R$ we have:
+
+$$
+a_ix\geq b_i \quad \Leftrightarrow \quad -a_ix\leq -b_i
+$$
+
+So negating both sides of the inequality brings it back to less-than-or-equal-to form. This opens up the ability to use equality constraints too, since
+
+$$
+a_ix=b_i \quad \Leftrightarrow \quad a_ix\leq b_i \quad\text{and}\quad a_ix\geq b_i
+$$
+
+A slightly more subtle conversion: The definition of <Ref id="prob:ip"/> states that the variables must be nonnegative. But this really isn't required either, we can have so-called _unrestricted_ variables which are allowed to be positive or negative.
+
+How is this conversion done? Suppose $x_i$ is some variable that we'd like to be unrestricted. We could simply replace it in the formulation with two nonnegative variables $y_i$ and $z_i$ with the relation $x_i=y_i-z_i$. So the $c_ix_i$ term in the objective becomes $c_i(y_i-z_i)=c_iy_i-c_iz_i$, and similarly with the constraints. Then we've rewritten the formulation with only nonnegative variables, as the definition requires.
+
+So, to recap, the linearity of the objective and constraints is not negotiable, but the form of the problem can still be changed in various ways while still staying in the <Ref id="prob:ip"/> framework:
+
+- Objectives may be minimized or maximized.
+- Constraints may be of $\leq$, $\geq$, or $=$ form.
+- Variables may be bounded or unrestricted.
+
+## <Ref id="prob:combOpt"/>s as <Ref id="prob:ip"/>s {/* sec:combOptIps */}
+
+As mentioned, one appealing aspect of learning about <Ref id="prob:ip"/>s is that a wide array of problems can be modeled and ultimately solved in the <Ref id="prob:ip"/> framework.
+
+In this section, we'll give <Ref id="prob:ip"/> formulations for several of the <Ref id="prob:combOpt"/> problems we've encountered. The trick is to set up variables to represent possible decisions you might make in the given problem, and then defining constraints that ensure that solutions are feasible for the <Ref id="prob:ip"/> if and only if there is a corresponding feasible solution to the <Ref id="prob:combOpt"/>. It's not always as easy as that single-sentence description might imply, but figuring them out does tend to get easier with practice.
+
+### <Ref id="prob:maxWeightIndSet"/> {/* sec:maxWeightIndSetIp */}
+
+Let's first return to our fun little game from <Ref id="sec:combOptGames"/>, the <Ref id="prob:maxWeightIndSet"/>. Here we are given a graph, and are supposed to select a group of non-adjacent vertices in a manner that will maximize the sum of the weights of the vertices.
+
+Since our decisions are which vertices to select, it makes sense to let our decision variables be binary variables $x_v\in\{0,1\}$ for $v\in V$, where the interpretation is that $x_v=1$ if we select vertex $v$ and $x_v=0$ otherwise. The quantity to maximize is the sum of weights of selected vertices, i.e. $\sum_{v\in V}w_vx_v$. The only thing we must ensure is that for any edge $(u,v)\in E$ we don't have both $x_u=1$ and $x_v=1$. So the <Ref id="prob:ip"/> formulation is:
+
+$$
+\begin{align*}
+    \max&&\sum_{v\in V}w_vx_v \\
+    \tag{1}\st&&x_u + x_v &\leq 1 & \forall\ (u,v)\in E \\
+    \tag{2}&&x_v&\in\{0,1\} & \forall\ v\in V
+\end{align*}
+$$
+
+To make it more clear how a compact, general formulation like the above translates to a concrete formulation for a particular instance, let's write out the full model for the instance we displayed in <Ref id="fig:indSetEx"/>:
+
+<div style="font-size: 0.9em">
+
+$$
+\begin{align*}
+    \max&&3x_a + 6x_b + 4x_c + x_d + 2x_e + 6x_f + 3x_g + 2x_h \\
+    \tag{1.1}\st&&x_a+x_b&\leq 1 \\
+    \tag{1.2}&&x_b+x_c&\leq 1\\
+    \tag{1.3}&&x_b+x_e&\leq 1\\
+    \tag{1.4}&&x_c+x_d&\leq 1\\
+    \tag{1.5}&&x_d+x_f&\leq 1\\
+    \tag{1.6}&&x_d+x_g&\leq 1\\
+    \tag{1.7}&&x_e+x_f&\leq 1\\
+    \tag{1.8}&&x_f+x_g&\leq 1\\
+    \tag{1.9}&&x_f+x_h&\leq 1\\
+    \tag{2}&&x_a,x_b,x_c,x_d,x_e,x_f,x_g,x_h&\in\{0,1\}
+\end{align*}
+$$
+
+</div>
+
+Notice how constraint (1) from the compact formulation corresponds to 9 different constraints in the concrete instance, one for each edge in the graph.<Footnote/>
+
+<FootnoteBody>
+The binary constraint (2) also corresponds to multiple different constraints in the concrete instance, one for each vertex, but we follow standard convention and left it as a one-liner even for the concrete instance.
+</FootnoteBody>
+
+### <Ref id="prob:shortestPath"/> {/* sec:shortestPathIp */}
+
+Recall that in the <Ref id="prob:shortestPath"/> our graph $G$ is a digraph, i.e. edges are directed and hence travel _from_ one vertex _to_ another. For our formulation, we'll find it useful to define sets $E^+(v)$ as the set of edges that start at vertex $v$ and $E^-(v)$ as the set of edges that end at $v$. We will have one binary variable $x_e$ for each edge $e\in E$, with the interpretation that $x_e=1$ if edge $e$ is included in our path, and otherwise $x_e=0$. Then the <Ref id="prob:ip"/> formulation is:
+
+$$ {#shortestPathIp}
+\begin{align*}
+    \min&&\sum_{e\in E}c_ex_e \\
+    \tag{1}\st&&\sum_{e\in E^+(s)}x_e &\geq 1 \\
+    \tag{2}&&\sum_{e\in E^-(t)}x_e &\geq 1 \\
+    \tag{3}&&\sum_{e\in E^-(v)}x_e &= \sum_{e\in E^+(v)}x_e & \forall\ v\in V\setminus\{s,t\} \\
+    &&x_e&\in\{0,1\}&\forall\ e\in E
+\end{align*}
+$$
+
+The objective is the cost of all edges selected. The constraint (1) makes sure we have an edge leaving the starting vertex $s$, and similarly the constraint (2) makes sure we have an edge entering $t$. Constraints (3) say that for any other $v\in V$, any time we choose an edge that enters $v$ we must also choose an edge that exits $v$. Taken together, this means that we will have one edge that leaves $s$ and goes to some other vertex $v_1$. If $v_1=t$ we are done, but otherwise the final set of constraints imply that we must also choose an edge that leaves $v_1$ to some other vertex $v_2$, and so on until we finally select an edge that enters $t$.<Footnote/>
+
+<FootnoteBody>
+It's subtly important here that our definition of <Ref id="prob:shortestPath"/> requires the edge costs be positive. Otherwise, if there were a cycle in the graph with negative or 0 overall cost, this formulation could yield a solution that includes that cycle alongside the otherwise shortest $s$-$t$ path, and thus it would not be valid.
+</FootnoteBody>
+
+### <Ref id="prob:knapsack"/> {/* sec:knapsackIp */}
+
+After a couple examples, modeling the <Ref id="prob:knapsack"/> should be no problem. For each item $j\in J$, let variable $x_j=1$ if the item is selected and $x_j=0$ otherwise. Then the <Ref id="prob:ip"/> formulation is:
+
+$$
+\begin{align*}
+    \max&&\sum_{j\in J}v_jx_j \\
+    \st&&\sum_{j\in J}w_jx_j&\leq b \\
+    &&x_j&\in\{0,1\}&\forall\ j\in J
+\end{align*}
+$$
+
+### <Ref id="prob:assignment"/> {/* sec:assignmentIp */}
+
+For the <Ref id="prob:assignment"/>, let's take $x_{ij}\in\{0,1\}$ for each $(i,j)\in E$ as our decision variables, with $x_{ij}=1$ if edge $(i,j)$ is in the matching (i.e. if person $i$ is assigned to job $j$), and $x_{ij}=0$ otherwise. Then we can formulate the problem as:
+
+$$
+\begin{align*}
+    \min&&\sum_{(i,j)\in E}c_{ij}x_{ij} \\
+    \tag{1}\st&&\sum_{j\in J}x_{ij}&=1&\forall\ i\in V_1 \\
+    \tag{2}&&\sum_{i\in I}x_{ij}&=1&\forall\ j\in V_2 \\
+    &&x_{ij}&\in\{0,1\}&\forall\ (i,j)\in E
+\end{align*}
+$$
+
+In the plain English setting of the problem, constraints (1) ensure that each person is assigned to exactly one job, and constraints (2) ensure each job is given to one person.
+
+### <Ref id="prob:setCover"/> {/* sec:setCoverIp */}
+
+Those last two were pretty simple. The <Ref id="prob:setCover"/> will make us think a bit more, but the formulation in the end is actually pretty intuitive.
+
+Let's keep the plain-English setup of the problem in mind as we reason through this model. Our decision is, in which of the locations $j\in N$ we want to build towers? Let variable $x_j=1$ if we build in location $j$, and $x_j=0$ otherwise.
+
+To make our formulation more concise, let's define the quantity $a_{ij}$ for $i\in M,j\in N$ as:
+
+$$
+a_{ij}=\begin{cases}
+    1&\text{if } i\in S_j\text{ (i.e. city }i\text{ can be served by tower location }j\text{.)}\\
+    0&\text{otherwise}
+\end{cases}
+$$
+
+It's important to note that the $a_{ij}$ quantities are _data_ for the model which can be computed directly from the problem instance input. These are not decision variables, for which we need the model to choose values for us. So a multiplication $a_{ij}x_j$ is just a standard constant multiplied by a variable, i.e. a _linear_ term which can be safely used inside an <Ref id="prob:ip"/> formulation.
+
+With that definition out of the way, writing down the model becomes pretty straightforward:
+
+$$
+\begin{align*}
+    \min&&\sum_{j\in N}c_jx_j \\
+    \tag{1}\st&&\sum_{j\in N}a_{ij}x_j&\geq 1&\forall\ i\in M \\
+    &&x_j&\in\{0,1\}&\forall\ j\in N
+\end{align*}
+$$
+
+Constraints (1) are where we encode the requirement that each city be covered by at least one tower. For any city $i$, the only way for the sum $\sum_{j\in N}a_{ij}x_j$ to be positive is if there is at least one tower location $j$ for which both $x_j=1$ (i.e. we've decided to build a tower in location $j$) and $a_{ij}=1$ (city $i$ can be served by location $j$).
+
+### <Ref id="prob:tsp"/> {/* sec:tspIp */}
+
+The <Ref id="prob:tsp"/> is the trickiest one yet, though it might not look it at first. Indeed, on an initial reading it may seem that this problem is basically the same as the <Ref id="prob:shortestPath"/> we modeled in <Ref id="shortestPathIp"/>. But instead of choosing one edge out of both $s$ and $t$, and either zero or two edges out of all other vertices, this problem requires us to visit each and every vertex exactly once.
+
+Another slight difference between <Ref id="prob:tsp"/> and the <Ref id="prob:shortestPath"/> is that the graph for <Ref id="prob:tsp"/> is not directed. So in this case, analogous to the sets $E^+(v)$ and $E^-(v)$ we defined earlier, let's define the sets $E(v)\subseteq E$ for each $v\in V$ as simply the set of edges in $E$ with one end in $v$. Then, again letting $x_e$ be a binary variable where we include edge $e$ if and only if $x_e=1$, we'll try the straightforward alteration of <Ref id="shortestPathIp"/>:
+
+$$ {#tspIpFailure}
+\begin{align*}
+    \min&&\sum_{e\in E}c_ex_e \\
+    \st&&\sum_{e\in E(v)}x_e&=2&\forall\ v\in V \\
+    &&x_e&\in\{0,1\}&\forall\ e\in E
+\end{align*}
+$$
+
+Again, on first glance, it seems like this should work. Any feasible solution will have exactly two edges from any given vertex, allowing us to enter and then leave the vertex and continue on with our tour. But there is a problem, which will become evident if you start testing this formulation out on a few examples. Suppose the graph in <Ref id="fig:tspIpFailureGraph"/> is the input instance for <Ref id="prob:tsp"/>.<Footnote/>
+
+<FootnoteBody>
+Technically, <Ref id="prob:tsp"/> specifies that the graph $G$ must be complete. To satisfy this requirement, you can imagine adding the missing edges with arbitrarily large edge weights.
+</FootnoteBody>
+
+<Figure id="fig:tspIpFailureGraph" caption="A graph on which the naive TSP formulation will fail to give the correct answer.">
+{/* TODO: come back to figure content later */}
+</Figure>
+
+It shouldn't take much to convince yourself that the optimal tour for this graph is the one that follows in alphabetical order and achieves the optimal cost of 12:
+
+<Figure id="fig:tspIpFailureGraphOpt" caption="Edges of the optimal tour, with cost 12.">
+{/* TODO: come back to figure content later */}
+</Figure>
+
+However, consider the following selection of edges:
+
+<Figure id="fig:tspIpFailureGraphSubtour" caption="A selection of edges that satisfies the naive formulation but does not yield a valid tour.">
+{/* TODO: come back to figure content later */}
+</Figure>
+
+Indeed, there are exactly two incident edges for each vertex in the graph, meaning this selection satisfies all constraints of <Ref id="tspIpFailure"/> but with a lower cost of 6!
+
+This is illustrative of a common pitfall of <Ref id="prob:ip"/> modeling — not fully capturing the essence of the modeled problem. In this case, the formulation guaranteed that all solutions to <Ref id="prob:tsp"/> will satisfy the constraints of the formulation. But we neglected the other direction, guaranteeing that any solution to the <Ref id="prob:ip"/> constraints will correspond to a valid solution of the <Ref id="prob:tsp"/> instance.
+
+How can we fix the formulation? Even though every vertex is part of some cycle, our constraints do not guarantee that every vertex is part of the _same_ cycle. The solution is to add a group of so-called subtour elimination constraints, which will guarantee that the resultant graph is connected and thus only contains the one cycle consisting of all vertices.
+
+So what are those constraints? Let's look back at <Ref id="fig:tspIpFailureGraphSubtour"/> for inspiration. One way to disallow that particular solution is to enforce that there is at least one edge between the two subtours, i.e.
+
+$$
+\sum_{(i,j)\in E:i\in\{a,b,f\},j\in\{c,d,e\}}x_{ij}\geq 1
+$$
+
+This would be equivalent to constraining that no cycle is allowed amongst either the set $\{a,b,f\}$ or $\{c,d,e\}$. For the set $\{a,b,f\}$ that would look like
+
+$$
+\sum_{(i,j)\in E:i,j\in\{a,b,f\}}x_{ij}\leq 2
+$$
+
+since a cycle among three vertices requires three edges.
+
+Of course, either of these constraints would only suffice to eliminate one particular subtour. A priori, it's possible for a solution to come back with a cycle among the vertices $\{b,c,d\}$, or $\{a,c,f\}$, or any given subset of $V$. So to guarantee our formulation is correct, we must add a subtour elimination constraint for _every_ possible subset of vertices.<Footnote/>
+
+<FootnoteBody>
+Ok, this is not quite true... Again looking at our example in <Ref id="fig:tspIpFailureGraphSubtour"/>, we should note that if we add the constraint we just wrote for the set $\{a,b,f\}$:
+
+$$
+\sum_{(i,j)\in E:i,j\in\{a,b,f\}}x_{ij}\leq 2
+$$
+
+We do not also need the constraint for the complement set $\{c,d,e\}$. Why? Because that prior constraint is already forcing an edge $e'$ from $\{a,b,f\}$ to $\{c,d,e\}$. If $\{c,d,e\}$ formed a cycle, there'd be no way to add the edge $e'$ as well without having one of the vertices $c$, $d$, or $e$ touching more than two edges.
+
+Along the same lines, we also don't need the constraint for sets of only one or two vertices, because (in a simple graph without self-edges or repeated edges) you can't have a cycle on only one or two vertices.
+
+Of course, if you only care about the _validity_ of a formulation and not about how long it takes to solve, there is nothing wrong with including redundant constraints. So for clarity of exposition, we will add constraints for every subset of $V$.
+</FootnoteBody>
+
+This leads to our final, valid formulation:
+
+$$ {#tspIp}
+\begin{align*}
+    \min&&\sum_{e\in E}c_ex_e \\
+    \st&&\sum_{e\in E(v)}x_e&=2&\forall\ v\in V \\
+    \tag{1}&&\sum_{(i,j)\in E:i,j\in S}x_{ij} &\leq |S| - 1 &\forall\ S\subseteq V, 0 < |S| < |V| \\
+    &&x_e&\in\{0,1\}&\forall\ e\in E
+\end{align*}
+$$
+
+## Formulation sizes {/* sec:ipFormulationSizes */}
+
+Did anything about that final TSP formulation <Ref id="tspIp"/> bother you? I'm thinking specifically about the subtour elimination constraints (1). Sure, we wrote it compactly in a single line, but how many constraints does that one line represent? It's one constraint for basically every subset of the vertex set $V$. Can we count that?
+
+We can start small. If $|V|=1$, say $V=\{a\}$, then my subsets are $\emptyset$ and $\{a\}$. Two subsets total.
+
+What if $|V|=2$, say $V=\{a,b\}$. Then the possibilities are $\emptyset, \{a\}, \{b\}, \{a,b\}$. Four options.
+
+Let's add the element $c$, so $|V|=3$. Now we have eight options:
+
+$$
+\begin{align*}
+    \emptyset,&\ \{a\},\\
+    \{b\},&\ \{a,b\},\\
+    \{c\},&\ \{a,c\},\\
+    \{b,c\},&\ \{a,b,c\}
+\end{align*}
+$$
+
+See a pattern? If we add a fourth element $d$, we have all the options we listed above, but also all those same options, but with $d$ added in. So each added element doubles the number of possible subsets.
+
+Another way to think about it: For each element of the set, you have two choices — do you include it in the subset, or not? That's two options for each of the $|V|$ elements of the set, a total of $2^{|V|}$ different options!
+
+How does that number change with the number of variables? If there's anything to know about exponentials, it's that they grow fast! As a demo, consider <Ref id="fig:growthChart"/>. Here, we plot the value of several different functions of $x$ for integers from 0 to $n$, starting with $n=8$. At this value of $n$, the functions $f(x)=x^3$ and especially $f(x)=x^4$ are far above the exponential function $f(x)=2^x$. But this doesn't stay the case for long. By $n=16$ the exponential has caught up to even $x^4$, and from there it just leaves it in the dust. By the time you hit $n=28$, the exponential is so far ahead that all the polynomial functions might as well be the same.
+
+<Figure id="fig:growthChart" caption="Growth rate of different functions. Exponentials eventually dominate polynomials.">
+{/* TODO: come back to figure content later */}
+</Figure>
+
+This visual will let you plot numbers up to 30, at which point we see that $2^{30}>10^9$. So for even a 30-city <Ref id="prob:tsp"/> instance, our formulation in <Ref id="tspIp"/> requires over a billion constraints! None of our other formulations show this same kind of growth rate.
+
+And you are right to be concerned by it! It will turn out that even if our formulations don't blow up quite like the <Ref id="prob:tsp"/> formulation, algorithms for solving many of our problems may still suffer from this problem known as "combinatorial explosion", an exponential growth rate in aspects of the solution procedure. How do we know when this will happen? Are some problems worse than others? These are the types of questions we'll explore in the next section.

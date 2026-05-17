@@ -1,0 +1,208 @@
+---
+title: "Welcome!"
+chapter: 1
+---
+
+import { Theorem, Definition, Lemma, Corollary, Proof, Remark, Ref, Figure, Table, PrintFallback, PrintExtra, Cite, AnnotatedAlign, Footnote, FootnoteBody, BlockQuote, Problem, ProblemInstance, ProblemQuestion } from '@/components';
+import { IndependentSetProblem } from '@/components/IndependentSetProblem';
+
+You're reading the class notes for _IMSE 884: Integer Programming and Combinatorial Optimization_.
+
+## About the course
+
+As the name suggests, the aim of this course is to give an overview of the related fields of integer programming and combinatorial optimization, which together comprise a large portion of the best-studied and most widely-applicable problems in optimization and mathematical programming. We will lean more heavily on the theoretical aspects of the subject, spending most of our time on the theory and algorithms that allow solutions to be found to these important problems. We will devote a relatively smaller amount of time to building and solving these types of models in practice.
+
+As far as prerequisites, you should have some familiarity with linear algebra, at a minimum the basic mechanics of matrix math (addition/multiplication). Topics such as linear rank and determinants will surface as well. Some familiarity with other optimization topics, especially linear programming, will also prove helpful.
+
+We will begin the class by exploring a selection of different combinatorial optimization problems and specialized algorithms for solving them. We'll then discuss preliminaries on integer programming, which we will see can itself be used as a tool for combinatorial optimization (as well as other types of problems).
+
+In these discussions, we'll begin to notice how some problems seem to require more resources than others while modeling and solving them. This will motivate a discussion on computational complexity. We will not develop this topic completely formally, but at least at enough depth to help frame our discussions on what problems may be easier to solve than others.
+
+From there, we'll take a deep dive into the theory of solving integer programs. We'll need to start with a review<Footnote/> of linear programming and polyhedra. This will allow us to discuss the main integer programming techniques of cutting planes and branch-and-bound. From there we will cover some more specialized solving techniques, and spend some time discussing practical matters of solving integer programs in real-life applications.
+
+<FootnoteBody>
+I expect that most of you taking this course have studied linear programming before. But don't worry too much if that's not the case, as we'll touch on all the theory we need during the review.
+</FootnoteBody>
+
+### Textbooks
+
+The core of this course will be taught from these notes, thus students are not required to obtain a separate textbook. But I suggest anyone taking the course should grab the second edition of Laurence Wolsey's book _Integer Programming_ <Cite id="wolsey2020"/>. A large portion of the course's content is derived from this book (although we'll present things in a slightly different order), and you'll find further details there not covered in the notes.
+
+There are a few other sources that I recommend, whose contents are woven into this course. I have to start with the book _Integer and Combinatorial Optimization_ <Cite id="nemWol2014"/>, written by Wolsey along with George Nemhauser, which is potentially _the_ reference for this subject<Footnote/>.
+
+<FootnoteBody>
+    Why didn't I choose <Cite id="nemWol2014"/> as the course text? I think the presentation and level of <Cite id="wolsey2020"/> is a little better suited for this course. It's also a bit newer, and although the theory found in <Cite id="nemWol2014"/> is evergreen, <Cite id="wolsey2020"/> contains a bit more updated information on techniques used in practice today.
+</FootnoteBody>
+
+Two books written by Alexander Schrijver, _Theory of Linear and Integer Programming_ <Cite id="schrijver1998theory"/> and _Combinatorial Optimization: Polyhedra and Efficiency_ <Cite id="schrijver2003combOpt"/>, are excellent resources and cover the subject at an impressive depth (though the writing style is rather terse, and can be a little challenging for readers that are new to the subject). On the less theoretical, more practical side is Williams' book _Model Building in Mathematical Programming_ <Cite id="williams2013model"/>, which gives several examples of taking real-world problems and modeling them to be solved as integer programs (as well as other types of optimization problems).
+
+## About the notes {/* sec:aboutTheNotes */}
+
+I have an irrational aversion to paper and think digital formats have so much more to offer. But I couldn't find a digital note-creating system that had the features I wanted, so I built my own. The result is what you're seeing now. These notes will display and generally work better on wider screens (e.g. a computer monitor/laptop/tablet as opposed to your phone), but can be accessed by anything with a web browser. If physical copies are your thing, you can print these notes from your browser. From what I've seen, Chrome and Edge will create a decent PDF through their default print utility, while Firefox was lacking. Your mileage may vary.
+
+Additionally, I'd love to hear your feedback on the notes! That means both content (the notes are almost surely littered with typos and unclear wordings) and user experience. If you find mistakes or have any ideas for how to make the notes better, I'd love to hear about them! (Though I'm only a hack of a web developer, so my ability to deliver on any of your technical suggestions may be limited.) I will be keeping track of who has contributed to improving these notes, and will have a prize at the end of the semester for the student(s) responsible for the most/best improvements.
+
+These notes were created for educational use. With proper attribution, readers may freely copy, distribute, or produce derivative work from this content, in whole or in part, for any non-commercial use.
+
+## Why I love this stuff (and you might too!) {/* sec:iLoveCombOpt */}
+
+Alright, admin stuff is over, now's the time we'd usually jump right into the meat of the course. Except I'd like to step back a little. Before we step into it, I'd like to give you a sense for why we bother teaching this stuff anyway. Personally, I find this subject endlessly fascinating in its own right. I get enjoyment out of the inherent puzzle-like nature of the problems we're solving, and I imagine several of you will join me in this. I also marvel in the beauty of the math underlying the techniques we'll be using, and while I suspect that feeling is less universal, I hope to pull at least a few of you in there as well 😊.
+
+But even beyond personal preferences, this stuff is seriously useful in the real world. Businesses from various industries around the world use these techniques every day, with the combined benefits easily topping billions of dollars annually. So even if you don't <em>love</em> this stuff quite like me, the applicability of the techniques is inarguable.
+
+### Fun and games {/* sec:combOptGames */}
+
+Do you enjoy puzzle games? I'm particularly thinking about games like [sudoku](https://en.wikipedia.org/wiki/Sudoku), [peg solitaire](https://en.wikipedia.org/wiki/Peg_solitaire), [rush hour](https://en.wikipedia.org/wiki/Rush_Hour_(puzzle)), or [minesweeper](https://en.wikipedia.org/wiki/Minesweeper_(video_game)). The kind of game with simple rules and a clear goal that require you to think through some logic or sequence of steps to accomplish the goal. There are no opponents, no physical skills to master, and luck plays little to no role in the outcome. It's just you and your wits trying to solve the puzzle.
+
+I happen to adore these kinds of games. As a kid, I could spend hours getting lost in them. Fast-forward to my college years, and I'm taking my first class in combinatorial optimization<Footnote/>. I find that lots of the problems we're studying scratch the same itch as those puzzle games.
+
+<FootnoteBody>Though maybe it was a graph theory class? I don't remember exactly, some of the material overlaps.</FootnoteBody>
+
+Want an example? Let's go ahead and define one right now, though don't worry about reading it in detail yet.
+
+<Problem id="prob:maxWeightIndSet" title="Maximum Weight Independent Set Problem" label="MaxWtIndSet">
+  <ProblemInstance>
+    Graph $G=(V,E)$, non-negative integer vertex weights $w_v \geq 0$ for each $v \in V$.
+  </ProblemInstance>
+  <ProblemQuestion>
+    Find a subset of the vertices $V' \subseteq V$ where no two vertices in $V'$ are adjacent, such that
+    the total weight $\sum_{v \in V'} w_v$ is maximized. That is, find
+
+    $$
+    \argmax_{V' \subseteq V} \left\{ \sum_{v \in V'} w_v : (u,v) \notin E \; \forall \; u,v \in V' \right\}
+    $$
+  </ProblemQuestion>
+</Problem>
+
+Excited yet? No? Well, I wouldn't have been the first time I saw this either. Luckily the professor didn't introduce it like that. Instead, he went to the whiteboard and drew something like <Ref id="fig:indSetEx"/>.
+
+<Figure id="fig:indSetEx" captionNode={<>An example <Ref id='prob:maxWeightIndSet'/> instance.</>}>
+  <PrintExtra>_Interact with this content on the website_</PrintExtra>
+  <IndependentSetProblem client:load
+    nodes={[
+      { id: "a", weight: 3 },
+      { id: "b", weight: 6 },
+      { id: "c", weight: 4 },
+      { id: "d", weight: 1 },
+      { id: "e", weight: 2 },
+      { id: "f", weight: 6 },
+      { id: "g", weight: 3 },
+      { id: "h", weight: 2 },
+    ]}
+    edges={[
+      { from: "a", to: "b" }, { from: "b", to: "c" }, { from: "b", to: "e" },
+      { from: "c", to: "d" }, { from: "d", to: "f" }, { from: "d", to: "g" },
+      { from: "e", to: "f" }, { from: "f", to: "h" }, { from: "f", to: "g" }
+    ]}
+    width={320}
+    height={320}
+    nodeRadius={26}
+    labelFontSize={18}
+  />
+</Figure>
+
+Each circle represents a vertex in the graph, and a line drawn between two circles is an edge. There are two pieces of information given inside the vertices. First is the name of the vertex, some letter of the alphabet. Next is the weight associated with the vertex. So you can see vertex $a$ with weight 3, then vertex $b$ with weight 6, and so on.
+
+The game is to create a so-called **independent set** of vertices:
+
+<Definition id="def:independentSet" title='Independent Set' alt='Stable Set'>
+  Given a graph $G=(V,E)$, an **independent set** is a subset of the vertices $V'\subseteq V$ such that no two vertices in $V'$ share an edge.
+</Definition>
+
+(If that $G=(V,E)$ language is unfamiliar, see <Ref id="sec:graphTheory"/>.) Importantly, your goal is to have the sum of the weights of vertices in $V'$ as high as possible.
+
+For example, the set $\{b\}$ is an independent set with weight 6. The set $\{b, f\}$ is also an independent set, and a better one in the context of the game since the total weight of that set is 12 (6 for $b$ and 6 for $f$). The set $\{b,f,g\}$ has weight 15, but it doesn't count for our game since $f$ and $g$ are adjacent, and hence the set is not independent.
+
+Got the idea? Then go on back to <Ref id="fig:indSetEx"/> and try to find the best independent set you can! Click a vertex to add it to your set — selected vertices turn blue. If you select two adjacent vertices, the conflicting pair shakes and turns red. The total weight of your current selection is shown below the graph. When you're done, hit "Reveal optimal" to see how your solution compares to an optimal solution.
+
+Wanna try some more? We have you covered in <Ref id="fig:randIndSet"/>, where you can randomly generate new instances to play around with.
+
+<Figure id="fig:randIndSet" captionNode={<>Game time! Try out some randomly-generated instances of <Ref id='prob:maxWeightIndSet'/>.</>}>
+  <IndependentSetProblem client:only="react"
+    width={360} height={360}
+    randomN={8}
+    randomP={0.35}
+    nodeRadius={26}
+    labelFontSize={18}
+  />
+  <PrintFallback>_Interactive content not available - see it on the website._</PrintFallback>
+</Figure>
+
+Now, this is just one example. Several of the problems we'll discuss in this class have the same game-like qualities, which was my first hook. But beyond that, you might be wondering what's going on behind that "Reveal optimal" button. Can you trust that it's actually identifying the optimal solution?<Footnote/> And how does it work, anyway?<Footnote/> Is it just trying all the different possibilities and returning the one with the highest weight?<Footnote/> If you find yourself wondering about these kinds of questions, you're in the right place and we'll get along just fine!
+
+<FootnoteBody>Yes, you can.</FootnoteBody>
+
+<FootnoteBody>We're getting there... solving problems like these is the whole point of the class!</FootnoteBody>
+
+<FootnoteBody>In this case yes, but that only works out because the number of vertices is small. Such an enumeration strategy always works, but we generally have better ways to solve these problems. Though _how much_ better is a point of discussion, which is all part of the class!</FootnoteBody>
+
+### Serious business {/* sec:combOptBusiness */}
+
+Whether or not the above resonates with you, another reason to learn about these optimization problems is that they can be seriously useful in a business context, and knowledge of these techniques can be very useful on a résumé.
+
+I know this from experience. In my career working in retail, I've built optimization models for improving efficiency in several aspects of online order fulfillment. For example:
+
+- Determining what products are stocked in different warehouses, and in what quantities.
+- When an order comes in from the website, determining from which warehouse(s) the order will be fulfilled.
+- Determining which orders will be picked and shipped during each fulfillment "wave".
+- Determining which size box to ship an order in.
+
+All that for just online order fulfillment. There are several more examples in different parts of the retail industry, as well as nearly any other industry in the economy.
+
+For other examples, we'll turn to some recent finalists for the [Edelman Award](https://www.informs.org/Recognizing-Excellence/INFORMS-Prizes/Franz-Edelman-Award), which is an annual prize given out by the professional society known as [INFORMS](https://www.informs.org) (the Institute for Operations Research and the Management Sciences). The stated goal of the prize is to "recognize excellence in the execution of operations research on the organizational level" and it highlights some great case studies of the use of optimization in companies worldwide. The awarded projects apply operations research principles to business problems; combinatorial optimization and integer programming use cases are often featured. Here's a sample of recent finalists that used techniques we'll discuss in class (check the links in the "Year" column for more project descriptions):
+
+<Table id="tbl:edelman" caption="A sample of recent Edelman prize finalists using integer programming and/or combinatorial optimization techniques.">
+    <table>
+        <tr><th>Year</th><th>Company</th><th>Description</th><th>Reported Benefit</th></tr>
+        <tr>
+            <td><a href="https://3449182.fs1.hubspotusercontent-na1.net/hubfs/3449182/2024_Edelman_Gala_Book.pdf">2024</a></td>
+            <td>American Airlines</td>
+            <td>Large-sized mixed integer program model with a network-flow structure that realistically represents the state of the airline operation in real time.</td>
+            <td>1,000 flight cancellations avoided ($15M revenue loss avoidance) over two years.</td>
+        </tr>
+        <tr>
+            <td><a href="https://3449182.fs1.hubspotusercontent-na1.net/hubfs/3449182/2023_Edelman_Gala_Book.pdf">2023</a></td>
+            <td>DHL Supply Chain</td>
+            <td>Fill trucks for both inbound and outbound operations based on clustering, involving standard branch-and-cut methods.</td>
+            <td>Part of a program with an estimated $98M savings per year.</td>
+        </tr>
+        <tr>
+            <td>2023</td>
+            <td>Meituan</td>
+            <td>A multiperiod, multiobjective optimization problem that assigns food deliveries to available drivers.</td>
+            <td>20% reduction in order delivery time.</td>
+        </tr>
+        <tr>
+            <td>2023</td>
+            <td>Walmart</td>
+            <td>A metaheuristic-based framework integrating a suite of algorithms, including various neighborhood searches, heuristics, and mixed-integer programming models.</td>
+            <td>$75M, 72M pounds of CO2 annually.</td>
+        </tr>
+        <tr>
+            <td><a href="https://3449182.fs1.hubspotusercontent-na1.net/hubfs/3449182/2022_Edelman_Gala_Book.pdf">2022</a></td>
+            <td>US Census Bureau</td>
+            <td>A program leveraging machine learning and optimization techniques to provide daily assignments of cases to workers, along with the route that the workers should take to increase efficiency.</td>
+            <td>$2.5B</td>
+        </tr>
+        <tr>
+            <td><a href="https://tauber.umich.edu/sites/default/files/documents/2021_edelman_award_book.pdf">2021</a></td>
+            <td>JD.com</td>
+            <td>Dispatching automated vehicles with a large-scale integer program with millions of decision variables and constraints, solved via a Lagrangian relaxation together with cutting planes.</td>
+            <td>90% of JD.com's first-party retail orders were delivered the same- or next-day after they were placed.</td>
+        </tr>
+        <tr>
+            <td>2021</td>
+            <td>Lenovo</td>
+            <td>An advanced production scheduling solution utilizing machine learning, artificial intelligence, and reinforcement learning, modeled as a very large-scale combinatorial optimization problem.</td>
+            <td>Helped Lenovo increase revenue by more than \$4.6 billion over two years.</td>
+        </tr>
+        <tr>
+            <td>2021</td>
+            <td>OCP</td>
+            <td>A mixed-integer, multiperiod optimization model to holistically optimize the entire production, sales, and supply chain.</td>
+            <td>$2.3B over a six-year period.</td>
+        </tr>
+    </table>
+</Table>
+
+As you can see, businesses from a wide range of industries are saving small-country-GDP amounts of money applying the methods we'll discuss here. Understanding these techniques can do wonders for your career.
