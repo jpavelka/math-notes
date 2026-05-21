@@ -55,15 +55,6 @@ function bruteForceOptimal(nodes: Node[], adj: Map<string, Set<string>>): Set<st
   return bestSet;
 }
 
-const btnStyle: React.CSSProperties = {
-  padding: '4px 14px',
-  border: '1px solid var(--border)',
-  borderRadius: '4px',
-  background: 'var(--bg)',
-  color: 'var(--text)',
-  cursor: 'pointer',
-  fontSize: '0.9em',
-};
 
 export function IndependentSetProblem({
   nodes: propNodes,
@@ -292,21 +283,20 @@ export function IndependentSetProblem({
 
       {/* Buttons */}
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
-        <button onClick={reset} style={btnStyle}>
+        <button onClick={reset}>
           Reset
         </button>
         <button
           onClick={restoreBest}
           disabled={!best || isBestCurrent}
-          style={btnStyle}
         >
           Restore best ({best?.weight ?? 0})
         </button>
-        <button onClick={revealOptimal} style={btnStyle}>
+        <button onClick={revealOptimal}>
           Reveal optimal
         </button>
         {isRandom && (
-          <button onClick={newGraph} style={btnStyle}>
+          <button onClick={newGraph}>
             New graph
           </button>
         )}

@@ -6,10 +6,11 @@ chapterId: "sec:graphTheory"
 
 import { Theorem, Lemma, Corollary, Definition, Proof, Remark, Ref, Figure, Table, AnnotatedAlign, Cite } from '@/components';
 import { Graph } from '@/components/Graph';
+import { SpanningTreeExplorer } from '@/components/SpanningTreeExplorer';
 
-Familiarity with graph theory will be useful for this course. You don't need to know too much though, really just the basic definitions should be enough to understand the material. For interested readers, Reinhard Diestel's _Graph Theory_ <Cite id="diestel2018"/> is an excellent overview of the topic.
+Familiarity with graph theory will be useful for this course. You don't need to be an expert, really just the basic definitions should be enough. For interested readers, Reinhard Diestel's _Graph Theory_ <Cite id="diestel2018"/> is an excellent overview of the topic.
 
-_Graph theory_ is a branch of mathematics that studies graphs. A _graph_ is composed of two sets $V$ and $E$ called the _vertices_ (also called _nodes_) and _edges_ (also called _arcs_), respectively. Graphs are used to model relationships (denoted by the edges) between pairs of entities (represented by the vertices). More concretely, let a graph $G=(V,E)$ be defined by the pair of sets $V$ and $E$. $V$ is the set of vertices, and the elements of $E$ are pairs of vertices $(v_1,v_2)$, with $v_1, v_2\in V$. Two vertices $v_1,v_2$ are said to be _neighbors_ if there is an edge between them, i.e. if $(v_1,v_2)\in E$. An alternative term is _adjacent_, i.e. vertices $v_1,v_2$ are neighbors if and only if they are adjacent.
+## Basic definitions
 
 <Definition id="def:graphTheory" title="Graph Theory">
 The branch of mathematics that studies graphs.
@@ -19,33 +20,25 @@ The branch of mathematics that studies graphs.
 A mathematical object $G=(V,E)$ consisting of a set of vertices $V$ and a set of edges $E$. Typically the vertices represent some object of interest, and the edges represent some pairwise relationship between two vertices.
 </Definition>
 
-<Definition id="def:vertex" title="Vertex">
-Along with the edge, one of two main components of a graph. They're typically the base object of interest in a graph, and visually represented by a circle in a diagram.
-</Definition>
-
-<Definition id="def:node" title="Node">
-See <Ref id="def:vertex"/>.
+<Definition id="def:vertex" title="Vertex" alt="Node">
+One of two main components of a graph (along with the edge). The vertex is typically the base object of interest in a graph. In graph visuals, vertices are usually represented by a circle.
 </Definition>
 
 <Definition id="def:edge" title="Edge">
-Along with the vertex, one of two main components of a graph. They typically represent relationships between vertices.
-</Definition>
-
-<Definition id="def:arc" title="Arc">
-See <Ref id="def:edge"/>.
+One of two main components of a graph (along with the vertex). Each edge $e\in E$ is given by a pair of vertices $v_1,v_2\in V$, i.e. $e=(v_1, v_2)$. Edges typically represent relationships between vertices. In graph visuals, they are usually drawn as a line connecting two vertices.
 </Definition>
 
 <Definition id="def:neighbor" title="Neighbor">
-In a graph, a vertex $v_1\in V$ is a neighbor of another vertex $v_2\in V$ if an edge exists between the two, i.e. if $(v_1,v_2)\in E$.
+In a graph, a vertex $v_1\in V$ is a **neighbor** of another vertex $v_2\in V$ if an edge exists between the two, i.e. if $(v_1,v_2)\in E$.
 </Definition>
 
 <Definition id="def:adjacent" title="Adjacent">
-In a graph, vertices $v_1\in V$ and $v_2\in V$ are adjacent if an edge exists between the two, i.e. if $(v_1,v_2)\in E$.
+In a graph, vertices $v_1\in V$ and $v_2\in V$ are said to be **adjacent** if an edge exists between the two, i.e. if $(v_1,v_2)\in E$.
 </Definition>
 
 Initially, these definitions feel rather abstract. But in practice graphs often have very natural interpretations. Generally they are used to model relationships between entities, e.g. the nodes are people signed up for some social network, and an edge is drawn between two people if they are friends. Another common interpretation is as a road network, when the vertices are cities on a map, and an edge is drawn between two cities if it is possible to drive from one city to the other. In this case, there is often a distance $d_e$ associated with each $e\in E$ that denotes the distance between two cities, and you are perhaps trying to find the shortest route that lets you get from one place to another.
 
-Graphs are typically represented visually as in <Ref id="fig:exampleGraph"/>: Each vertex/node is represented as a circle in the diagram, while edges/arcs are denoted by lines between the circles. In the case of <Ref id="fig:exampleGraph"/>, the graph being represented is the graph $G=(V,E)$ with vertices:
+Graphs are typically represented visually as in <Ref id="fig:exampleGraph"/>: Each vertex is represented as a circle in the diagram, while edges are denoted by lines between the circles. In the case of <Ref id="fig:exampleGraph"/>, the graph being represented is a graph $G=(V,E)$ with vertices:
 
 $$
 V=\{1,2,3,4,5\}
@@ -59,13 +52,13 @@ $$
 
 <Figure id="fig:exampleGraph" caption="Visualization of a graph.">
   <Graph
-    width={500} height={340}
+    width={320} height={300}
     nodes={[
-      { id: "1", x: 250, y:  70 },
-      { id: "2", x: 120, y: 185 },
-      { id: "3", x: 380, y: 185 },
-      { id: "4", x: 150, y: 295 },
-      { id: "5", x: 350, y: 295 },
+      { id: "1", x: 0.500, y: 0.976 },
+      { id: "2", x: 0.000, y: 0.612 },
+      { id: "3", x: 1.000, y: 0.612 },
+      { id: "4", x: 0.191, y: 0.025 },
+      { id: "5", x: 0.809, y: 0.025 },
     ]}
     edges={[
       { from: "1", to: "2" },
@@ -79,26 +72,24 @@ $$
   />
 </Figure>
 
-Sometimes it makes sense for the edges to be directional. For example, we might want to represent a road network with some one-way streets. Or perhaps we'd like to model teams from a sports league that have played each other, with the edges drawn "from" the winning team "to" the losing team. Such a graph with directed edges is called a _directed graph_, or _digraph_ for short. In these cases, the ordering of the vertices in each edge $(v_1,v_2)\in E$ matters, and we'd say that the edge goes _from_ $v_1$ _to_ $v_2$. <Ref id="fig:exampleDirectedGraph"/> shows an example visualization of a directed graph. Note that it is entirely possible for digraph edges to exist in both directions between a pair of vertices, as we see with both $(4,5)$ and $(5,4)$ existing in the figure.
+Sometimes it makes sense for the edges to be directional. For example, we might want to represent a road network with some one-way streets. Or perhaps we'd like to model teams from a sports league that have played each other, with the edges drawn "from" the winning team "to" the losing team. Such a graph with directed edges is called a _directed graph_, or _digraph_ for short.
 
-<Definition id="def:directedGraph" title="Directed Graph">
+<Definition id="def:directedGraph" title="Directed Graph" alt="Digraph">
 A graph $G=(V,E)$ whose edges are directed, so that for two vertices $v_1, v_2\in V$ there is a difference between the edges $(v_1,v_2)$ (going from $v_1$ to $v_2$) and $(v_2,v_1)$ (going from $v_2$ to $v_1$).
 </Definition>
 
-<Definition id="def:digraph" title="Digraph">
-See <Ref id="def:directedGraph"/>.
-</Definition>
+In these cases, the ordering of the vertices in each edge $(v_1,v_2)\in E$ matters, and we'd say that the edge goes _from_ $v_1$ _to_ $v_2$. <Ref id="fig:exampleDirectedGraph"/> shows an example visualization of a directed graph. Note that it is entirely possible for digraph edges to exist in both directions between a pair of vertices, as we see with both $(4,5)$ and $(5,4)$ existing in the figure.
 
 <Figure id="fig:exampleDirectedGraph" caption="Visualization of a directed graph.">
   <Graph
-    width={500} height={340}
+    width={320} height={300}
     directed
     nodes={[
-      { id: "1", x: 250, y:  70 },
-      { id: "2", x: 120, y: 185 },
-      { id: "3", x: 380, y: 185 },
-      { id: "4", x: 150, y: 295 },
-      { id: "5", x: 350, y: 295 },
+      { id: "1", x: 0.500, y: 0.976 },
+      { id: "2", x: 0.000, y: 0.612 },
+      { id: "3", x: 1.000, y: 0.612 },
+      { id: "4", x: 0.191, y: 0.025 },
+      { id: "5", x: 0.809, y: 0.025 },
     ]}
     edges={[
       { from: "1", to: "2" },
@@ -115,23 +106,31 @@ See <Ref id="def:directedGraph"/>.
 
 In the context of digraphs, it is sometimes customary to denote the graph by $D=(V,A)$ instead of $G=(V,E)$, using $D$ (for digraph) in place of $G$ for the graph and $A$ (for arc) in place of $E$ for the edge set. Indeed, this is the convention Wolsey takes in <Cite id="wolsey2020"/>, but we will stick with $G=(V,E)$ for both graphs and digraphs in this course.
 
-A graph $G=(V,E)$ is called _bipartite_ if its vertex set $V$ can be divided into two sets $V_1$ and $V_2$ such that every edge in $E$ connects a vertex in $V_1$ to a vertex in $V_2$. An example of such a graph is shown in <Ref id="fig:exampleBipartiteGraph"/>.
+<Definition id="def:arc" title="Arc">
+A term in graph theory often used synonomously with <Ref id="def:edge" useTitle={true} textTransform='lowercase'/>, though some sources will use it specifically for directional edges.
+</Definition>
+
+## Special graphs
+
+Certain graphs with special structure are worth calling out here:
 
 <Definition id="def:bipartite" title="Bipartite Graph">
-A graph $G=(V,E)$ where the vertex set $V$ can be divided into two sets $V_1$ and $V_2$ such that every edge in $E$ connects a vertex in $V_1$ to a vertex in $V_2$ (as in <Ref id="fig:exampleBipartiteGraph"/>).
+A graph $G=(V,E)$ where the vertex set $V$ can be divided into two sets $V_1$ and $V_2$ such that every edge in $E$ connects a vertex in $V_1$ to a vertex in $V_2$.
 </Definition>
+
+An example bipartite graph is shown in <Ref id="fig:exampleBipartiteGraph"/>.
 
 <Figure id="fig:exampleBipartiteGraph" caption="Visualization of a bipartite graph, with $V_1=\{1,2,3\}$, $V_2=\{4,5,6,7\}$, and $E=\{(1,4),(1,5),(1,7),(2,6),(2,4),(3,5),(3,7)\}$.">
   <Graph
-    width={500} height={340}
+    width={320} height={380}
     nodes={[
-      { id: "1", x: 130, y:  70 },
-      { id: "2", x: 130, y: 175 },
-      { id: "3", x: 130, y: 280 },
-      { id: "4", x: 370, y:  70 },
-      { id: "5", x: 370, y: 140 },
-      { id: "6", x: 370, y: 210 },
-      { id: "7", x: 370, y: 280 },
+      { id: "1", x: 0, y: 0.85 },
+      { id: "2", x: 0, y: 0.5  },
+      { id: "3", x: 0, y: 0.15 },
+      { id: "4", x: 1, y: 1 },
+      { id: "5", x: 1, y: 0.67  },
+      { id: "6", x: 1, y: 0.33 },
+      { id: "7", x: 1, y: 0  },
     ]}
     edges={[
       { from: "1", to: "4" },
@@ -145,20 +144,113 @@ A graph $G=(V,E)$ where the vertex set $V$ can be divided into two sets $V_1$ an
   />
 </Figure>
 
-A general graph is said to be a _complete graph_ if every pair of vertices is connected by an edge. A complete graph with $n$ vertices is often denoted as $K_n$. A bipartite graph can also be called complete. A _complete bipartite graph_ is a bipartite graph with edges connecting each vertex in $V_1$ to each vertex in $V_2$. If a complete bipartite graph has $|V_1|=n$ and $|V_2|=m$, then we may denote the graph by $K_{n,m}$.
-
 <Definition id="def:completeGraph" title="Complete Graph">
-A graph in which every pair of vertices is connected by an edge.
+A graph in which every pair of vertices is connected by an edge. A complete graph with $n$ vertices is often denoted as $K_n$.
 </Definition>
+
+<Figure id="fig:k5" caption="Visualization of the complete graph $K_5$.">
+  <Graph
+    width={320}
+    height={320}
+    nodes={[
+      { id: "1", x: 0.500, y: 0.976 },
+      { id: "2", x: 0.000, y: 0.612 },
+      { id: "3", x: 1.000, y: 0.612 },
+      { id: "4", x: 0.191, y: 0.025 },
+      { id: "5", x: 0.809, y: 0.025 },
+    ]}
+    edges={[
+      { from: "1", to: "2" },
+      { from: "1", to: "3" },
+      { from: "1", to: "4" },
+      { from: "1", to: "5" },
+      { from: "2", to: "3" },
+      { from: "2", to: "4" },
+      { from: "2", to: "5" },
+      { from: "3", to: "4" },
+      { from: "3", to: "5" },
+      { from: "4", to: "5" },
+    ]}
+  />
+</Figure>
 
 <Definition id="def:completeBipartiteGraph" title="Complete Bipartite Graph">
-A bipartite graph in which $(v_1,v_2)\in E$ for any $v_1\in V_1$, $v_2\in V_2$.
+A bipartite graph in which $(v_1,v_2)\in E$ for all $v_1\in V_1$, $v_2\in V_2$. If a complete bipartite graph has $|V_1|=n$ and $|V_2|=m$, then we may denote the graph by $K_{n,m}$.
 </Definition>
 
-On a given graph $G$, a _walk_ is a sequence of edges which joins a sequence of vertices, such that it denotes a way to "walk" from vertex to vertex using the edges of the graph. So
+<Figure id="fig:k32" caption="Visualization of the complete bipartite graph $K_{3,2}$, with $V_1=\{1,2,3\}$ and $V_2=\{4,5\}$.">
+  <Graph
+    width={320}
+    height={300}
+    nodes={[
+      { id: "1", x: 0, y: 1.0  },
+      { id: "2", x: 0, y: 0.5  },
+      { id: "3", x: 0, y: 0.0  },
+      { id: "4", x: 1, y: 0.75 },
+      { id: "5", x: 1, y: 0.25 },
+    ]}
+    edges={[
+      { from: "1", to: "4" },
+      { from: "1", to: "5" },
+      { from: "2", to: "4" },
+      { from: "2", to: "5" },
+      { from: "3", to: "4" },
+      { from: "3", to: "5" },
+    ]}
+  />
+</Figure>
 
-$$
-W=((1, 2), (2, 5), (4, 5), (2, 4), (2, 3))
+## Graph properties
+
+<Definition id="def:connectedGraph" title="Connected Graph">
+A graph in which there is a <Ref id="def:path" useTitle={true} textTransform='lowercase'/> between every pair of vertices.
+</Definition>
+
+<Definition id="def:disconnectedGraph" title="Disconnected Graph">
+A graph that is not <Ref id="def:connectedGraph" altLabel="connected"/>.
+</Definition>
+
+All the previous figues we've shown are connected graphs. <Ref id="fig:exampleNotConnected"/> shows a disconnected graph.
+
+<Figure id="fig:exampleNotConnected" caption="Visualization of a disconnected graph.">
+  <Graph
+    width={320} height={300}
+    nodes={[
+      { id: "1", x: 0.500, y: 0.976 },
+      { id: "2", x: 0.000, y: 0.612 },
+      { id: "3", x: 1.000, y: 0.612 },
+      { id: "4", x: 0.191, y: 0.025 },
+      { id: "5", x: 0.809, y: 0.025 },
+    ]}
+    edges={[
+      { from: "1", to: "2" },
+      { from: "1", to: "3" },
+      { from: "2", to: "3" },
+      { from: "4", to: "5" },
+    ]}
+  />
+</Figure>
+
+<Definition id="def:acyclicGraph" title="Acyclic Graph" alt="Forest">
+A graph which contains no cycles.
+</Definition>
+
+<Definition id="def:tree" title="Tree">
+A <Ref id="def:connectedGraph" altLabel="connected"/>, <Ref id="def:acyclicGraph" altLabel="acyclic"/> graph.
+</Definition>
+
+## Structures within graphs
+
+Many combinatorial optimization problems start with some graph and ask you to find certain types of structures within the graph. Here are some important graph structures:
+
+<Definition id="def:walk" title="Walk">
+  A sequence of edges which joins a sequence of vertices in a graph, such that it denotes a way to "walk" from vertex to vertex using the edges of the graph.
+</Definition>
+
+For example,
+
+$$ {#eq:exampleWalk}
+  W=((1, 2), (2, 5), (4, 5), (2, 4), (2, 3))
 $$
 
 is a walk in the graph shown in <Ref id="fig:exampleGraph"/>, which represents traveling the sequence of vertices:
@@ -167,35 +259,28 @@ $$
 1\rightarrow 2\rightarrow 5\rightarrow 4\rightarrow 2\rightarrow 3
 $$
 
-<Definition id="def:walk" title="Walk">
-In graph theory, a sequence of edges which joins a sequence of vertices, such that it denotes a way to "walk" from vertex to vertex using the edges of the graph.
-</Definition>
-
-A very similar notion is that of a _trail_, which is a walk in which all the edges are distinct. Note that the walk $W$ from the previous paragraph is also a trail, since it does not repeat any edges. Meanwhile, a walk is called a _path_ if all its vertices (and therefore also its edges) are distinct. So $W$ is _not_ a path, since it travels to vertex $2$ twice. But something like
-
-$$
-P=((1, 2), (2, 5), (4, 5))
-$$
-
-_is_ a path, which we can visualize as in <Ref id="fig:examplePath"/>.
+A couple very similar notions:
 
 <Definition id="def:trail" title="Trail">
-A walk in which all the edges are distinct.
+  A <Ref id="def:walk" useTitle={true} textTransform="lowercase"/> in which all the edges are distinct.
 </Definition>
 
 <Definition id="def:path" title="Path">
-A walk in which all the vertices are distinct.
+  A <Ref id="def:walk" useTitle={true} textTransform="lowercase"/> in which all the vertices are distinct.
 </Definition>
+
+So <Ref id="eq:exampleWalk"/> describes a _trail_ in the graph from <Ref id="fig:exampleGraph"/>, but not a _path_. But something like $
+P=((1, 2), (2, 5), (4, 5))$ (depicted in <Ref id="fig:examplePath"/>) _is_ a path, since no vertex is visited twice.
 
 <Figure id="fig:examplePath" caption="Visualization of a path $P=((1, 2), (2, 5), (4, 5))$.">
   <Graph
-    width={500} height={340}
+    width={320} height={300}
     nodes={[
-      { id: "1", x: 250, y:  70 },
-      { id: "2", x: 120, y: 185 },
-      { id: "3", x: 380, y: 185 },
-      { id: "4", x: 150, y: 295 },
-      { id: "5", x: 350, y: 295 },
+      { id: "1", x: 0.500, y: 0.976 },
+      { id: "2", x: 0.000, y: 0.612 },
+      { id: "3", x: 1.000, y: 0.612 },
+      { id: "4", x: 0.191, y: 0.025 },
+      { id: "5", x: 0.809, y: 0.025 },
     ]}
     edges={[
       { from: "1", to: "2" },
@@ -218,33 +303,35 @@ A walk in which all the vertices are distinct.
   />
 </Figure>
 
-A _circuit_ is a trail that starts and ends at the same vertex. Note that the circuit is defined based on a _trail_, so edges cannot be repeated in a circuit, though vertices _can_ repeat. A similar notion is the _cycle_, which is a path that begins and ends at the same vertex. A cycle is called a _Hamiltonian cycle_ if it visits every vertex exactly once. An example Hamiltonian cycle is shown in <Ref id="fig:exampleHamCycle"/>. Related to these is the _tour_, which is a walk that starts and ends at the same vertex and also visits every vertex _at least_ once (so a Hamiltonian cycle is also a tour, though not every tour is a Hamiltonian cycle).
+The next group if definitions concern graph structures that are "circular" in some manner:
 
 <Definition id="def:circuit" title="Circuit">
-A trail that starts and ends at the same vertex.
+  A <Ref id="def:trail" useTitle={true} textTransform="lowercase"/> that starts and ends at the same vertex.
 </Definition>
 
 <Definition id="def:cycle" title="Cycle">
-A path that begins and ends at the same vertex.
+  A <Ref id="def:path" useTitle={true} textTransform="lowercase"/> that begins and ends at the same vertex.
 </Definition>
 
 <Definition id="def:hamCycle" title="Hamiltonian Cycle">
-A cycle in which every vertex is visited exactly once.
+  A <Ref id="def:cycle" useTitle={true} textTransform="lowercase"/> in which every vertex is visited exactly once.
 </Definition>
 
 <Definition id="def:tour" title="Tour">
-A walk that starts and ends at the same vertex and also visits every vertex at least once.
+  A <Ref id="def:walk" useTitle={true} textTransform="lowercase"/> that starts and ends at the same vertex and also visits every vertex at least once.
 </Definition>
+
+Note that the circuit is defined based on a _trail_, so edges cannot be repeated in a circuit, though vertices _can_ repeat. The _cycle_ is based on a path, so vertices _cannot_ repeat. Every Hamiltonian cycle is also a tour, though not every tour is a Hamiltonian cycle (since tours can repeat vertices).
 
 <Figure id="fig:exampleHamCycle" caption="Visualization of a Hamiltonian cycle.">
   <Graph
-    width={500} height={340}
+    width={320} height={300}
     nodes={[
-      { id: "1", x: 250, y:  70 },
-      { id: "2", x: 120, y: 185 },
-      { id: "3", x: 380, y: 185 },
-      { id: "4", x: 150, y: 295 },
-      { id: "5", x: 350, y: 295 },
+      { id: "1", x: 0.500, y: 0.976 },
+      { id: "2", x: 0.000, y: 0.612 },
+      { id: "3", x: 1.000, y: 0.612 },
+      { id: "4", x: 0.191, y: 0.025 },
+      { id: "5", x: 0.809, y: 0.025 },
     ]}
     edges={[
       { from: "1", to: "2" },
@@ -269,58 +356,67 @@ A walk that starts and ends at the same vertex and also visits every vertex at l
 
 Note that walks, trails, paths, circuits, cycles, and tours can all exist on directed graphs as well, with the natural restriction that the underlying walk must travel in the direction of the edges.
 
-A graph is said to be _connected_ if there is a path between every pair of vertices in the graph. For example, every graph we've seen so far in this section is connected. <Ref id="fig:exampleNotConnected"/> shows a disconnected graph.
-
-<Definition id="def:connectedGraph" title="Connected Graph">
-A graph in which there is a path between every pair of vertices.
+<Definition id="def:matching" title="Matching">
+A subset $M$ of the edges of a graph such that every vertex is included in at most one edge.
 </Definition>
 
-<Figure id="fig:exampleNotConnected" caption="Visualization of a disconnected graph.">
+<Definition id="def:perfectMatching" title="Perfect Matching">
+A <Ref id="def:matching" useTitle={true} textTransform="lowercase"/> in which every vertex is included in exactly one edge.
+</Definition>
+
+An example perfect matching is given in <Ref id="fig:examplePerfectMatching"/>.
+
+<Figure id="fig:examplePerfectMatching" caption="Visualization of a perfect matching, with the matching $M=\{(1,2),(3,4),(5,6)\}$ shown in blue.">
   <Graph
-    width={500} height={340}
+    width={300} height={240}
     nodes={[
-      { id: "1", x: 250, y:  70 },
-      { id: "2", x: 120, y: 185 },
-      { id: "3", x: 380, y: 185 },
-      { id: "4", x: 150, y: 295 },
-      { id: "5", x: 350, y: 295 },
+      { id: "1", x: 0, y: 1 },
+      { id: "2", x: 0.5,  y: 1 },
+      { id: "3", x: 1, y: 1 },
+      { id: "4", x: 0, y: 0 },
+      { id: "5", x: 0.5,  y: 0 },
+      { id: "6", x: 1, y: 0 },
     ]}
     edges={[
       { from: "1", to: "2" },
-      { from: "1", to: "3" },
       { from: "2", to: "3" },
       { from: "4", to: "5" },
+      { from: "5", to: "6" },
+      { from: "1", to: "4" },
+      { from: "2", to: "5" },
+      { from: "3", to: "6" },
+      { from: "1", to: "5" },
+      { from: "3", to: "4" },
     ]}
+    edgeStyles={{
+      "1,2": { stroke: '#2563eb', strokeWidth: 2.5 },
+      "3,4": { stroke: '#2563eb', strokeWidth: 2.5 },
+      "5,6": { stroke: '#2563eb', strokeWidth: 2.5 },
+      "2,3": { stroke: 'var(--text-muted)', strokeWidth: 1 },
+      "4,5": { stroke: 'var(--text-muted)', strokeWidth: 1 },
+      "1,4": { stroke: 'var(--text-muted)', strokeWidth: 1 },
+      "2,5": { stroke: 'var(--text-muted)', strokeWidth: 1 },
+      "3,6": { stroke: 'var(--text-muted)', strokeWidth: 1 },
+      "1,5": { stroke: 'var(--text-muted)', strokeWidth: 1 },
+    }}
   />
 </Figure>
 
-A graph is called _acyclic_ if it contains no cycles. Acyclic graphs are also sometimes called _forests_. A connected forest is called a _tree_. Given a graph $G=(V,E)$, a subset of $E$ is called a _spanning tree_ of $G$ if it creates a tree over all the vertices of $G$. An example spanning tree is shown in <Ref id="fig:exampleSpanningTree"/>.
-
-<Definition id="def:acyclicGraph" title="Acyclic Graph">
-A graph in which there are no cycles.
-</Definition>
-
-<Definition id="def:forest" title="Forest">
-See <Ref id="def:acyclicGraph"/>.
-</Definition>
-
-<Definition id="def:tree" title="Tree">
-A connected, acyclic graph.
-</Definition>
-
 <Definition id="def:spanningTree" title="Spanning Tree">
-For a given graph $G=(V,E)$, a subset of $E$ that creates a tree over all the vertices of $G$.
+For a given graph $G=(V,E)$, a subset of $E$ that creates a <Ref id="def:tree" useTitle={true} textTransform="lowercase"/> over all the vertices of $G$.
 </Definition>
+
+An example spanning tree is shown in <Ref id="fig:exampleSpanningTree"/>.
 
 <Figure id="fig:exampleSpanningTree" caption="Visualization of a spanning tree.">
   <Graph
-    width={500} height={340}
+    width={320} height={300}
     nodes={[
-      { id: "1", x: 250, y:  70 },
-      { id: "2", x: 120, y: 185 },
-      { id: "3", x: 380, y: 185 },
-      { id: "4", x: 150, y: 295 },
-      { id: "5", x: 350, y: 295 },
+      { id: "1", x: 0.500, y: 0.976 },
+      { id: "2", x: 0.000, y: 0.612 },
+      { id: "3", x: 1.000, y: 0.612 },
+      { id: "4", x: 0.191, y: 0.025 },
+      { id: "5", x: 0.809, y: 0.025 },
     ]}
     edges={[
       { from: "1", to: "2" },
@@ -364,48 +460,8 @@ Now for claim 2. Let $e'=(u',v')$ be the edge removed from $C$ to create $T'$. F
 Thus a path exists between any two vertices in $T'$.
 </Proof>
 
-For a given graph, a subset of the edges $M\subseteq E$ is called a _matching_ if every vertex is included in _at most_ one edge. A _perfect matching_ is a matching where every vertex is included in _exactly_ one edge. An example perfect matching is given in <Ref id="fig:examplePerfectMatching"/>.
+<Ref id="fig:newSpanningTreeThm"/> illustrates the mechanics of <Ref id="thm:newSpanningTree"/>.
 
-<Definition id="def:matching" title="Matching">
-A subset $M$ of the edges of a graph such that every vertex is included in at most one edge.
-</Definition>
-
-<Definition id="def:perfectMatching" title="Perfect Matching">
-A matching in which every vertex is included in exactly one edge.
-</Definition>
-
-<Figure id="fig:examplePerfectMatching" caption="Visualization of a perfect matching, with the matching $M=\{(1,2),(3,4),(5,6)\}$ shown in blue.">
-  <Graph
-    width={500} height={300}
-    nodes={[
-      { id: "1", x: 110, y:  80 },
-      { id: "2", x: 250, y:  80 },
-      { id: "3", x: 390, y:  80 },
-      { id: "4", x: 110, y: 230 },
-      { id: "5", x: 250, y: 230 },
-      { id: "6", x: 390, y: 230 },
-    ]}
-    edges={[
-      { from: "1", to: "2" },
-      { from: "2", to: "3" },
-      { from: "4", to: "5" },
-      { from: "5", to: "6" },
-      { from: "1", to: "4" },
-      { from: "2", to: "5" },
-      { from: "3", to: "6" },
-      { from: "1", to: "5" },
-      { from: "3", to: "4" },
-    ]}
-    edgeStyles={{
-      "1,2": { stroke: '#2563eb', strokeWidth: 2.5 },
-      "3,4": { stroke: '#2563eb', strokeWidth: 2.5 },
-      "5,6": { stroke: '#2563eb', strokeWidth: 2.5 },
-      "2,3": { stroke: 'var(--text-muted)', strokeWidth: 1 },
-      "4,5": { stroke: 'var(--text-muted)', strokeWidth: 1 },
-      "1,4": { stroke: 'var(--text-muted)', strokeWidth: 1 },
-      "2,5": { stroke: 'var(--text-muted)', strokeWidth: 1 },
-      "3,6": { stroke: 'var(--text-muted)', strokeWidth: 1 },
-      "1,5": { stroke: 'var(--text-muted)', strokeWidth: 1 },
-    }}
-  />
+<Figure id="fig:newSpanningTreeThm" captionNode={<><Ref id="thm:newSpanningTree"/> in action: A random spanning tree is shown in blue. Click any dashed edge to add it and reveal the cycle it creates, then click any cycle edge to remove it and form a new spanning tree.</>}>
+  <SpanningTreeExplorer client:only="react" />
 </Figure>

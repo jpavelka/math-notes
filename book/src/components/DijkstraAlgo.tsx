@@ -253,15 +253,6 @@ function makeInitSnapshot(nodes: Node[], source: string): Snapshot {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const btnStyle: React.CSSProperties = {
-  padding: '4px 14px',
-  border: '1px solid var(--border)',
-  borderRadius: '4px',
-  background: 'var(--bg)',
-  color: 'var(--text)',
-  cursor: 'pointer',
-  fontSize: '0.9em',
-};
 
 const thStyle: React.CSSProperties = {
   border: '1px solid var(--border)',
@@ -314,6 +305,7 @@ export function DijkstraAlgo({
     [nodes, width, height, pad],
   );
   const markerId = `dijkstra-arrow-${uid}`;
+  const markerIdGreen = `dijkstra-arrow-green-${uid}`;
   const glowFilterId = `dijkstra-glow-${uid}`;
   const forcedCurves: Record<string, number> = isRandom
     ? { 'a,e': -CURVE * 1.25, 'b,f': CURVE * 1.25 }
@@ -347,6 +339,7 @@ export function DijkstraAlgo({
   const transitionTimer = useRef<ReturnType<typeof setTimeout>>();
   const [wrongNode, setWrongNode] = useState<{ id: string; key: number } | null>(null);
   const wrongTimer = useRef<ReturnType<typeof setTimeout>>();
+  const updatesDoneBtnRef = useRef<HTMLButtonElement>(null);
   useEffect(() => () => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     if (transitionTimer.current) clearTimeout(transitionTimer.current);
@@ -474,8 +467,17 @@ export function DijkstraAlgo({
     }
   }
 
+  function shakeUpdatesDoneBtn() {
+    const btn = updatesDoneBtnRef.current;
+    if (!btn) return;
+    btn.classList.remove('dijkstra-btn-error');
+    void btn.offsetWidth;
+    btn.classList.add('dijkstra-btn-error');
+    setTimeout(() => btn.classList.remove('dijkstra-btn-error'), 700);
+  }
+
   function handleUpdatesDone() {
-    if (identifiedUpdates.size < updateSet.size) { showToast('Additional vertices require updates'); return; }
+    if (identifiedUpdates.size < updateSet.size) { showToast('Additional vertices require updates'); shakeUpdatesDoneBtn(); return; }
     applyUpdatesDone(new Map(workingD), new Map(workingP));
   }
 
@@ -645,7 +647,7 @@ export function DijkstraAlgo({
         ? `No distance updates from ${currentU}. Click 'Updates done' to continue.`
         : `Click neighbors of ${currentU} in U whose d(v) would improve. Click 'Updates done' when finished.`;
     }
-    return `Click the vertex in U with the minimum d(v).`;
+    return `Select the next u (the vertex in U with the minimum d(v)).`;
   })();
 
   const canPrev = stepIndex > 0;
@@ -656,7 +658,7 @@ export function DijkstraAlgo({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
       {isRandom && (
-        <button onClick={newGraph} style={btnStyle}>
+        <button onClick={newGraph}>
           New graph
         </button>
       )}
@@ -678,15 +680,20 @@ export function DijkstraAlgo({
             80%     { transform: translateX(5px); }
           }
           .dijkstra-shake { animation: dijkstra-shake 0.4s ease; }
+          .dijkstra-btn-error { animation: dijkstra-shake 0.4s ease; border-color: #dc2626 !important; color: #dc2626 !important; }
         `}</style>
         <svg
           width={width}
           height={height}
-          style={{ display: 'block', maxWidth: '100%', color: 'var(--text)' }}
+          viewBox={`0 0 ${width} ${height}`}
+          style={{ display: 'block', maxWidth: '100%', height: 'auto', color: 'var(--text)' }}
         >
           <defs>
             <marker id={markerId} markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
               <polygon points="0 0, 8 3, 0 6" fill="currentColor" />
+            </marker>
+            <marker id={markerIdGreen} markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+              <polygon points="0 0, 8 3, 0 6" fill="#16a34a" />
             </marker>
             <filter id={glowFilterId} x="-30%" y="-30%" width="160%" height="160%">
               <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
@@ -708,19 +715,20 @@ export function DijkstraAlgo({
             const onPath = highlightEdgeSet.has(`${edge.from},${edge.to}`);
             const stroke = onPath ? '#16a34a' : 'currentColor';
             const sw = onPath ? 3 : 1.5;
+            const marker = `url(#${onPath ? markerIdGreen : markerId})`;
             return (
               <g key={i}>
                 {curved ? (
                   <path
                     d={`M ${x1} ${y1} Q ${cpx} ${cpy} ${x2} ${y2}`}
                     fill="none" stroke={stroke} strokeWidth={sw}
-                    markerEnd={`url(#${markerId})`}
+                    markerEnd={marker}
                   />
                 ) : (
                   <line
                     x1={x1} y1={y1} x2={x2} y2={y2}
                     stroke={stroke} strokeWidth={sw}
-                    markerEnd={`url(#${markerId})`}
+                    markerEnd={marker}
                   />
                 )}
                 <rect x={lx - lw / 2} y={ly - lh / 2} width={lw} height={lh} fill="var(--bg)" />
@@ -800,20 +808,19 @@ export function DijkstraAlgo({
         <button
           onClick={goPrev}
           disabled={!canPrev}
-          style={{ ...btnStyle, opacity: canPrev ? 1 : 0.4, cursor: canPrev ? 'pointer' : 'default' }}
         >
           ← Prev
         </button>
         <button
+          ref={updatesDoneBtnRef}
           onClick={phase === 'done' ? reset : handleUpdatesDone}
-          style={{ ...btnStyle, visibility: phase === 'update-edges' || phase === 'done' ? 'visible' : 'hidden' }}
+          style={{ visibility: phase === 'update-edges' || phase === 'done' ? 'visible' : 'hidden' }}
         >
           {phase === 'done' ? 'Reset' : 'Updates done'}
         </button>
         <button
           onClick={goNext}
           disabled={!canNext}
-          style={{ ...btnStyle, opacity: canNext ? 1 : 0.4, cursor: canNext ? 'pointer' : 'default' }}
         >
           Next →
         </button>
@@ -834,14 +841,14 @@ export function DijkstraAlgo({
         <table style={{ borderCollapse: 'collapse', fontSize: '0.82em', margin: '0 auto' }}>
           <thead>
             <tr>
-              <th style={thStyle}><em>u</em></th>
+              <th style={{ ...thStyle, borderRight: '3px solid var(--text-muted)' }}><em>u</em></th>
               {nodes.map(n => <th key={n.id} style={thStyle}>{n.id}</th>)}
             </tr>
           </thead>
           <tbody>
             {history.map((rec, row) => (
               <tr key={row}>
-                <td style={{ ...tdBase, fontStyle: 'italic' }}>{rec.u ?? '—'}</td>
+                <td style={{ ...tdBase, fontStyle: 'italic', borderRight: '3px solid var(--text-muted)' }}>{rec.u ?? '—'}</td>
                 {nodes.map(n => {
                   const dv = rec.d.get(n.id)!;
                   const pv = rec.p.get(n.id) ?? null;
