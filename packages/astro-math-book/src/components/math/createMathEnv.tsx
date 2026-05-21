@@ -24,8 +24,9 @@ export interface MathEnvProps {
 export function createMathEnv(type: string, cssKey?: string): React.FC<MathEnvProps> {
   const key = cssKey ?? type.toLowerCase();
 
-  function MathEnv({ id, title, number, children }: MathEnvProps) {
+  function MathEnv({ id, title, alt, number, children }: MathEnvProps) {
     const proofHref = id ? registry[id]?.proofHref : undefined;
+    const titleParts = [title, alt].filter(Boolean) as string[];
     return (
       <div
         className={`math-env math-env--${key}`}
@@ -34,7 +35,9 @@ export function createMathEnv(type: string, cssKey?: string): React.FC<MathEnvPr
       >
         <div className="math-env-label">
           <strong>{type} {number}</strong>
-          {title && <em> (<span dangerouslySetInnerHTML={{ __html: renderInlineMath(title) }} />)</em>}
+          {titleParts.length > 0 && (
+            <em> (<span dangerouslySetInnerHTML={{ __html: titleParts.map(renderInlineMath).join(' / ') }} />)</em>
+          )}
           {proofHref && <a href={proofHref} className="math-env-proof-link">proof ↓</a>}
         </div>
         <div className="math-env-body">{children}</div>

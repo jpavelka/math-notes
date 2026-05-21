@@ -17,6 +17,38 @@ import remarkGfm from 'remark-gfm';
 import { visit } from 'unist-util-visit';
 import katex from 'katex';
 
+// ── Structural fingerprinting ────────────────────────────────────────────────
+// Used in dev to skip registry rebuilds for prose-only edits.
+// A "structural" line is anything that could affect the registry: frontmatter,
+// JSX opening tags, environment attributes, equation labels, section ref comments.
+
+const STRUCTURAL_RE = /\bid=|title=|\balt=|label=|caption=|\{#|\{\/\*/;
+
+function registryFingerprint(content) {
+  const lines = content.split('\n');
+  const out = [];
+  let inFrontmatter = false;
+  let frontmatterDone = false;
+  for (const line of lines) {
+    if (!frontmatterDone) {
+      out.push(line);
+      if (line.trimEnd() === '---') {
+        if (!inFrontmatter) inFrontmatter = true;
+        else frontmatterDone = true;
+      }
+      continue;
+    }
+    if (line.trimStart().startsWith('<') || STRUCTURAL_RE.test(line)) out.push(line);
+  }
+  return out.join('\n');
+}
+
+function fnv1a(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619) >>> 0;
+  return h;
+}
+
 // ── Symbol ID generation ─────────────────────────────────────────────────────
 // Keep in sync with makeSymbolIds in NotationTable.tsx
 
@@ -125,7 +157,15 @@ function makeSerializer(katexMacros) {
       case 'mdxJsxFlowElement': {
         if (node.name === 'Ref') {
           const refId = getAttrString(node.attributes, 'id');
-          if (refId) return `\x00REF:${refId}\x00`;
+          if (refId) {
+            const props = { id: refId };
+            if (getBoolAttr(node.attributes, 'useTitle')) props.useTitle = true;
+            const altLabel = getAttrString(node.attributes, 'altLabel');
+            if (altLabel) props.altLabel = altLabel;
+            const textTransform = getAttrString(node.attributes, 'textTransform');
+            if (textTransform) props.textTransform = textTransform;
+            return `\x00REF:${JSON.stringify(props)}\x00`;
+          }
         }
         // Problem sub-components
         if (node.name === 'ProblemInstance') return `<p><strong>Instance:</strong> ${nodesToHtml(node.children)}</p>`;
@@ -217,6 +257,16 @@ function getAttrString(attrs, name) {
   const lit = a.value?.data?.estree?.body?.[0]?.expression;
   if (lit?.type === 'Literal') return String(lit.value);
   return a.value?.value ?? null;
+}
+
+function getBoolAttr(attrs, name) {
+  const a = attrs?.find((a) => a.name === name);
+  if (!a) return false;
+  if (a.value === null) return true; // bare boolean shorthand: useTitle
+  if (typeof a.value === 'string') return a.value !== 'false';
+  const lit = a.value?.data?.estree?.body?.[0]?.expression;
+  if (lit?.type === 'Literal') return Boolean(lit.value);
+  return false;
 }
 
 
@@ -705,6 +755,7 @@ function buildRegistry(root, katexMacros = {}, environments = [], symbols = [], 
             number: String(item.lineNumber),
             algoNumber: algo?.number ?? '?',
             ...(algo?.label ? { algoLabel: algo.label } : {}),
+            ...(item.algoId ? { algoId: item.algoId } : {}),
             chapter: ch,
             contentHTML: item.contentHTML,
             href: `${base}/${slug}#${item.id}`,
@@ -780,12 +831,31 @@ function buildRegistry(root, katexMacros = {}, environments = [], symbols = [], 
   }
 
   // Back-fill Ref placeholders now that all numbers are known
+  const renderRefLabel = (s) => s.split(/(\$[^$]+\$)/).map((part, i) =>
+    i % 2 === 0 ? esc(part) : katex.renderToString(part.slice(1, -1), { throwOnError: false, macros: katexMacros })
+  ).join('');
+  const applyRefTransform = (s, transform) => {
+    const fn = transform === 'lowercase' ? (t) => t.toLowerCase()
+      : transform === 'uppercase' ? (t) => t.toUpperCase()
+      : (t) => t.replace(/\b\w/g, c => c.toUpperCase());
+    return s.split(/(\$[^$]+\$)/).map((part, i) => i % 2 === 0 ? fn(part) : part).join('');
+  };
   for (const entry of Object.values(registry)) {
-    entry.contentHTML = entry.contentHTML.replace(/\x00REF:([^\x00]+)\x00/g, (_, refId) => {
+    entry.contentHTML = entry.contentHTML.replace(/\x00REF:([^\x00]+)\x00/g, (_, payload) => {
+      let refId, useTitle = false, altLabel = null, textTransform = null;
+      try {
+        const props = JSON.parse(payload);
+        refId = props.id; useTitle = props.useTitle ?? false;
+        altLabel = props.altLabel ?? null; textTransform = props.textTransform ?? null;
+      } catch { refId = payload; }
       const ref = registry[refId];
       if (!ref) return `<span style="color:red">[?:${esc(refId)}]</span>`;
-      const label = ref.type === 'Equation' ? `(${ref.number})` : `${ref.type} ${ref.number}`;
-      return esc(label);
+      let rawLabel;
+      if (altLabel) rawLabel = altLabel;
+      else if (useTitle && ref.title) rawLabel = ref.title;
+      else rawLabel = ref.type === 'Equation' ? `(${ref.label ?? ref.number})` : (ref.label ?? `${ref.type} ${ref.number}`);
+      if (textTransform) rawLabel = applyRefTransform(rawLabel, textTransform);
+      return renderRefLabel(rawLabel);
     });
   }
 
@@ -838,6 +908,8 @@ export function registryIntegration(options = {}) {
           : String(config.root);
       },
       'astro:config:setup': ({ addWatchFile, updateConfig }) => {
+        const fingerprints = new Map(); // absPath → fnv1a hash of structural content
+
         updateConfig({
           vite: {
             plugins: [{
@@ -845,17 +917,28 @@ export function registryIntegration(options = {}) {
               buildStart() {
                 if (!projectRoot) return;
                 const absContentDir = join(projectRoot, resolvedContentDir);
+                let allFiles = [];
                 try {
-                  for (const file of findMdxFiles(absContentDir)) {
-                    this.addWatchFile(file);
-                  }
+                  allFiles = findMdxFiles(absContentDir);
+                  for (const file of allFiles) this.addWatchFile(file);
                 } catch {}
                 buildRegistry(projectRoot, katexMacros, environments, symbols, symbolsSlug, bookSlug, resolvedContentDir, chapterBase);
+                // Seed fingerprints so the first watchChange has a baseline to compare
+                for (const file of allFiles) {
+                  try { fingerprints.set(file, fnv1a(registryFingerprint(readFileSync(file, 'utf-8')))); } catch {}
+                }
               },
               watchChange(id) {
-                if (projectRoot && id.endsWith('.mdx') && id.startsWith(join(projectRoot, resolvedContentDir))) {
-                  buildRegistry(projectRoot, katexMacros, environments, symbols, symbolsSlug, bookSlug, resolvedContentDir, chapterBase);
+                if (!projectRoot || !id.endsWith('.mdx') || !id.startsWith(join(projectRoot, resolvedContentDir))) return;
+                let content;
+                try { content = readFileSync(id, 'utf-8'); } catch { return; }
+                const fp = fnv1a(registryFingerprint(content));
+                if (fingerprints.get(id) === fp) {
+                  // Prose-only edit — numbers/ids unchanged, skip the expensive rebuild
+                  return;
                 }
+                fingerprints.set(id, fp);
+                buildRegistry(projectRoot, katexMacros, environments, symbols, symbolsSlug, bookSlug, resolvedContentDir, chapterBase);
               },
             }],
           },

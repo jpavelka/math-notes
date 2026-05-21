@@ -19,6 +19,7 @@
   .toc-sidebar { display: none !important; }
   .mobile-header { display: none !important; }
   .print-btn { display: none !important; }
+  .glossary-filter { display: none !important; }
 
   /* ── Reflow layout ── */
   .layout { display: block; }
@@ -45,11 +46,17 @@
   .math-algorithm,
   .equation-block { page-break-inside: avoid; }
 
+  /* Long environments (tagged by tagLongMathEnvs) are allowed to split */
+  .math-env--allow-break { page-break-inside: auto; }
+
   /* KaTeX: no scroll bars in print */
   .katex-display { overflow: visible; }
 
   /* Hide hover tooltips */
   .ref-tooltip { display: none !important; }
+
+  /* Footnote bodies must stay hidden — never let them bleed into print layout */
+  .footnote-body { display: none !important; }
 
   /* Hide annotation toggles and open reason panels */
   .annot-align-toggle-cell { display: none !important; }
@@ -63,4 +70,13 @@
   /* Colab embeds: swap iframe for link */
   .colab-embed-screen { display: none !important; }
   .colab-embed-print { display: block !important; }
+
+  /* Scale SVGs inside figures. <Graph> sets --graph-print-scale explicitly;
+     other components (DijkstraAlgo, PrimAlgo, etc.) fall back to 0.8. */
+  .math-float-content svg {
+    max-width: calc(var(--graph-print-scale, 0.8) * 100%) !important;
+    height: auto !important;
+    margin: 0 auto !important;
+    display: block !important;
+  }
 }

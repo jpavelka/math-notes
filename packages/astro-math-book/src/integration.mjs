@@ -12,6 +12,7 @@ import { remarkNumberEnvs } from './plugins/remark-number-envs.mjs';
 import { registryIntegration } from './plugins/astro-registry.mjs';
 import { bibliographyIntegration } from './plugins/bibliography.mjs';
 import { rehypeCodeCopy } from './plugins/rehype-code-copy.mjs';
+import './plugins/katex-cache.mjs';
 
 const VM_MACROS   = 'virtual:astro-math-book/katex-macros';
 const VM_REGISTRY = 'virtual:astro-math-book/registry';
@@ -31,6 +32,20 @@ const VM_BIB_HREF = 'virtual:astro-math-book/bibliography-href';
  * @param {{ katexMacros?: Record<string,string>, numberedEnvironments?: string[], environments?: EnvDescriptor[], symbols?: import('./components/math/NotationTable').SymbolEntry[], symbolsSlug?: string, bookSlug?: string, contentDir?: string, urlBase?: string, bibliographyHref?: string }} [options]
  * @returns {import('astro').AstroIntegration}
  */
+// Wraps a unified plugin attacher so each transformer call is timed in dev.
+function timed(name, plugin) {
+  return function timedAttacher(...args) {
+    const transformer = plugin.apply(this, args);
+    if (typeof transformer !== 'function') return transformer;
+    return async (tree, file) => {
+      const t = performance.now();
+      const r = transformer(tree, file);
+      if (r && typeof r.then === 'function') await r;
+      process.stdout.write(`  [pipeline] ${name.padEnd(14)}: ${(performance.now() - t).toFixed(1)}ms\n`);
+    };
+  };
+}
+
 export function mathBook(options = {}) {
   const { katexMacros = {}, numberedEnvironments, environments = [], symbols = [], symbolsSlug = 'b-notation', bookSlug = 'chapters', contentDir, urlBase, bibliographyHref = '' } = options;
   const resolvedContentDir = contentDir ?? `src/content/${bookSlug}`;
@@ -44,12 +59,28 @@ export function mathBook(options = {}) {
           ? fileURLToPath(config.root)
           : String(config.root);
       },
-      'astro:config:setup': ({ updateConfig }) => {
+      'astro:config:setup': ({ updateConfig, command }) => {
         // Lazy path — safe to use in load/build hooks because projectRoot
         // is set by astro:config:done before Vite buildStart runs.
         const getRegistryPath  = () => join(projectRoot, '.astro/registry.json');
         const getChaptersDir   = () => join(projectRoot, resolvedContentDir);
         const getBibPath      = () => join(projectRoot, '.astro/bibliography.json');
+
+        const isDev = command === 'dev';
+        const wrap = isDev ? timed : (_name, p) => p;
+
+        // Bracket plugins: record start time on the VFile at remark phase,
+        // then print total at the end of the rehype phase.
+        function pipelineStart() {
+          return (tree, file) => { file.data._t0 = performance.now(); };
+        }
+        function pipelineEnd() {
+          return (tree, file) => {
+            const ms = (performance.now() - (file.data._t0 ?? performance.now())).toFixed(1);
+            const name = String(file.path ?? '').split('/').pop() ?? '?';
+            process.stdout.write(`  [pipeline] ${'TOTAL'.padEnd(14)}: ${ms}ms  (${name})\n`);
+          };
+        }
 
         updateConfig({
           vite: {
@@ -84,13 +115,18 @@ export function mathBook(options = {}) {
             bibliographyIntegration(),
             mdx({
               remarkPlugins: [
-                remarkSectionRefs,
-                [remarkHeadingTexts, { getRegistryPath }],
-                remarkMath,
-                [remarkEquations, { getRegistryPath }],
-                [remarkNumberEnvs, { getRegistryPath, getChaptersDir, numberedEnvironments, environments }],
+                ...(isDev ? [pipelineStart] : []),
+                wrap('section-refs',  remarkSectionRefs),
+                [wrap('heading-texts', remarkHeadingTexts), { getRegistryPath }],
+                wrap('remark-math',   remarkMath),
+                [wrap('equations',    remarkEquations),    { getRegistryPath }],
+                [wrap('number-envs',  remarkNumberEnvs),   { getRegistryPath, getChaptersDir, numberedEnvironments, environments }],
               ],
-              rehypePlugins: [[rehypeKatex, { macros: katexMacros }], rehypeCodeCopy],
+              rehypePlugins: [
+                [wrap('katex',     rehypeKatex), { macros: katexMacros, strict: (code) => code === 'newLineInDisplayMode' ? 'ignore' : 'warn' }],
+                wrap('code-copy',  rehypeCodeCopy),
+                ...(isDev ? [pipelineEnd] : []),
+              ],
             }),
             react(),
           ],

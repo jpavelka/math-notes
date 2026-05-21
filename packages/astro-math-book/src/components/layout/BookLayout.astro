@@ -393,6 +393,20 @@ const chaptersWithSections = await Promise.all(
         return true;
       }
 
+      function addRefDragHandle(tooltip: HTMLElement) {
+        if (tooltip.querySelector('.ref-drag-handle')) return;
+        const handle = document.createElement('div');
+        handle.className = 'ref-drag-handle';
+        const pinBtn = tooltip.querySelector('.ref-pin-btn');
+        if (pinBtn && pinBtn.nextSibling) {
+          tooltip.insertBefore(handle, pinBtn.nextSibling);
+        } else {
+          tooltip.prepend(handle);
+        }
+      }
+
+      document.querySelectorAll<HTMLElement>('.ref-tooltip').forEach(addRefDragHandle);
+
       document.querySelectorAll<HTMLElement>('.ref[data-figure-id]').forEach(refEl => {
         refEl.addEventListener('mouseenter', () => {
           const tooltip = refEl.querySelector<HTMLElement>('.ref-tooltip');
@@ -401,12 +415,37 @@ const chaptersWithSections = await Promise.all(
           const pinBtn = tooltip.querySelector('.ref-pin-btn');
           if (cloneFigureInto(tooltip, refEl.dataset.figureId!)) {
             if (pinBtn) tooltip.prepend(pinBtn);
+            addRefDragHandle(tooltip);
           }
         });
       });
 
       // ── Ref tooltip pin (desktop) ────────────────────────────
       if (!window.matchMedia('(hover: none)').matches) {
+        function resetRefTooltipDrag(ref: HTMLElement) {
+          const tooltip = ref.querySelector<HTMLElement>('.ref-tooltip');
+          if (!tooltip) return;
+          function clearStyles() {
+            delete tooltip!.dataset.dragged;
+            tooltip!.style.position = '';
+            tooltip!.style.left = '';
+            tooltip!.style.top = '';
+            tooltip!.style.bottom = '';
+            tooltip!.style.transform = '';
+            tooltip!.style.display = '';
+            ref.classList.remove('ref--tooltip-detached', 'ref--hover-linger');
+          }
+          if (tooltip.dataset.dragged && tooltip.matches(':hover')) {
+            ref.classList.add('ref--hover-linger');
+            tooltip.addEventListener('mouseleave', function onLeave() {
+              tooltip.removeEventListener('mouseleave', onLeave);
+              clearStyles();
+            });
+          } else {
+            clearStyles();
+          }
+        }
+
         document.addEventListener('click', e => {
           const pinBtn = (e.target as Element).closest<HTMLElement>('.ref-pin-btn');
           if (!pinBtn) return;
@@ -414,8 +453,64 @@ const chaptersWithSections = await Promise.all(
           e.stopPropagation();
           const ref = pinBtn.closest<HTMLElement>('.ref')!;
           const wasPinned = ref.classList.contains('ref--pinned');
-          document.querySelectorAll<HTMLElement>('.ref--pinned').forEach(r => r.classList.remove('ref--pinned'));
+          document.querySelectorAll<HTMLElement>('.ref--pinned').forEach(r => {
+            r.classList.remove('ref--pinned');
+            resetRefTooltipDrag(r);
+          });
           if (!wasPinned) ref.classList.add('ref--pinned');
+        });
+
+        // ── Tooltip drag-to-reposition ────────────────────────
+        let refDragState: {
+          tooltip: HTMLElement; ref: HTMLElement;
+          startX: number; startY: number;
+          origLeft: number; origTop: number;
+        } | null = null;
+
+        document.addEventListener('mousedown', e => {
+          const handle = (e.target as Element).closest<HTMLElement>('.ref-drag-handle');
+          if (!handle) return;
+          const tooltip = handle.closest<HTMLElement>('.ref-tooltip');
+          if (!tooltip) return;
+          const ref = tooltip.closest<HTMLElement>('.ref');
+          if (!ref) return;
+
+          const rect = tooltip.getBoundingClientRect();
+          const refRect = ref.getBoundingClientRect();
+          const origLeft = rect.left - refRect.left;
+          const origTop = rect.top - refRect.top;
+
+          // Auto-pin this ref, reset any others
+          document.querySelectorAll<HTMLElement>('.ref--pinned').forEach(r => {
+            if (r !== ref) { r.classList.remove('ref--pinned'); resetRefTooltipDrag(r); }
+          });
+          ref.classList.add('ref--pinned');
+
+          // Fix absolute position within .ref so tooltip scrolls with the document
+          tooltip.style.position = 'absolute';
+          tooltip.style.left = `${origLeft}px`;
+          tooltip.style.top = `${origTop}px`;
+          tooltip.style.bottom = 'auto';
+          tooltip.style.transform = 'none';
+          tooltip.style.display = 'block';
+          tooltip.dataset.dragged = '1';
+          ref.classList.add('ref--tooltip-detached');
+
+          document.body.classList.add('is-ref-dragging');
+          refDragState = { tooltip, ref, startX: e.clientX, startY: e.clientY, origLeft, origTop };
+          e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', e => {
+          if (!refDragState) return;
+          refDragState.tooltip.style.left = `${refDragState.origLeft + e.clientX - refDragState.startX}px`;
+          refDragState.tooltip.style.top = `${refDragState.origTop + e.clientY - refDragState.startY}px`;
+        });
+
+        document.addEventListener('mouseup', () => {
+          if (!refDragState) return;
+          document.body.classList.remove('is-ref-dragging');
+          refDragState = null;
         });
       }
 
@@ -520,7 +615,13 @@ const chaptersWithSections = await Promise.all(
           const n = body.dataset.fnBody!;
           const li = document.createElement('li');
           li.id = `fn-body-${n}`;
-          li.innerHTML = body.innerHTML.trim();
+          // Clone the body and strip tooltips before serializing to HTML. The tooltip
+          // HTML is span-based (no <div>), so the initial DOM parse has no ejection.
+          // The ejection only happens when addRefDragHandle inserts a <div> and we
+          // re-serialize via innerHTML. Removing tooltips first avoids that entirely.
+          const clone = body.cloneNode(true) as HTMLElement;
+          clone.querySelectorAll('.ref-tooltip').forEach(el => el.remove());
+          li.innerHTML = clone.innerHTML.trim();
           const back = document.createElement('a');
           back.href = `#fn-ref-${n}`;
           back.className = 'print-footnote-back';
@@ -555,6 +656,17 @@ const chaptersWithSections = await Promise.all(
 
       window.addEventListener('beforeprint', buildPrintFootnotes);
       window.addEventListener('afterprint', removePrintFootnotes);
+    </script>
+
+    <script>
+      // ── Long-environment page-break tagging ──────────────────────
+      function tagLongMathEnvs() {
+        document.querySelectorAll<HTMLElement>('.math-env').forEach(el => {
+          el.classList.toggle('math-env--allow-break', el.offsetHeight > 160);
+        });
+      }
+      tagLongMathEnvs();
+      window.addEventListener('beforeprint', tagLongMathEnvs);
     </script>
 
     <RegistrySearch client:load />

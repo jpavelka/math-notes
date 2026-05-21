@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import registryJson from 'virtual:astro-math-book/registry';
 import type { RegistryEntry } from '../../lib/registry';
 import { renderInlineMath } from './renderInlineMath';
@@ -15,7 +16,17 @@ function sortKey(s: string): string {
   return s.replace(/\$([^$]*)\$/g, '$1').replace(/\\/g, '').toLowerCase();
 }
 
+function matchesFilter(item: GlossaryItem, q: string): boolean {
+  const searchIn = (s: string) => sortKey(s).includes(q);
+  if (item.kind === 'primary') {
+    return searchIn(item.entry.title) || (item.entry.alt ?? []).some(searchIn);
+  }
+  return searchIn(item.term) || searchIn(item.primary.title);
+}
+
 export function Glossary({ sortBy = 'alpha' }: Props) {
+  const [filter, setFilter] = useState('');
+
   const primaries = (Object.values(registryJson) as RegistryEntry[])
     .filter((e): e is RegistryEntry & { title: string } =>
       e.type === 'Definition' && typeof e.title === 'string' && e.title.length > 0
@@ -47,41 +58,58 @@ export function Glossary({ sortBy = 'alpha' }: Props) {
     items = all;
   }
 
+  const q = filter.toLowerCase();
+  const visibleItems = q ? items.filter(item => matchesFilter(item, q)) : items;
+
   return (
-    <dl className="glossary">
-      {items.map(item => {
-        if (item.kind === 'primary') {
-          const { entry } = item;
-          return (
-            <div key={entry.id} id={`glossary-${entry.id}`} className="glossary-entry">
-              <dt className="glossary-term">
-                <span dangerouslySetInnerHTML={{ __html: renderInlineMath(entry.title) }} />
-                <a href={entry.href} className="glossary-ref">
-                  Definition {entry.label ?? entry.number} →
-                </a>
-              </dt>
-              <dd
-                className="glossary-body"
-                dangerouslySetInnerHTML={{ __html: entry.contentHTML }}
-              />
-            </div>
-          );
-        } else {
-          const { term, primary } = item;
-          return (
-            <div key={`see-${primary.id}-${term}`} className="glossary-entry glossary-entry--see">
-              <dt className="glossary-term">
-                <span dangerouslySetInnerHTML={{ __html: renderInlineMath(term) }} />
-              </dt>
-              <dd className="glossary-body glossary-body--see">
-                See <a href={`#glossary-${primary.id}`} className="ref-link" dangerouslySetInnerHTML={{
-                  __html: renderInlineMath(primary.title)
-                }} />
-              </dd>
-            </div>
-          );
-        }
-      })}
-    </dl>
+    <div className="glossary-wrap">
+      <input
+        className="glossary-filter"
+        type="search"
+        placeholder="Filter terms…"
+        value={filter}
+        onChange={e => setFilter(e.target.value)}
+        aria-label="Filter glossary terms"
+      />
+      {visibleItems.length === 0 ? (
+        <p className="glossary-empty">No matching terms.</p>
+      ) : (
+        <dl className="glossary">
+          {visibleItems.map(item => {
+            if (item.kind === 'primary') {
+              const { entry } = item;
+              return (
+                <div key={entry.id} id={`glossary-${entry.id}`} className="glossary-entry">
+                  <dt className="glossary-term">
+                    <span dangerouslySetInnerHTML={{ __html: renderInlineMath(entry.title) }} />
+                    <a href={entry.href} className="glossary-ref">
+                      Definition {entry.label ?? entry.number} →
+                    </a>
+                  </dt>
+                  <dd
+                    className="glossary-body"
+                    dangerouslySetInnerHTML={{ __html: entry.contentHTML }}
+                  />
+                </div>
+              );
+            } else {
+              const { term, primary } = item;
+              return (
+                <div key={`see-${primary.id}-${term}`} className="glossary-entry glossary-entry--see">
+                  <dt className="glossary-term">
+                    <span dangerouslySetInnerHTML={{ __html: renderInlineMath(term) }} />
+                  </dt>
+                  <dd className="glossary-body glossary-body--see">
+                    See <a href={`#glossary-${primary.id}`} className="ref-link" dangerouslySetInnerHTML={{
+                      __html: renderInlineMath(primary.title)
+                    }} />
+                  </dd>
+                </div>
+              );
+            }
+          })}
+        </dl>
+      )}
+    </div>
   );
 }

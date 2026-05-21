@@ -338,6 +338,11 @@
   scroll-margin-top: 4rem;
 }
 
+.algo-line--ref-highlight {
+  background: color-mix(in srgb, var(--link) 12%, transparent);
+  border-radius: 2px;
+}
+
 /* Every non-comment line increments and displays the counter */
 .algo-line:not(.algo-comment) {
   counter-increment: algo-line;
@@ -442,9 +447,18 @@
     font-size: 0.85em;
     text-decoration: none;
   }
+
+  /* Strip ref-tooltip popups from footnote list items.
+     The JS fix in buildPrintFootnotes removes them directly; this is the CSS safety net. */
+  .print-footnotes .ref > :not(.ref-link) { display: none !important; }
 }
 
 /* ── Footnotes ── */
+
+/* .print-footnotes only exists in the DOM during printing, so this rule is
+   effectively print-only, but avoids relying solely on @media print recalculation
+   for dynamically-added elements. */
+.print-footnotes .ref > :not(.ref-link) { display: none !important; }
 
 .footnote-marker {
   font-size: 0.78em;
@@ -571,6 +585,7 @@
   opacity: 0.4;
   line-height: 1;
   border-radius: 3px;
+  transition: transform 0.15s ease, opacity 0.15s, color 0.15s;
 }
 
 @media (hover: hover) {
@@ -582,6 +597,7 @@
   .ref--pinned .ref-pin-btn {
     opacity: 1;
     color: var(--link, #2563eb);
+    transform: scale(1.3);
   }
 }
 
@@ -590,6 +606,40 @@
 @media print {
   .ref-pin-btn { display: none; }
 }
+
+/* ── Tooltip drag handle ── */
+.ref-drag-handle {
+  display: block;
+  height: 4px;
+  margin-bottom: 0.55em;
+  margin-right: 1.8em;
+  border-radius: 2px;
+  cursor: grab;
+  opacity: 0.3;
+  transition: opacity 0.12s;
+  background-color: var(--border);
+}
+
+@media (hover: hover) {
+  .ref-drag-handle:hover { opacity: 0.65; }
+}
+
+@media print {
+  .ref-drag-handle { display: none; }
+}
+
+/* Dragging state */
+body.is-ref-dragging * { cursor: grabbing !important; }
+
+/* Hide the pointer arrow once the tooltip is floating free */
+.ref-tooltip[data-dragged]::after,
+.ref-tooltip[data-dragged]::before { display: none; }
+
+/* Keep a detached (dragged) tooltip visible even without hover */
+.ref--tooltip-detached > .ref-tooltip { display: block; }
+
+/* Keep tooltip visible after unpin until cursor leaves */
+.ref--hover-linger > .ref-tooltip { display: block; }
 
 /* Cloned figures inside tooltip / bottom sheet */
 .ref-tooltip .math-figure,
@@ -621,6 +671,31 @@
   display: none;
 }
 
+
+/* ── Algo line ref: two-view toggle ── */
+
+.ref-algo-view--full { display: none; }
+.ref-algo-toggle__to-line { display: none; }
+
+.ref-algo-toggle-root[data-algo-view="full"] .ref-algo-view--line { display: none; }
+.ref-algo-toggle-root[data-algo-view="full"] .ref-algo-view--full { display: block; }
+.ref-algo-toggle-root[data-algo-view="full"] .ref-algo-toggle__to-full { display: none; }
+.ref-algo-toggle-root[data-algo-view="full"] .ref-algo-toggle__to-line { display: inline; }
+
+.ref-algo-toggle {
+  display: block;
+  margin-top: 0.55em;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.8em;
+  color: var(--text-muted);
+}
+
+.ref-algo-toggle:hover {
+  color: var(--text);
+}
 
 .ref--unknown {
   color: #dc2626;
@@ -867,6 +942,28 @@
 }
 
 /* ── Glossary ── */
+
+.glossary-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+}
+
+.glossary-filter {
+  width: 100%;
+  padding: 0.45em 0.75em;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.95em;
+  box-sizing: border-box;
+}
+
+.glossary-filter:focus {
+  outline: none;
+  border-color: var(--text-muted);
+}
 
 .glossary {
   margin: 0;

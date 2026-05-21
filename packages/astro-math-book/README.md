@@ -360,6 +360,55 @@ By <Ref id="def:limit" altLabel="the definition of $L^2$" />, ...
 
 The hover tooltip still shows the canonical number and full content regardless of `altLabel`.
 
+Use `useTitle` to display the entry's title as the link text instead of its label. Falls back to the label if the entry has no title:
+
+```mdx
+See <Ref id="def:combOpt" useTitle /> for the formal definition.
+{/* renders: "See Combinatorial Optimization for the formal definition." */}
+
+{/* Falls back to label when no title is set: */}
+See <Ref id="thm:main" useTitle />.
+{/* renders: "See Theorem 2.1." */}
+```
+
+`useTitle` works for any referenceable environment (definitions, theorems, figures, sections, chapters, etc.). The hover tooltip is unaffected.
+
+Use `short` on a reference to an algorithm line to omit the algorithm name prefix, rendering just the line number:
+
+```mdx
+{/* Default: includes algorithm name */}
+In <Ref id="alg:dijkstra:relax" />, we update $d(v)$.
+{/* renders: "In Dijkstra's Algorithm, line 6, we update d(v)." */}
+
+{/* short: line number only */}
+In <Ref id="alg:dijkstra:relax" short />, we update $d(v)$.
+{/* renders: "In line 6, we update d(v)." */}
+```
+
+`short` has no effect on non-algoline references. The hover tooltip is unaffected.
+
+Use `textTransform` to change the case of the rendered link text. This is useful when a title is capitalized but appears mid-sentence, or when you need to force title-case on a lowercase title:
+
+```mdx
+{/* Title stored as "Independence Number" — use lowercase mid-sentence */}
+The <Ref id="def:indepNumber" useTitle textTransform="lowercase" /> of a graph is...
+{/* renders: "the independence number of a graph is..." */}
+
+{/* Force title-case on a lowercase altLabel */}
+<Ref id="thm:main" altLabel="the main result" textTransform="capitalize" /> implies...
+{/* renders: "The Main Result implies..." */}
+```
+
+**Values** (matching CSS `text-transform` semantics):
+
+| Value | Effect |
+|---|---|
+| `"lowercase"` | All text lowercased |
+| `"uppercase"` | All text uppercased |
+| `"capitalize"` | First letter of each word uppercased |
+
+`textTransform` applies to whichever text ends up displayed — `altLabel`, `useTitle`, or the default label. Math inside `$...$` is left untouched so LaTeX commands are not mangled. The hover tooltip is unaffected.
+
 ---
 
 ## Section references
