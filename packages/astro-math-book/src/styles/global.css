@@ -221,6 +221,26 @@ body {
 
 .sidebar-nav > ul > li { margin-bottom: 0.4rem; }
 
+.nav-part-divider {
+  margin-top: 0.75rem;
+  margin-bottom: 0.4rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+  font-family: system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text);
+  list-style: none;
+}
+
+.nav-part-divider--first {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
 .nav-appendix-divider {
   margin-top: 0.75rem;
   margin-bottom: 0.4rem;
@@ -789,6 +809,16 @@ body {
 }
 
 /* Chapter label above the title */
+.chapter-part-label {
+  font-family: system-ui, sans-serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin: 0 0 0.15rem;
+}
+
 .chapter-label {
   font-family: system-ui, sans-serif;
   font-size: 0.75rem;

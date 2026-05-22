@@ -39,6 +39,7 @@ export default defineConfig({
 - **Textbook layout** — Responsive three-column layout with sidebar navigation, table of contents, scroll-spy, theme toggle, and font-size controls.
 - **Unified search** — ⌘K command palette combining instant registry search (theorems, definitions, equations) with full-text Pagefind prose search.
 - **Print styles** — Dedicated print stylesheet that replaces interactive tooltips with inline content.
+- **PWA / offline** — `BookLayout` registers `/sw.js` on load if the browser supports service workers. Pair with a `workbox-build` post-build step and a `public/manifest.json` to make the site installable and fully readable offline.
 
 ---
 
@@ -149,6 +150,32 @@ const { headings, remarkPluginFrontmatter } = Astro.props;
 | `headings` | `MarkdownHeading[]` | Astro's `headings` export from `.mdx` files |
 | `headingTexts` | `string[]` | Heading texts with math, from the remark plugin |
 | `currentChapterId` | `string` | Slug of the current chapter for active nav highlighting |
+
+### Appendices
+
+Set `chapter` to a string (e.g. `"A"`, `"B"`) to mark a chapter as an appendix. Appendices are grouped below a divider labelled "Appendices" in the sidebar. Appendices are not assigned a book part.
+
+### Book parts
+
+Add `bookPart` to a chapter's MDX frontmatter to start a new named part at that chapter. The same part applies to all following chapters until another `bookPart` is declared. Parts are numbered automatically with Roman numerals in encounter order.
+
+```yaml
+---
+title: "Linear Programming"
+chapter: 1
+bookPart: "Foundations"
+---
+```
+
+```yaml
+---
+title: "Integer Programming"
+chapter: 5
+bookPart: "Advanced Topics"
+---
+```
+
+Chapters 1–4 appear under **Part I: Foundations**; chapters 5+ under **Part II: Advanced Topics**. Part dividers appear in the sidebar and above the chapter heading on each chapter page.
 
 ---
 
@@ -279,7 +306,7 @@ export const Listing = createFloatEnv('Listing', { captionPosition: 'top' });
 | `captionPosition` | `'top' \| 'bottom'` | `'bottom'` | Whether the caption appears above or below the content |
 | `cssPrefix` | `string` | `math-{type.toLowerCase()}` | CSS class prefix; generates `{prefix}`, `{prefix}-caption`, `{prefix}-content` |
 
-The component accepts `id`, `caption`, `captionNode`, `number`, `invertInDark`, and `children`. For captions that need JSX (e.g. a `<Ref>`), use the `captionNode` prop — see [Captions with cross-references](#captions-with-cross-references). Register it with `kind: 'float'` so the registry uses `caption` (not `title`) for tooltip extraction and `<Ref>` renders caption-style labels:
+The component accepts `id`, `caption`, `number`, `invertInDark`, and `children`. The `caption` prop accepts a plain string or JSX — see [Captions with cross-references](#captions-with-cross-references). Register it with `kind: 'float'` so the registry uses `caption` (not `title`) for tooltip extraction and `<Ref>` renders caption-style labels:
 
 ```js
 environments: [{ name: 'Listing', kind: 'float' }]
@@ -508,18 +535,18 @@ Both components are numbered automatically and support `<Ref>` links.
 
 ### Captions with cross-references
 
-The `caption` prop accepts a plain string (with `$...$` inline math). When the caption needs JSX — for example a `<Ref>` cross-reference — use the `captionNode` prop instead. Astro pre-renders children of server-rendered React components before the parent runs, so child-based approaches cannot work; the `captionNode` prop is passed as an Astro JSX descriptor and converted to a React element at render time.
+The `caption` prop accepts a plain string (with `$...$` inline math) or JSX. When the caption needs a `<Ref>` or other React component, pass JSX directly. Astro pre-renders children of server-rendered React components before the parent runs, so child-based approaches cannot work; a JSX `caption` value is passed as an Astro JSX descriptor and converted to a React element at render time.
 
-`captionNode` works on `<Figure>`, `<Table>`, `<Algorithm>`, and any custom `createFloatEnv` component.
+JSX captions work on `<Figure>`, `<Table>`, `<Algorithm>`, and any custom `createFloatEnv` component.
 
 ```mdx
 import { Figure, Table, Ref } from 'astro-math-book/components';
 
-<Figure id="fig:example2" captionNode={<>A continuation of <Ref id="fig:example" />.</>}>
+<Figure id="fig:example2" caption={<>A continuation of <Ref id="fig:example" />.</>}>
   <img src="/images/example2.svg" alt="..." />
 </Figure>
 
-<Table id="tab:comparison" captionNode={<>Comparison with the values from <Ref id="tab:baseline" />.</>}>
+<Table id="tab:comparison" caption={<>Comparison with the values from <Ref id="tab:baseline" />.</>}>
   | ... |
 </Table>
 ```
@@ -622,7 +649,13 @@ Children of `<AlgoFor>`, `<AlgoWhile>`, `<AlgoIf>`, `<AlgoElseIf>`, and `<AlgoEl
 | `<AlgoInput>` | **Input:** … (metadata, before numbered body) |
 | `<AlgoOutput>` | **Output:** … (metadata, before numbered body) |
 
-The `cond` and `each` props on control-flow components are strings and support `$…$` inline math, the same as the `title` prop on theorem environments. Children of statement components are regular MDX content and also support math.
+The `cond` and `each` props accept a plain string (with `$…$` inline math) or JSX. Pass JSX when the condition contains a `<Ref>` or other component:
+
+```mdx
+<AlgoIf cond={<>$d[v] = \infty$ or <Ref id="lem:relax"/> applies</>}>
+```
+
+Children of statement components are regular MDX content and also support math.
 
 Line numbers are assigned by a CSS counter reset on the algorithm container, so they work correctly regardless of nesting depth and require no JavaScript.
 

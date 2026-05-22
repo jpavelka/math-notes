@@ -20,6 +20,7 @@
   .mobile-header { display: none !important; }
   .print-btn { display: none !important; }
   .glossary-filter { display: none !important; }
+  .no-print { display: none !important; }
 
   /* ── Reflow layout ── */
   .layout { display: block; }

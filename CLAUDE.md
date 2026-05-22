@@ -57,6 +57,10 @@ MDX files flow through several remark plugins before rendering:
 | KaTeX macros | `book/katex-macros.ts` |
 | Bibliography | `book/references.bib` |
 
+## Package README
+
+After any significant change to `packages/astro-math-book/` — new props, removed props, new components, changed behaviour — update `packages/astro-math-book/README.md` to reflect it.
+
 ## Adding a new math environment component
 
 1. Create the `.tsx` file in `packages/astro-math-book/src/components/math/`

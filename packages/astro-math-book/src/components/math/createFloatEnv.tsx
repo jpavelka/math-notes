@@ -1,7 +1,7 @@
 import React, { isValidElement, type ReactNode } from 'react';
 import { renderInlineMath } from './renderInlineMath';
 
-function processLatexInNode(node: ReactNode): ReactNode {
+export function processLatexInNode(node: ReactNode): ReactNode {
   if (node == null || typeof node === 'boolean') return node;
   if (typeof node === 'number') return node;
   if (typeof node === 'string') {
@@ -49,13 +49,8 @@ export function fromAstroJSX(node: unknown): ReactNode {
 
 export interface FloatEnvProps {
   id?: string;
-  /** Plain string caption (supports inline KaTeX math). */
-  caption?: string;
-  /**
-   * JSX caption — use when the caption contains <Ref> or other React components.
-   * Example: captionNode={<>See <Ref id="fig:foo"/> for details.</>}
-   */
-  captionNode?: ReactNode;
+  /** Caption — plain string (supports inline KaTeX math) or JSX. */
+  caption?: ReactNode;
   label?: string;
   number?: string;
   invertInDark?: boolean;
@@ -81,12 +76,13 @@ export function createFloatEnv(type: string, options: FloatEnvOptions = {}): Rea
   const { captionPosition = 'bottom' } = options;
   const cssPrefix = options.cssPrefix ?? `math-${type.toLowerCase()}`;
 
-  function FloatEnv({ id, caption, captionNode, number, invertInDark, children }: FloatEnvProps) {
-    const resolvedCaption: ReactNode = captionNode
-      ? processLatexInNode(fromAstroJSX(captionNode))
-      : caption
+  function FloatEnv({ id, caption, number, invertInDark, children }: FloatEnvProps) {
+    const rawCaption = caption;
+    const resolvedCaption: ReactNode = caption == null
+      ? null
+      : typeof caption === 'string'
         ? <span dangerouslySetInnerHTML={{ __html: renderInlineMath(caption) }} />
-        : null;
+        : processLatexInNode(fromAstroJSX(caption));
 
     const figcaption = (
       <figcaption className={`${cssPrefix}-caption`}>

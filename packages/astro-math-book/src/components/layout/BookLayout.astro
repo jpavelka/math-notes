@@ -57,6 +57,23 @@ const chaptersWithSections = await Promise.all(
     return { ...ch, sections };
   })
 );
+
+const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X'];
+type PartInfo = { roman: string; title: string };
+const partMap = new Map<string, PartInfo>();
+let currentPart: string | null = null;
+let partCount = 0;
+for (const ch of chaptersWithSections) {
+  if (isAppendix(ch)) continue;
+  if (ch.data.bookPart !== undefined) {
+    currentPart = ch.data.bookPart;
+    partCount++;
+  }
+  if (currentPart !== null) {
+    partMap.set(ch.id, { roman: ROMAN[partCount - 1] ?? String(partCount), title: currentPart });
+  }
+}
+const currentChapterPart = currentChapterId ? partMap.get(currentChapterId) : undefined;
 ---
 
 <!doctype html>
@@ -123,7 +140,16 @@ const chaptersWithSections = await Promise.all(
         <div class="sidebar-scroll" id="sidebar-scroll">
         <nav class="sidebar-nav">
           <ul>
-            {chaptersWithSections.map((ch, i) => (<>
+            {chaptersWithSections.map((ch, i) => {
+            const chPart = partMap.get(ch.id);
+            const prevPart = i > 0 ? partMap.get(chaptersWithSections[i - 1].id) : undefined;
+            const showPartDivider = chPart && chPart.roman !== prevPart?.roman;
+            return (<>
+              {showPartDivider && (
+                <li class={`nav-part-divider${i === 0 ? ' nav-part-divider--first' : ''}`}>
+                  Part {chPart.roman}{chPart.title ? `: ${chPart.title}` : ''}
+                </li>
+              )}
               {isAppendix(ch) && !isAppendix(chaptersWithSections[i - 1] ?? {}) && (
                 <li class="nav-appendix-divider">Appendices</li>
               )}
@@ -181,7 +207,7 @@ const chaptersWithSections = await Promise.all(
                   </ul>
                 )}
               </li>
-            </>))}
+            </>); })}
           </ul>
         </nav>
         </div><!-- /.sidebar-scroll -->
@@ -196,9 +222,12 @@ const chaptersWithSections = await Promise.all(
           style: `--chapter-prefix: "${chapter}"; counter-reset: section 0 subsection 0`,
         })}
       >
-        {chapter !== undefined && (
+        {chapter !== undefined && (<>
+          {currentChapterPart && (
+            <p class="chapter-part-label">Part {currentChapterPart.roman}{currentChapterPart.title ? ` · ${currentChapterPart.title}` : ''}</p>
+          )}
           <p class="chapter-label">{typeof chapter === 'string' ? `Appendix ${chapter}` : `Chapter ${chapter}`}</p>
-        )}
+        </>)}
         <span data-pagefind-meta="title" style="display:none">
           {chapter !== undefined
             ? (typeof chapter === 'string' ? `Appendix ${chapter}: ` : `${chapter}. `)
@@ -453,11 +482,12 @@ const chaptersWithSections = await Promise.all(
           e.stopPropagation();
           const ref = pinBtn.closest<HTMLElement>('.ref')!;
           const wasPinned = ref.classList.contains('ref--pinned');
-          document.querySelectorAll<HTMLElement>('.ref--pinned').forEach(r => {
-            r.classList.remove('ref--pinned');
-            resetRefTooltipDrag(r);
-          });
-          if (!wasPinned) ref.classList.add('ref--pinned');
+          if (wasPinned) {
+            ref.classList.remove('ref--pinned');
+            resetRefTooltipDrag(ref);
+          } else {
+            ref.classList.add('ref--pinned');
+          }
         });
 
         // ── Tooltip drag-to-reposition ────────────────────────
@@ -480,10 +510,7 @@ const chaptersWithSections = await Promise.all(
           const origLeft = rect.left - refRect.left;
           const origTop = rect.top - refRect.top;
 
-          // Auto-pin this ref, reset any others
-          document.querySelectorAll<HTMLElement>('.ref--pinned').forEach(r => {
-            if (r !== ref) { r.classList.remove('ref--pinned'); resetRefTooltipDrag(r); }
-          });
+          // Auto-pin this ref when dragging
           ref.classList.add('ref--pinned');
 
           // Fix absolute position within .ref so tooltip scrolls with the document
@@ -670,6 +697,10 @@ const chaptersWithSections = await Promise.all(
     </script>
 
     <RegistrySearch client:load />
+
+    <script is:inline>
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+    </script>
 
     <!-- Mobile nav backdrop (closes menu on outside tap) -->
     <div id="mobile-nav-backdrop" aria-hidden="true"></div>

@@ -128,6 +128,46 @@ function makeSerializer(katexMacros) {
     );
   }
 
+  // Walk a JSX estree node (from a JSX-valued MDX attribute) to HTML.
+  function jsxEstreeToHtml(node) {
+    if (!node) return '';
+    switch (node.type) {
+      case 'JSXFragment':
+        return (node.children ?? []).map(jsxEstreeToHtml).join('');
+      case 'JSXElement': {
+        const name = node.openingElement?.name?.name ?? '';
+        if (name === 'Ref') {
+          const jsxAttrs = node.openingElement?.attributes ?? [];
+          const idAttr = jsxAttrs.find(a => a.name?.name === 'id');
+          const refId = idAttr?.value?.type === 'Literal'
+            ? String(idAttr.value.value)
+            : idAttr?.value?.type === 'JSXExpressionContainer' && idAttr.value.expression?.type === 'Literal'
+              ? String(idAttr.value.expression.value)
+              : '';
+          if (refId) return `\x00REF:${JSON.stringify({ id: refId })}\x00`;
+        }
+        return (node.children ?? []).map(jsxEstreeToHtml).join('');
+      }
+      case 'JSXText':
+        return renderAttr(node.value);
+      case 'JSXExpressionContainer':
+        if (node.expression?.type === 'Literal') return renderAttr(String(node.expression.value));
+        return '';
+      default:
+        return '';
+    }
+  }
+
+  // Render a prop that may be a plain string or a JSX expression to HTML.
+  function getAttrHtml(attrs, name) {
+    const str = getAttrString(attrs, name);
+    if (str != null) return renderAttr(str);
+    const a = attrs?.find(a => a.name === name);
+    if (!a) return '';
+    const expr = a.value?.data?.estree?.body?.[0]?.expression;
+    return expr ? jsxEstreeToHtml(expr) : '';
+  }
+
   function nodeToHtml(node, svg = false) {
     switch (node.type) {
       // Inside SVG, skip the <p> wrapper so <text> elements aren't trapped in block elements
@@ -184,19 +224,19 @@ function makeSerializer(katexMacros) {
         if (node.name === 'AlgoOutput')
           return `<span class="algo-meta" style="display:block"><span class="algo-meta-label">Output:</span> ${nodesToHtml(node.children)}</span>`;
         if (node.name === 'AlgoFor') {
-          const condHtml = renderAttr(getAttrString(node.attributes, 'each') ?? '');
+          const condHtml = getAttrHtml(node.attributes, 'each');
           return `<span class="algo-line"><span class="algo-num"></span><span class="algo-body"><strong>for</strong> ${condHtml} <strong>do</strong></span></span><span class="algo-block" style="display:block">${nodesToHtml(node.children)}</span>`;
         }
         if (node.name === 'AlgoWhile') {
-          const condHtml = renderAttr(getAttrString(node.attributes, 'cond') ?? '');
+          const condHtml = getAttrHtml(node.attributes, 'cond');
           return `<span class="algo-line"><span class="algo-num"></span><span class="algo-body"><strong>while</strong> ${condHtml} <strong>do</strong></span></span><span class="algo-block" style="display:block">${nodesToHtml(node.children)}</span>`;
         }
         if (node.name === 'AlgoIf') {
-          const condHtml = renderAttr(getAttrString(node.attributes, 'cond') ?? '');
+          const condHtml = getAttrHtml(node.attributes, 'cond');
           return `<span class="algo-line"><span class="algo-num"></span><span class="algo-body"><strong>if</strong> ${condHtml} <strong>then</strong></span></span><span class="algo-block" style="display:block">${nodesToHtml(node.children)}</span>`;
         }
         if (node.name === 'AlgoElseIf') {
-          const condHtml = renderAttr(getAttrString(node.attributes, 'cond') ?? '');
+          const condHtml = getAttrHtml(node.attributes, 'cond');
           return `<span class="algo-line"><span class="algo-num"></span><span class="algo-body"><strong>else if</strong> ${condHtml} <strong>then</strong></span></span><span class="algo-block" style="display:block">${nodesToHtml(node.children)}</span>`;
         }
         if (node.name === 'AlgoElse')
@@ -244,7 +284,7 @@ function makeSerializer(katexMacros) {
     }
   }
 
-  return { nodesToHtml, nodeToHtml };
+  return { nodesToHtml, nodeToHtml, getAttrHtml };
 }
 
 // ── JSX attribute helpers ────────────────────────────────────────────────────
@@ -440,16 +480,16 @@ const FLOAT_ENVS = new Set(['Figure', 'Table', 'Algorithm']);
 const SECTION_COMMENT_RE = /^\s*\/\*\s*#?([\w:.-]+)\s*\*\/\s*$/;
 const ALGO_LINE_COMPONENTS = new Set(['AlgoStep', 'AlgoReturn', 'AlgoFor', 'AlgoWhile', 'AlgoIf', 'AlgoElseIf', 'AlgoElse']);
 
-function makeLineHeaderHTML(node, renderAttr, nodesToHtml) {
+function makeLineHeaderHTML(node, getAttrHtml, nodesToHtml) {
   // No algo-num span: the number is shown in the tooltip header, not inline.
   const wrap = (body) => `<span class="algo-line"><span class="algo-body">${body}</span></span>`;
   switch (node.name) {
     case 'AlgoStep':   return wrap(nodesToHtml(node.children));
     case 'AlgoReturn': return wrap(`<strong>return</strong> ${nodesToHtml(node.children)}`);
-    case 'AlgoFor':    return wrap(`<strong>for</strong> ${renderAttr(getAttrString(node.attributes, 'each') ?? '')} <strong>do</strong>`);
-    case 'AlgoWhile':  return wrap(`<strong>while</strong> ${renderAttr(getAttrString(node.attributes, 'cond') ?? '')} <strong>do</strong>`);
-    case 'AlgoIf':     return wrap(`<strong>if</strong> ${renderAttr(getAttrString(node.attributes, 'cond') ?? '')} <strong>then</strong>`);
-    case 'AlgoElseIf': return wrap(`<strong>else if</strong> ${renderAttr(getAttrString(node.attributes, 'cond') ?? '')} <strong>then</strong>`);
+    case 'AlgoFor':    return wrap(`<strong>for</strong> ${getAttrHtml(node.attributes, 'each')} <strong>do</strong>`);
+    case 'AlgoWhile':  return wrap(`<strong>while</strong> ${getAttrHtml(node.attributes, 'cond')} <strong>do</strong>`);
+    case 'AlgoIf':     return wrap(`<strong>if</strong> ${getAttrHtml(node.attributes, 'cond')} <strong>then</strong>`);
+    case 'AlgoElseIf': return wrap(`<strong>else if</strong> ${getAttrHtml(node.attributes, 'cond')} <strong>then</strong>`);
     case 'AlgoElse':   return wrap(`<strong>else</strong>`);
     default: return '';
   }
@@ -459,7 +499,7 @@ function makeLineHeaderHTML(node, renderAttr, nodesToHtml) {
 // Handles both mdxJsxFlowElement and mdxJsxTextElement (remark-mdx can produce
 // either depending on context), and recurses through wrapper nodes (e.g. paragraphs)
 // that may appear between JSX siblings when there are no blank lines.
-function collectAlgoLines(node, counter, algoId, items, renderAttr, nodesToHtml) {
+function collectAlgoLines(node, counter, algoId, items, getAttrHtml, nodesToHtml) {
   for (const child of node.children ?? []) {
     const isJsx = child.type === 'mdxJsxFlowElement' || child.type === 'mdxJsxTextElement';
     if (isJsx && ALGO_LINE_COMPONENTS.has(child.name)) {
@@ -472,23 +512,20 @@ function collectAlgoLines(node, counter, algoId, items, renderAttr, nodesToHtml)
           kind: 'algoline',
           lineNumber: lineNum,
           algoId,
-          contentHTML: makeLineHeaderHTML(child, renderAttr, nodesToHtml),
+          contentHTML: makeLineHeaderHTML(child, getAttrHtml, nodesToHtml),
         });
       }
     }
     // Always recurse: algo components may be nested inside wrapper nodes or
     // inside control-flow block bodies.
     if (child.children?.length) {
-      collectAlgoLines(child, counter, algoId, items, renderAttr, nodesToHtml);
+      collectAlgoLines(child, counter, algoId, items, getAttrHtml, nodesToHtml);
     }
   }
 }
 
 function collectItems(tree, katexMacros, environments = []) {
-  const { nodesToHtml } = makeSerializer(katexMacros);
-  const renderAttr = (src) => (src ?? '').replace(/\$([^$]+)\$/g, (_, math) =>
-    katex.renderToString(math, { throwOnError: false, macros: katexMacros })
-  );
+  const { nodesToHtml, getAttrHtml } = makeSerializer(katexMacros);
   const envMap = new Map(environments.map(e => [e.name, e]));
   const allNumbered = new Set([...NUMBERED_ENVS, ...envMap.keys()]);
   const items = [];
@@ -519,7 +556,7 @@ function collectItems(tree, katexMacros, environments = []) {
         });
         if (node.name === 'Algorithm') {
           const lineCounter = { n: 0 };
-          collectAlgoLines(node, lineCounter, id, items, renderAttr, nodesToHtml);
+          collectAlgoLines(node, lineCounter, id, items, getAttrHtml, nodesToHtml);
         }
       } else {
         const desc = envMap.get(node.name);
