@@ -1,6 +1,7 @@
 ---
 title: "Welcome!"
 chapter: 1
+bookPart: "Foundations"
 ---
 
 import { Theorem, Definition, Lemma, Corollary, Proof, Remark, Ref, Figure, Table, PrintFallback, PrintExtra, Cite, AnnotatedAlign, Footnote, FootnoteBody, BlockQuote, Problem, ProblemInstance, ProblemQuestion } from '@/components';
@@ -76,7 +77,7 @@ Want an example? Let's go ahead and define one right now, though don't worry abo
 
 Excited yet? No? Well, I wouldn't have been the first time I saw this either. Luckily the professor didn't introduce it like that. Instead, he went to the whiteboard and drew something like <Ref id="fig:indSetEx"/>.
 
-<Figure id="fig:indSetEx" captionNode={<>An example <Ref id='prob:maxWeightIndSet'/> instance.</>}>
+<Figure id="fig:indSetEx" caption={<>An example <Ref id='prob:maxWeightIndSet'/> instance.</>}>
   <PrintExtra>_Interact with this content on the website_</PrintExtra>
   <IndependentSetProblem client:load
     nodes={[
@@ -117,7 +118,7 @@ Got the idea? Then go on back to <Ref id="fig:indSetEx"/> and try to find the be
 
 Wanna try some more? We have you covered in <Ref id="fig:randIndSet"/>, where you can randomly generate new instances to play around with.
 
-<Figure id="fig:randIndSet" captionNode={<>Game time! Try out some randomly-generated instances of <Ref id='prob:maxWeightIndSet'/>.</>}>
+<Figure id="fig:randIndSet" caption={<>Game time! Try out some randomly-generated instances of <Ref id='prob:maxWeightIndSet'/>.</>}>
   <IndependentSetProblem client:only="react"
     width={360} height={360}
     randomN={8}

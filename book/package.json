@@ -4,16 +4,16 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && pagefind --site dist",
+    "build": "node scripts/generate-icons.mjs && astro build && pagefind --site dist && node scripts/generate-sw.mjs",
     "preview": "astro preview",
     "pdf": "astro build && tsx ../packages/astro-math-book/scripts/pdf.ts"
   },
   "dependencies": {
-    "astro-math-book": "*",
     "@astrojs/mdx": "^5.0.4",
     "@astrojs/react": "^5.0.4",
     "@fontsource/source-serif-4": "^5.2.9",
     "astro": "^6.2.2",
+    "astro-math-book": "*",
     "katex": "^0.16.45",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
@@ -25,6 +25,7 @@
     "@types/react-dom": "^19.2.3",
     "pagefind": "^1.5.2",
     "puppeteer": "^24.43.0",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "workbox-build": "^7.4.1"
   }
 }

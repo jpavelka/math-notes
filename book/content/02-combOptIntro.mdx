@@ -10,6 +10,7 @@ import { DijkstraAlgo } from '@/components/DijkstraAlgo';
 import { PrimAlgo } from '@/components/PrimAlgo';
 import { KnapsackDPAlgo } from '@/components/KnapsackDPAlgo';
 import { TraversalAlgo } from '@/components/TraversalAlgo';
+import { TSP2Approx } from '@/components/TSP2Approx';
 
 In this section, we'll introduce the field of combinatorial optimization. We'll describe several common problems that fall under the combinatorial optimization umbrella. For a few of these problems, we'll also present special-case algorithms used to solve them.
 
@@ -91,7 +92,7 @@ Pretty simple setup. We have some directed graph, maybe like the one below in <R
 Go ahead and try to figure out the best path by visual inspection. We'll come back and solve this example later.
 </FootnoteBody>
 
-<Figure id="fig:shortestPathFirstExample" captionNode={<>An example <Ref id='prob:shortestPath'/> instance.</>}>
+<Figure id="fig:shortestPathFirstExample" caption={<>An example <Ref id='prob:shortestPath'/> instance.</>}>
   <Graph
     width={500} height={300}
     nodeRadius={30}
@@ -319,10 +320,10 @@ In fact, we can see pretty plainly that one of those paths does exist! But remem
 
 We continue on like this. Continuing out of $a$, we find a path from $s$ to $c$ ($s\rightarrow a\rightarrow c$) with length 8, and a path from $s$ to $d$ ($s\rightarrow a\rightarrow d$) with length 5. This new $s$-$d$ path is an improvement over the last one we found ($s\rightarrow b\rightarrow d$), so we disregard the previous, inferior path. Of the two paths we've found, the $s$-$d$ path is the shortest, and so by logic similar to what we went through above, the $s$-$d$ path must be optimal.
 
-The algorithm continues like this until we eventually reach vertex $t$ and hence find a shortest $s-t$ path<Footnote/>.
+The algorithm continues like this until we eventually reach vertex $t$ and hence find a shortest $s$-$t$ path<Footnote/>.
 
 <FootnoteBody>
-In some versions of <Ref id="alg:dijkstra"/>, we actually don't stop when we get to vertex $t$. Instead it continues on until shortest paths have been identified from $s$ to _all_ vertices in the graph. But since our version of <Ref id="prob:shortestPath"/> only wants an $s-t$ path, we will stop short in this course.
+In some versions of <Ref id="alg:dijkstra"/>, we actually don't stop when we get to vertex $t$. Instead it continues on until shortest paths have been identified from $s$ to _all_ vertices in the graph. But since our version of <Ref id="prob:shortestPath"/> only wants an $s$-$t$ path, we will stop short in this course.
 </FootnoteBody>
 
 For a formal specification of the algorithm, we'll need to define a few more objects used for bookkeeping. We'll let $U\subseteq V$ be the set of "unexplored" vertices, for which we have _not_ yet found a shortest path from $s$. We'll define functions $d:V\rightarrow \R$ and $p:V\rightarrow V$ where $d(v)$ is the distance of the currently-best-known path from $s$ to $v$, and $p(v)$ is the _predecessor_ vertex for $v$ in the currently-best-known $s$-$v$ path (i.e. the vertex $u$ such that our currently-best-known $s$-$v$ path concludes by taking the edge between $u$ and $v$). Finally, at the end we will return a list of vertices $P$ as the final path. The full algorithm is as follows:
@@ -380,9 +381,9 @@ Update the predecessor of $v$ to be $u$.
 Initialize the path to an empty list.
 </FootnoteBody>
 
-You can click through the buttons in <Ref id="fig:dijkstraExample"/> to work through a full example of <Ref id="alg:dijkstra"/>. You step through the main iterations by making the correct selection for the next $u$ vertex, then selecting the neighbors of $u$ whose $d(v)$ value can improve by routing through $u$. Once $u=t$, use the $p(v)$ values to trace back the optimal $s-t$ path. If you get stuck, you can use the "Next" button to move forward in the algorithm. Similarly, the "Prev" button will rewind a step if you need to see something again.
+You can click through the buttons in <Ref id="fig:dijkstraExample"/> to work through a full example of <Ref id="alg:dijkstra"/>. You step through the main iterations by making the correct selection for the next $u$ vertex, then selecting the neighbors of $u$ whose $d(v)$ value can improve by routing through $u$. Once $u=t$, use the $p(v)$ values to trace back the optimal $s$-$t$ path. If you get stuck, you can use the "Next" button to move forward in the algorithm. Similarly, the "Prev" button will rewind a step if you need to see something again.
 
-<Figure id="fig:dijkstraExample" captionNode={<>Stepping through an example of <Ref id="alg:dijkstra"/>. Under the label for each vertex $v\in V$ is the pair $d(v),p(v)$, i.e. the distance of the best-known $s$-$v$ path and the predecessor to $v$ on that path. The table keeps track of the identity of $u$ at each main iteration loop, as well as the $d(v),p(v)$ values for each $v\in V$.</>}>
+<Figure id="fig:dijkstraExample" caption={<>Stepping through an example of <Ref id="alg:dijkstra"/>. Under the label for each vertex $v\in V$ is the pair $d(v),p(v)$, i.e. the distance of the best-known $s$-$v$ path and the predecessor to $v$ on that path. The table keeps track of the identity of $u$ at each main iteration loop, as well as the $d(v),p(v)$ values for each $v\in V$.</>}>
   <PrintExtra>_Interact with this content on the website_</PrintExtra>
   <DijkstraAlgo
     client:load
@@ -417,7 +418,7 @@ You can click through the buttons in <Ref id="fig:dijkstraExample"/> to work thr
 
 After you finish the above example, how about working through this longer one?
 
-<Figure id="fig:dijkstraExample2" captionNode={<>Stepping through <Ref id='alg:dijkstra'/> on a larger <Ref id='prob:shortestPath'/> instance.</>}>
+<Figure id="fig:dijkstraExample2" caption={<>Stepping through <Ref id='alg:dijkstra'/> on a larger <Ref id='prob:shortestPath'/> instance.</>}>
   <PrintExtra>_Interact with this content on the website_</PrintExtra>
   <DijkstraAlgo
     client:load
@@ -466,7 +467,7 @@ After you finish the above example, how about working through this longer one?
 
 Hungry for even more? Use <Ref id="fig:dijkstraRandom"/> to generate random <Ref id="prob:shortestPath"/> instances and solve them.
 
-<Figure id="fig:dijkstraRandom" captionNode={<>Using <Ref id='alg:dijkstra'/> to solve randomly generated <Ref id='prob:shortestPath'/> instances.</>}>
+<Figure id="fig:dijkstraRandom" caption={<>Using <Ref id='alg:dijkstra'/> to solve randomly generated <Ref id='prob:shortestPath'/> instances.</>}>
   <DijkstraAlgo client:only="react"
     randomMinEdges={10}
     randomMaxEdges={14}
@@ -483,7 +484,7 @@ Now that you've seen the algorithm in action, there is one more thing left to do
 </Theorem>
 
 <Proof>
-It should be clear that if no $s-t$ path exists, $d(t)$ can never update and we end the algorithm at <Ref id="algoStep:noSTPath" short/>. So let's assume that an $s-t$ path does exist.
+It should be clear that if no $s$-$t$ path exists, $d(t)$ can never update and we end the algorithm at <Ref id="algoStep:noSTPath" short/>. So let's assume that an $s$-$t$ path does exist.
 
 For each vertex $v\in V$, let $\mathrm{dist}(v)$ represent the length of a shortest $s$-$v$ path in $G$ (contrast this with $d(v)$, which is the length of the best-known path at any given time while running the algorithm). We intend to show that throughout the main iterations of <Ref id="alg:dijkstra"/>, whichever vertex $u$ we select as the minimizer of $d$ over $U$ will satisfy $d(u) = \mathrm{dist}(u)$. That is, at each iteration, we have found the best path to each vertex we remove from $U$<Footnote/>.
 
@@ -698,7 +699,8 @@ The full algorithm looks like this:
   <AlgoComment>Main iteration</AlgoComment>
   <AlgoWhile cond="$r\leq n$">
     <AlgoWhile cond="$s\leq b$">
-      <AlgoIf cond="$v_r + f_{r-1}(s-w_r) > f_{r-1}(s)$" note={<Footnote/>}>
+      <AlgoIf cond={<>{'$v_r + f_{r-1}(s-w_r) > f_{r-1}(s)$'}<Footnote/></>}>
+      {/* <AlgoIf cond="$v_r + f_{r-1}(s-w_r) > f_{r-1}(s)$" note={<Footnote/>}> */}
         <AlgoComment>Item $r$ is included in the solution to $P_r(s)$</AlgoComment>
         <AlgoStep>$f_r(s) \leftarrow v_r + f_{r-1}(s-w_r)$</AlgoStep>
         <AlgoStep>$S_r(s) \leftarrow S_{r-1}(s-w_r)\cup\lbrace r\rbrace$</AlgoStep>
@@ -722,7 +724,7 @@ The full algorithm looks like this:
 
 Let's work through an example in <Ref id="fig:knapsackExample"/>:
 
-<Figure id="fig:knapsackExample" captionNode={<>Solving random instances of <Ref id="prob:knapsack"/> using <Ref id="alg:knapsackDP"/>. The top table lists each item's weight and value. The main DP table shows $f_r(s)$ and $S_r(s)$ — the optimal value and selected item set for the first $r$ items at weight limit $s$. The small table below it displays the values needed at each step to decide whether to include or exclude the current item.</>}>
+<Figure id="fig:knapsackExample" caption={<>Solving random instances of <Ref id="prob:knapsack"/> using <Ref id="alg:knapsackDP"/>. The top table lists each item's weight and value. The main DP table shows $f_r(s)$ and $S_r(s)$ — the optimal value and selected item set for the first $r$ items at weight limit $s$. The small table below it displays the values needed at each step to decide whether to include or exclude the current item.</>}>
   <KnapsackDPAlgo client:only="react" n={4}/>
   <PrintFallback>_Interactive content not available - see it on the website._</PrintFallback>
 </Figure>
@@ -815,7 +817,7 @@ I should stress that this is often more of a theoretical win than a practical on
 
 Anyway, let's put that matter aside and talk about the actual algorithm! Throughout, we'll use the graph in <Ref id="fig:tsp2ApproxExBase"/> to guide our discussion.
 
-<Figure id="fig:tsp2ApproxExBase" captionNode={<>An example graph for demonstrating <Ref id="alg:tsp2Approx"/>.</>}>
+<Figure id="fig:tsp2ApproxExBase" caption={<>An example graph for demonstrating <Ref id="alg:tsp2Approx"/>.</>}>
   <Graph
     width={500} height={320}
     nodeRadius={30}
@@ -854,7 +856,7 @@ Why is that? We know that $z^*$ comes from a minimum-cost tour in $G$. If you re
 
 Let's return to our example graph <Ref id="fig:tsp2ApproxExBase"/>. We can quickly find a minimum spanning tree on this graph (using <Ref id="alg:prim"/> or just simply by visual inspection). In this case, the set of edges $\{(1,2), (2,4), (2,5), (3,5)\}$ defines a minimum spanning tree, which we can see in <Ref id="fig:tsp2ApproxExMST"/>.
 
-<Figure id="fig:tsp2ApproxExMST" captionNode={<>A minimum spanning tree in the graph from <Ref id="fig:tsp2ApproxExBase"/>.</>}>
+<Figure id="fig:tsp2ApproxExMST" caption={<>A minimum spanning tree in the graph from <Ref id="fig:tsp2ApproxExBase"/>.</>}>
   <Graph
     width={500} height={320}
     nodeRadius={30}
@@ -898,7 +900,7 @@ Or no neighbors at all.
 Let's go ahead and do that for our tree found in <Ref id="fig:tsp2ApproxExMST"/>, starting from vertex 1. You can follow through the process using <Ref id="fig:tsp2ApproxExTraversal"/>.
 
 <Figure id="fig:tsp2ApproxExTraversal" caption="Building a tree traversal, starting from node 1.">
-  <PrintFallback>_Interactive content not available - see it on the website._</PrintFallback>
+  {/* <PrintFallback>_Interactive content not available - see it on the website._</PrintFallback> */}
   <TraversalAlgo client:only="react" />
 </Figure>
 
@@ -920,7 +922,7 @@ and so it would be shorter to take the shortcut and simply do $2\rightarrow4\rig
 
 So the final step of the algorithm is to take the traversal we built and simply "skip" each vertex that we've already visited (and finish by returning to the start vertex). So our traversal from above, $1\rightarrow2\rightarrow5\rightarrow3\rightarrow5\rightarrow2\rightarrow4\rightarrow2\rightarrow1$, becomes simply $1\rightarrow2\rightarrow5\rightarrow3\rightarrow4\rightarrow1$. As we saw above, none of these shortcuts will add any cost to the resultant tour. So the final tour still has the same guarantee, to be no more than twice the cost of the optimal tour. (In fact, in this instance we got lucky and the solution returned is indeed an optimal solution.)
 
-<Figure id="fig:tsp2ApproxFinalTour" captionNode={<>The tour created by the TSP 2-approximation algorithm on the graph in <Ref id="fig:tsp2ApproxExBase"/>.</>}>
+<Figure id="fig:tsp2ApproxFinalTour" caption={<>The tour created by the TSP 2-approximation algorithm on the graph in <Ref id="fig:tsp2ApproxExBase"/>.</>}>
   <Graph
     width={500} height={320}
     nodeRadius={30}
@@ -993,9 +995,9 @@ There you have it, your first approximation algorithm! Let's formalize this by p
 
 You can test your knowledge of the algorithm by working out a few examples in <Ref id="fig:tsp2ApproxExamples"/>
 
-<Figure id="fig:tsp2ApproxExamples" captionNode={<>Using <Ref id="alg:tsp2Approx"/> to approximate random <Ref id="prob:tsp"/> instances.</>}>
+<Figure id="fig:tsp2ApproxExamples" caption={<>Using <Ref id="alg:tsp2Approx"/> to approximate random <Ref id="prob:tsp"/> instances.</>}>
 <PrintFallback>_Interactive content not available - see it on the website._</PrintFallback>
-
+<TSP2Approx client:only="react" />
 </Figure>
 
 A few notes before we wrap up:

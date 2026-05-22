@@ -1,4 +1,4 @@
-import { useState, useId } from 'react';
+import { useState, useId, useEffect } from 'react';
 
 const WIDTH = 500;
 const HEIGHT = 320;
@@ -60,7 +60,14 @@ function edgeVecs(from: { x: number; y: number }, to: { x: number; y: number }) 
 }
 
 export function TraversalAlgo() {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('print').matches ? STEPS.length : 0
+  );
+  useEffect(() => {
+    const handler = () => setStep(STEPS.length);
+    window.addEventListener('beforeprint', handler);
+    return () => window.removeEventListener('beforeprint', handler);
+  }, []);
   const uid = useId().replace(/:/g, '');
   const fwdId = `tsp-trav-fwd-${uid}`;
   const bckId = `tsp-trav-bck-${uid}`;
@@ -173,7 +180,7 @@ export function TraversalAlgo() {
       </div>
 
       {/* Navigation */}
-      <div style={{ display: 'flex', gap: '8px' }}>
+      <div className="no-print" style={{ display: 'flex', gap: '8px' }}>
         <button onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0}>← Prev</button>
         <button onClick={() => setStep(s => Math.min(STEPS.length, s + 1))} disabled={step === STEPS.length}>Next →</button>
       </div>

@@ -8,8 +8,19 @@ chapters.sort((a, b) => {
   return ca !== cb ? ca - cb : a.id.localeCompare(b.id);
 });
 
-if (chapters.length > 0) {
-  return Astro.redirect(`/${chapters[0].id}`);
-}
+const first = chapters.length > 0 ? `/${chapters[0].id}` : null;
 ---
-<p>No chapters found. Add an <code>.mdx</code> file to <code>content/</code>.</p>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    {first && <meta http-equiv="refresh" content={`0;url=${first}`} />}
+  </head>
+  <body>
+    {first
+      ? <p>Redirecting… <a href={first}>Click here if not redirected.</a></p>
+      : <p>No chapters found. Add an <code>.mdx</code> file to <code>content/</code>.</p>
+    }
+  </body>
+</html>

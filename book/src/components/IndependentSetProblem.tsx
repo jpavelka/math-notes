@@ -185,7 +185,7 @@ export function IndependentSetProblem({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-      <svg width={width} height={height} style={{ display: 'block', maxWidth: '100%', color: 'var(--text)' }}>
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: 'block', maxWidth: '100%', color: 'var(--text)' }}>
         <style>{`
           @keyframes isp-shake {
             0%,100% { transform: translateX(0); }

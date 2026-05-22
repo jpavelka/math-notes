@@ -6,6 +6,7 @@ const sample = defineCollection({
   schema: z.object({
     title: z.string(),
     chapter: z.union([z.number(), z.string()]).optional(),
+    bookPart: z.string().optional(),
     chapterId: z.string().optional(),
     order: z.number().optional(),
     section: z.number().optional(),

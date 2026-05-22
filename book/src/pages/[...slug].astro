@@ -28,5 +28,10 @@ const headingTexts: string[] = remarkPluginFrontmatter.headingTexts ?? [];
   chapterBase=""
   pagefind={entry.data.pagefind ?? true}
 >
+  <Fragment slot="head">
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)" />
+  </Fragment>
   <Content />
 </BookLayout>
