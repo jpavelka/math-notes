@@ -9,8 +9,6 @@
     "pdf": "astro build && tsx ../packages/astro-math-book/scripts/pdf.ts"
   },
   "dependencies": {
-    "@astrojs/mdx": "^5.0.4",
-    "@astrojs/react": "^5.0.4",
     "@fontsource/source-serif-4": "^5.2.9",
     "astro": "^6.2.2",
     "astro-math-book": "*",

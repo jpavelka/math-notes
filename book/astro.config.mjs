@@ -36,7 +36,6 @@ export default defineConfig({
       alias: {
         '@': join(__dirname, 'src'),
       },
-      dedupe: ['react', 'react-dom'],
     },
     plugins: [
       manifestPlugin(),

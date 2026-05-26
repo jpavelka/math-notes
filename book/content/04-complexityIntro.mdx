@@ -3,17 +3,19 @@ title: "Intro to Computational Complexity"
 chapter: 4
 ---
 
-import { Theorem, Definition, Proof, Ref, Cite, Footnote, FootnoteBody, BlockQuote, Problem, ProblemInstance, ProblemQuestion, Figure, Algorithm, AlgoStep, AlgoFor, AlgoIf, AlgoElse } from '@/components';
+import { Theorem, Definition, Proof, Ref, Cite, Footnote, FootnoteBody, BlockQuote, Problem, ProblemInstance, ProblemQuestion, Figure, Algorithm, AlgoStep, AlgoFor, AlgoIf, AlgoElse, Table, PrintExtra } from '@/components';
+import { Graph } from '@/components/Graph';
+import { CliqueReductionGraph } from '@/components/CliqueReductionGraph';
 
 Right about now, I can imagine you thinking...
 
 <BlockQuote>
-Hold on just a second... We had our intro to combinatorial optimization in <Ref id="sec:combOptIntro"/> where we defined <Ref id="prob:combOpt"/>s, saw different types, and discussed algorithms for solving them. Then we jumped to the intro to integer programming in <Ref id="sec:ipIntro"/>, where we defined <Ref id="prob:ip"/> and worked out some formulations. But we never even talked about solving them! And now we jump to something called "computational complexity", which isn't even in the course name? What are we doing? This isn't a computer science class!
+Hold on just a second... We had our intro to combinatorial optimization in <Ref id="sec:combOptIntro"/> where we defined <Ref id="prob:combOpt"/>s, saw different types, and discussed algorithms for solving them. Then we jumped to the intro to integer programming in <Ref id="sec:ipForms"/>, where we defined <Ref id="prob:ip"/> and worked out some formulations. But we never even talked about solving them! And now we jump to something called "computational complexity", which isn't even in the course name? What are we doing? This isn't a computer science class!
 </BlockQuote>
 
-I hear you! The thing is, I think the notions we'll discuss here are going to be useful as we continue to discuss algorithms for <Ref id="prob:combOpt"/>s, <Ref id="prob:lp"/>s, and <Ref id="prob:ip"/>s, and help us understand when <Ref id="prob:ip"/> formulations are a good option when faced with a <Ref id="prob:combOpt"/>. I happen to think this stuff is pretty neat in its own right, too.
+I hear you! The thing is, the notions we'll discuss here are going to be useful as we continue to discuss algorithms for <Ref id="prob:combOpt"/>s, <Ref id="prob:lp"/>s, and <Ref id="prob:ip"/>s, and help us understand when <Ref id="prob:ip"/> formulations are a good option when faced with a <Ref id="prob:combOpt"/>. I happen to think this stuff is pretty neat in its own right, too.
 
-The whole aim of this section is to try to formalize what problems are "easy" vs. "hard", or what it might mean to have a "good" algorithm for a particular class of problems. We won't be fully rigorous here, instead shooting for a good balance of rigorous enough to be meaningful while not getting ourselves lost in the details. As you said in my imagined hypothetical, this isn't a computer science class!<Footnote/>
+The aim of this section is to formalize what problems are "easy" vs. "hard", or what it might mean to have a "good" algorithm for a particular class of problems. We won't be fully rigorous here, instead shooting for a good balance of precise enough to be meaningful while not getting ourselves lost in the details. As you said in my imagined hypothetical, this isn't a computer science class!<Footnote/>
 
 <FootnoteBody>
 Though, if I do my job here, you may be inspired to take one!
@@ -25,23 +27,42 @@ What we'd really like to nail down first is how to describe the running time of 
 
 ### Input length {/* sec:inputLength */}
 
-To make things a little more precise, let's suppose we have some given problem (say <Ref id="prob:tsp"/>) and let $X$ be an instance of that problem (i.e. a specific graph and set of edge costs). We say the _length_ of $X$, denoted $L(X)$, is the number of characters required in a "standard" binary representation of $X$.
+To make things a little more precise, let's suppose we have some given problem (say <Ref id="prob:tsp"/>) and let $X$ be an instance of that problem (i.e. a specific graph and set of edge costs). We'll define the _length_ of $X$ as follows:
 
 <Definition id="def:length" title="Length">
 For a given instance $X$ of an optimization or decision problem, the length of $X$ (denoted $L(X)$) is the number of characters required in a "standard" binary representation of the instance data. Informally, think of it as the disk space required to save the instance data on your computer.
 </Definition>
 
-Yes, that is a rather vague definition, and those scare quotes around the word "standard" are doing a lot of lifting. Like I said, we're not being completely formal here. For our purposes, it suffices to think of $L(X)$ as the amount of disk space required to save the instance data on your computer.
+Yes, that is a rather vague definition, and those scare quotes around the word "standard" are doing a lot of lifting. Like I said, we're not being completely formal here. For our purposes, it suffices to think of $L(X)$ as the size of a file holding the instance data on your computer.
 
-But just in case, let's see an example of what this might mean. Consider the example instance of <Ref id="prob:knapsack"/> we worked through in <Ref id="fig:knapsackExample"/>. How would we represent this instance data in binary? First, we need to identify the relevant instance data, which for knapsack is the item weights and values. We could imagine the items having names, but that's not really important for solving the instance, so that can be ignored. So we just need the weights and values, making sure that these values for each respective item are linked in some manner. For convenience, let's allow ourselves spaces and newline characters in addition to the binary 1s and 0s. Then we might represent this instance as:
+But just in case, let's see an example of what this might mean. Consider an instance of <Ref id="prob:knapsack"/> with item weights and values defined in <Ref id="tab:knapsackExampleTable"/> and an overall weight limit of 7.
 
-<Figure id="fig:knapsackExampleInstanceRepresentation" caption="A binary representation of the Knapsack instance from an earlier example.">
-{/* TODO: come back to figure content later */}
+<Table id="tab:knapsackExampleTable">
+| Item | Weight | Value |
+|------|--------|-------|
+| 1    | 2      | 10    |
+| 2    | 1      | 7     |
+| 3    | 6      | 25    |
+| 4    | 5      | 24    |
+</Table>
+
+How would we represent this instance in binary? First, we need to identify the relevant instance data, which for knapsack is the item weights and values. We could imagine the items having names, but that's not really important for solving the instance, so that can be ignored. So we just need the weights and values, making sure that these values for each respective item are linked in some manner. For convenience, let's allow ourselves spaces and newline characters in addition to the binary 1s and 0s. Then we might represent this instance as:
+
+<Figure id="fig:knapsackExampleInstanceRepresentation" caption={<>A binary representation of the <Ref id="prob:knapsack"/> instance with item weights/values from <Ref id="tab:knapsackExampleTable"/> and a weight limit of 7.</>}>
+$$
+\begin{align*}
+&10\ 1010\\
+&1\ 111\\
+&110\ 11001\\
+&101\ 11000\\
+&111
+\end{align*}
+$$
 </Figure>
 
-Each except the last row has two numbers: the binary representation of each item's weight and value, respectively. The space character separates the weight number from the value number, and new lines separate data for different items. On the last line, we have the binary representation of the weight limit $b$. In all, there are 37 total "0", "1", space, and newline characters in the representation, so under this representation the length of the instance is 37.
+Each row except the last has two numbers: the binary representation of each item's weight and value, respectively. The space character separates the weight number from the value number, and new lines separate data for different items. On the last line, we have the binary representation of the weight limit $b$. In all, there are 37 total "0", "1", space, and newline characters in the representation, so under this representation the length of the instance is 37.
 
-So figuring out the length for any given instance isn't so bad, but what will be most useful to us is knowing roughly how $L(X)$ grows as the relevant inputs to $X$ change. In the case of <Ref id="prob:knapsack"/>, the relevant input is the size of the set of items $J$, as well as the numbers that make up the weights and values for each item. I think the relationship with $|J|$ is pretty clear: we add a new row to the representation for every item added to the instance, so the length scales linearly (roughly 1:1) with $|J|$.
+Figuring out the length for any given instance isn't so bad, but what will be most useful to us is knowing roughly how $L(X)$ grows as the relevant inputs to $X$ change. In the case of <Ref id="prob:knapsack"/>, the relevant input is the size of the set of items $J$, as well as the numbers that make up the weight limit and the item weights and values. I think the relationship with $|J|$ is pretty clear: we add a new row to the representation for every item added to the instance, so the length scales linearly (roughly 1:1) with $|J|$.
 
 What about the weights and values? They affect the size too, but it's not really in proportion to the numeric values, is it? The largest number represented in <Ref id="fig:knapsackExampleInstanceRepresentation"/> is 25, but we don't need 25 bits to write down that number. Since 25 written in binary is 11001, we only need 5 bits to describe it. More generally, for some integer $n$, we only need $\ceil{\log_2(n)}$ bits to represent it. For convenience, let's have $C$ equal to the maximum of all the $v_j$ and $w_j$ values in the instance, as well as the weight limit $b$. Since all but one row of the representation requires one weight and one value, and we have one of these rows per item in $|J|$, we can say that the size of an instance of <Ref id="prob:knapsack"/> is roughly $|J|(2\log_2(C))$ plus the contribution from the final weight limit row, giving a total of
 
@@ -49,75 +70,73 @@ $$
 |J|(2\log_2(C)) + \log_2(C)
 $$
 
-You might complain that we're being a little sloppy, by rounding rows of the input up to the worst case $2\log_2(C)$. But compared to the conventions of the theory, we're actually being too precise! We're generally interested in worst-case scenarios, and even then not on the specifics of the numbers, but the way they grow as inputs grow. Put another way, we're more interested in shapes than exact magnitudes. So that $2\log_2(C)$ term can lose the "2" in front, since that doesn't affect the shape. Indeed, we don't care about the base of the logarithm either, since one of the properties of logs is that for any two bases $a,b\in\R$ we have:
+You might complain that we're being a little sloppy, by rounding rows of the input up to the worst case $2\log_2(C)$. But compared to the conventions of the theory, we're actually being too precise! We're generally interested in worst-case scenarios, and even then not on the specifics of the numbers, but the way they grow as inputs grow. Put another way, we're more interested in shapes than exact magnitudes. So that $2\log_2(C)$ term can lose the "2" in front, since that doesn't affect the shape. Indeed, we don't care about the base of the logarithm either, since one of the properties of logs is that for any two bases $a,b>0$ (and $a,b\neq1$) we have:
 
 $$
 \log_b(x)=\log_a(x)\frac{1}{\log_a(b)}
 $$
 
-In other words, for given $a,b$, the two logarithms are only off by a constant factor. So many times you'd see that $|J|(2\log_2(C)) + \log_2(C)$ simplified to $|J|\log(C)$.
+In other words, for given $a,b$, the two logarithms are only off by a constant factor. Consequently, you'll generally see that $|J|(2\log_2(C)) + \log_2(C)$ simplified to $|J|\log(C)$.
 
-This "don't sweat the small stuff" philosophy is codified in the so-called "big-O" notation. The formal definition is that for two functions $f,g$ over the same domain, we say $f(x)=\O{g(x)}$ (in English, "$f(x)$ is big O of $g(x)$") if there exists some positive $M\in\R_{>0}$ and $x_0$ in the domain such that
+This "don't sweat the small stuff" philosophy is codified in the so-called "big-O" notation. The formal definition is that for two functions $f,g$ over the same domain, we say $f(x)\in\O{g(x)}$ (in English, "$f(x)$ is big O of $g(x)$") if there exists some positive $M\in\R_{>0}$ and $x_0$ in the domain such that
 
 $$
 |f(x)|\leq M|g(x)|\qquad \forall\ x\geq x_0.
 $$
 
-Basically, this says that for big enough values of $x$, $g(x)$ is at most a constant away from $f(x)$. Colloquially, think of it as saying "$g$ grows as fast or faster than $f$." The formal definition is a little scary, but the real point is to give us a framework where we can abstract away the little details, and say things like "the length of an instance of the <Ref id="prob:knapsack"/> grows like $|J|\log|C|$", but more succinctly: "For instances $X$ of the <Ref id="prob:knapsack"/>, $L(X)=\O{|J|\log|C|}$".
+Basically, this says that for big enough values of $x$, $g(x)$ is at most a constant away from $f(x)$. Colloquially, think of it as saying "$g$ grows as fast or faster than $f$." The formal definition is a little scary, but the real point is to give us a framework where we can abstract away the little details, and say things like "the length of an instance of <Ref id="prob:knapsack"/> grows like $|J|\log|C|$", but more succinctly: "For instances $X$ of <Ref id="prob:knapsack"/>, $L(X)\in\O{|J|\log|C|}$".
 
 ### Polynomial time {/* sec:polyTime */}
 
-Now suppose you have some problem $P$ (something like the <Ref id="prob:knapsack"/> or <Ref id="prob:tsp"/>) and an algorithm $A$ for solving the problem. For any instance $X$ of $P$, let $f_A(X)$ be the number of "elementary calculations" (again, not being precise here, but think things like addition, multiplication, comparison, etc.) required to run algorithm $A$ on instance $X$. We use these $f_A(X)$ values to define $f_A^*(l)$, the _running time_ of algorithm $A$ (as a function of input length $l$) by taking an upper bound of the run times $f_A(X)$ for all instances $X$ with length $L(X)=l$. That is<Footnote/>:
+Now suppose you have some problem $P$ (something like <Ref id="prob:knapsack"/> or <Ref id="prob:tsp"/>) and an algorithm $A$ for solving the problem. For any instance $X$ of $P$, let $f_A(X)$ be the number of "elementary calculations" (again, not being precise here, but think things like addition, multiplication, comparison, etc.) required to run algorithm $A$ on instance $X$. We use these $f_A(X)$ values to define $f_A^*(l)$, the _running time_ of algorithm $A$ (as a function of input length $l$) by taking an upper bound of the run times $f_A(X)$ for all instances $X$ with length $L(X)=l$. That is<Footnote/>:
 
 <FootnoteBody>
 Technically the maximum here should be replaced with a supremum. As we said, we're not being completely rigorous here, and it shouldn't make a difference for the algorithms we discuss.
 </FootnoteBody>
 
-<Definition id="def:runningTime" title="Running Time">
-In complexity theory, the running time of an algorithm $A$ on a problem $P$ (as a function of instance length $l$) is the maximum number of "elementary calculations" (things like addition, multiplication, comparison) required to complete the algorithm on any instance $X$ of $P$ with length $L(X)=l$.
-</Definition>
-
-$$
+$$ {#eq:runningTime}
 f_A^*(l)=\max_{X\in P}\left\{f_A(X):L(X)=l\right\}
 $$
 
+<Definition id="def:runningTime" title="Running Time">
+The maximum number of "elementary calculations" (things like addition, multiplication, comparison) required to complete a given <Ref id="def:algorithm" textTransform='lowercase' useTitle/> on any instance of a given problem. See <Ref id="eq:runningTime"/>.
+</Definition>
+
 It's worth calling out the "$\max$" in the definition, meaning that this is necessarily a worst-case measure of difficulty. It's entirely possible that an algorithm runs in short time on almost all inputs, but if the time taken on some small subset of instances grows quickly, that's all that matters for the definition.
 
-Ok, that was quite a few wonky definitions, but the payoff is we now have a succinct way to describe how an algorithm's running time changes as the size of the problem increases. The holy grail of algorithm design is to create a so-called _polynomial_ (or _polynomial-time_) algorithm, which is an algorithm whose run time is bounded by a polynomial in the length of the input. In other words, an algorithm is polynomial if there is some integer $p\in\Z_{>0}$ such that
+That was quite a few wonky definitions, but the payoff is that we now have a succinct way to describe how an algorithm's running time changes as the size of the problem increases. The holy grail of algorithm design is to create a so-called _polynomial_ (or _polynomial-time_) algorithm.
 
-$$
-f_A^*(l)=\O{l^p}
-$$
-
-<Definition id="def:polynomialAlgo" title="Polynomial Algorithm">
-An algorithm whose run time is bounded by a polynomial in the length of the input, i.e. there exists some integer $p\in\Z_{>0}$ such that
-
-$$
-f_A^*(l)=\O{l^p}
-$$
+<Definition id="def:polyAlgo" title="Polynomial-time Algorithm" alt="Polynomial Algorithm">
+An <Ref id="def:algorithm" textTransform='lowercase' useTitle/>  whose <Ref id="def:runningTime" textTransform='lowercase' useTitle/> is bounded by a polynomial in the <Ref id="def:length" textTransform='lowercase' useTitle/> of the input.
 </Definition>
 
-<Definition id="def:polyTimeAlgo" title="Polynomial-Time Algorithm">
-See <Ref id="def:polynomialAlgo"/>.
-</Definition>
+Mathematically, an algorithm $A$ is a polynomial-time algorithm if there exists some integer $p\in\Z_{>0}$ such that
 
-Let's try to make this more concrete, yes? As luck would have it, we've already seen a few polynomial algorithms. One such example is <Ref id="algo:prim"/> for <Ref id="prob:mst"/>. To show this, let's first analyze the length of an instance $X$ of <Ref id="prob:mst"/>. Actually, we won't be quite as formal as the above definitions would imply. For our purposes, it is good enough to just determine the main elements of the input length, which we'll loosely define as the quantities we can add and multiply to get (on the order of) the input length. To describe the input for <Ref id="prob:mst"/>, we need to identify the vertices and edges, plus give costs $c_e$ for each $e\in\{i,j\}$. If we let $C=\max_{e\in E} c_e$, then we can safely bound the input length by something on the order of $|V| + |E|\log C$.
+$$
+f_A^*(l)\in\O{l^p}
+$$
 
-Now let's think about the algorithm. How many elementary operations might it take (in a worst case) to complete <Ref id="algo:prim"/>? In each pass through the main iteration, we add a new edge to the tree. This keeps going until the tree is a spanning tree, so $|V|-1$ iterations in the main loop. Each loop requires us to check the costs on each edge incident to $U$. While the size of $U$ changes, we know in every case that the number of edges we check can be no more than $|E|$. So that's $\O{|E|}$ checks of edge costs, over $|V|-1=\O{|V|}$ iterations, or $\O{|V||E|}$ operations.
+Let's try to make this more concrete, yes? As luck would have it, we've already seen a few polynomial algorithms. One such example is <Ref id="algo:prim"/> for <Ref id="prob:mst"/>. To show this, let's first analyze the length of an instance $X$ of <Ref id="prob:mst"/>. Actually, we won't be quite as formal as the above definitions would imply. For our purposes, it is good enough to just determine the main elements of the input length, which we'll loosely define as the relevant parameters whose combination gives the input length. To describe the input for <Ref id="prob:mst"/>, we need to identify the vertices and edges, plus give costs $c_e$ for each $e\in\{i,j\}$. If we let $C=\max_{e\in E} c_e$, then we can safely bound the input length by something on the order of $|V| + |E|\log C$.
+
+<Ref id="prob:"/>
+
+Now let's think about the algorithm. How many elementary operations might it take (in a worst case) to complete <Ref id="algo:prim"/>? In each pass through the main iteration, we add a new edge to the tree. This keeps going until the tree is a spanning tree, so $|V|-1$ iterations in the main loop. Each loop requires us to check the costs on each edge incident to $U$. While the size of $U$ changes, we know in every case that the number of edges we check can be no more than $|E|$. So that's $\O{|E|}$ checks of edge costs, over $|V|-1\in\O{|V|}$ iterations, or $\O{|V||E|}$ operations.
 
 Do we need to keep counting operations? I'd say no. Yes, there is the initialization step, but those are just one-off operations. Whatever we do there won't add up to anything that's $\O{|V||E|}$, so the initialization won't affect things asymptotically. Remember, the beauty of using big-O notation is that we don't need to sweat the small stuff!
 
-Now, we have the components of the input length $|V|,|E|,\log C$, and as well as an asymptotic bound on the run time $\O{|V||E|}$. In our slightly-less-than-formal world, all that's left is to check if $|V||E|$ can be written as some polynomial function of the inputs $|V|,|E|,\log C$. The answer to that is an obvious yes (a polynomial with $p=1$, even)! So <Ref id="algo:prim"/> is a polynomial-time algorithm for <Ref id="prob:mst"/>.
+Now, we have the components of the input length $|V|,|E|,\log C$, and as well as an asymptotic bound on the run time $\O{|V||E|}$. In our slightly-less-than-formal world, all that's left is to check if $|V||E|$ can be written as some polynomial function of the inputs $|V|,|E|,\log C$. The answer to that is an obvious yes! So <Ref id="algo:prim"/> is a polynomial-time algorithm for <Ref id="prob:mst"/>.
 
 It might seem like I was being pretty sloppy there, but we must remember two things: First, we're not being very rigorous in this section 😊. Second, this exercise is all about finding valid bounds, not so much about being precise. Sure, if you get sloppy enough with your bound on steps of the algorithm, you may not be able to prove polynomiality. But in practice, you'd need to get really sloppy to miss it!
 
 ## The classes $\P$ and $\NP$ {/* sec:pAndNp */}
 
-Now that we have the notion of run time defined, we're ready to start breaking down problems into groups of "easy" and "difficult" problems. But we first need to reckon with an inconvenient fact: It turns out the theory we're building toward isn't really about optimization problems, but instead so-called "decision problems". For our purposes, a _decision problem_ is a problem for which the answer is either "yes" or "no". Luckily, there is a natural way to convert any given optimization problem to a decision problem. A general optimization problem may be stated as finding
+Now that we have the notion of run time defined, we're ready to start breaking down problems into groups of "easy" and "difficult" problems. But we first need to reckon with an inconvenient fact: It turns out the theory we're building toward isn't really about optimization problems, but instead so-called "decision problems".
 
 <Definition id="def:decisionProblem" title="Decision Problem">
-A problem for which the answer is either "yes" or "no".
+A problem for which the answer is either YES or NO.
 </Definition>
+
+The problems we've seen so far (like, <Ref id="prob:ip"/>, <Ref id="prob:lp"/> and all the various <Ref id="prob:combOpt"/>s) are not "yes" or "no" questions. They are optimization problems, asking you to find the best answer out of a set of feasible solutions. Luckily, there is a natural way to convert any given optimization problem to a decision problem. A general optimization problem may be stated as finding
 
 $$
 \argmax_{x\in S}f(x)
@@ -133,10 +152,10 @@ for some number $k\in\R$. In this way, we can easily create a "decision version"
 
 ### Easy to solve {/* sec:easyToSolve */}
 
-With that aside, we're ready to define our first class of decision problems. The class $\P$ is the class of decision problems which can be solved by a polynomial-time algorithm.
+With that aside, we're ready to define our first class of decision problems, which we call $\P$.
 
 <Definition id="def:classP" title="$\P$">
-The class of decision problems which can be solved by a polynomial-time algorithm.
+The class of <Ref id="def:decisionProblem" altLabel="decision problems"/> which can be solved by a <Ref id="def:polyAlgo" useTitle textTransform="lowercase"/>.
 </Definition>
 
 Colloquially, we like to think of $\P$ as the set of "easy" problems. You can take that at face value, but it's worth pondering for a moment why that is. Surely, for a problem instance of length $l$, an algorithm that runs in $\O{l}$ steps must be better than an algorithm that runs in $\O{l^2}$. And surely _that_ algorithm is better than an algorithm that takes $\O{l^{10}}$ or $\O{l^{100}}$! And yet we want to say that a problem whose best-known algorithm takes $\O{l^{100}}$ steps is as easy as a problem with an algorithm taking $\O{l}$ steps. Why?
@@ -148,12 +167,12 @@ It's worth mentioning that a Turing machine is not an actual physical machine or
 </FootnoteBody>
 
 <FootnoteBody>
-This notion of equivalence up to polynomial factors is also why I'm not too worried about the relaxed nature of the presentation in the chapter. Sure, you could do the work to get the number of steps just right, but with "only" polynomial differences, you'll generally get the same answer anyway.
+This notion of equivalence up to polynomial factors is also why I'm not too worried about the relaxed nature of the presentation in the chapter. Sure, you could do the work to get the number of steps just right, but with "only" polynomial differences, you'll generally get the same complexity class anyway.
 </FootnoteBody>
 
-The second reason is that practical experience tells us that problems with polynomial-time algorithms really do tend to be the most realistically solvable ones. Of course, the degree of the polynomial does have plenty of practical importance, and an algorithm with a true $\O{l^{100}}$ running time will not be useful for most inputs. But history has shown us that once a polynomial algorithm is found for a given problem, even if the exponent is large initially, most of the hard work has been done. It will generally take a comparatively small amount of research to bring that exponent down to a more reasonable range, and the problem becomes tractable even for large inputs.
+The second reason: practical experience tells us that problems with polynomial-time algorithms really do tend to be the most realistically solvable ones. Of course, the degree of the polynomial does have plenty of practical importance, and an algorithm with a true $\O{l^{100}}$ running time will not be useful for most inputs. But history has shown us that once a polynomial algorithm is found for a given problem, even if the exponent is large initially, most of the hard work has been done. It will generally take a comparatively small amount of research to bring that exponent down to a more reasonable range, and the problem becomes tractable even for large inputs.
 
-Of the problems we've discussed so far, which ones belong to $\P$? We already showed in <Ref id="sec:polyTime"/> that <Ref id="algo:prim"/> is a polynomial-time algorithm for <Ref id="prob:mst"/>. We technically can't say that <Ref id="prob:mst"/> is in $\P$ because we've defined it as an optimization problem. But remember that each optimization problem has a conveniently-defined decision version, where the inputs to the decision problem are the same as the inputs to the optimization problem, plus the addition of some constant $k\in\R$. Then instead of finding the optimal value of the objective function, your task is to decide if the problem has a solution with an objective _at least as good_ as $k$<Footnote/>.
+Of the problems we've discussed so far, which ones belong to $\P$? We've already discussed (toward the end of <Ref id="sec:polyTime"/>) how <Ref id="algo:prim"/> is a polynomial-time algorithm for <Ref id="prob:mst"/>. We technically can't say that <Ref id="prob:mst"/> is in $\P$ because we've defined <Ref id="prob:mst"/> as an optimization problem. But remember that each optimization problem has a conveniently-defined decision version, where the inputs to the decision problem are the same as the inputs to the optimization problem, plus the addition of some constant $k\in\R$. Then instead of finding the optimal value of the objective function, your task is to decide if the problem has a solution with an objective _at least as good_ as $k$<Footnote/>.
 
 <FootnoteBody>
 Meaning "less than or equal to $k$" in the case of a minimization problem, and "greater than or equal to $k$" for maximization.
@@ -161,13 +180,13 @@ Meaning "less than or equal to $k$" in the case of a minimization problem, and "
 
 So, does the decision version of <Ref id="prob:mst"/> have a polynomial-time algorithm? Yes! The algorithm is to simply run <Ref id="algo:prim"/>, then do one extra check: is the optimal objective at least as good as $k$? This extra check adds nothing to the algorithm run time in asymptotic terms, so the decision algorithm is still polynomial. Thus the decision version of <Ref id="prob:mst"/> is indeed in $\P$.
 
-What about the other algorithms we've discussed so far? The <Ref id="algo:tsp2Approx"/> does run in polynomial time, but is only an approximation algorithm. It therefore is not guaranteed to solve <Ref id="prob:tsp"/> or its decision variant, so we can't get any information from that one.
+What about the other algorithms we've discussed so far? <Ref id="algo:tsp2Approx"/> does run in polynomial time, but is only an approximation algorithm. It therefore is not guaranteed to solve <Ref id="prob:tsp"/> or its decision variant, so we can't get any information from that one.
 
-<Ref id="algo:dijkstra"/> is an exact algorithm for the <Ref id="prob:shortestPath"/>. Let's check if it runs in polynomial time with respect to input length. Similar to <Ref id="prob:mst"/>, the inputs are a graph and some edge weights, so the input length is a (no more than polynomial) function of $|V|,|E|,$ and $\log C$ (where $C=\max_{e\in E}\{c_e\}$). The main iteration of the algorithm requires at most $|V|$ loops. Inside the main iteration we require a check on all vertices ($\O{|V|}$ checks) and there is a nested loop inside the main iteration again looping through a subset of the vertices $\O{|V|}$. There is only a constant number of operations inside this nested loop, so the action in there does not matter for the asymptotic analysis.
+<Ref id="algo:dijkstra"/> is an exact algorithm for <Ref id="prob:shortestPath"/>. Let's check if it runs in polynomial time with respect to input length. Similar to <Ref id="prob:mst"/>, the inputs are a graph and some edge weights, so the input length is a (no more than polynomial) function of $|V|,|E|,$ and $\log C$ (where $C=\max_{e\in E}\{c_e\}$). The main iteration of the algorithm requires at most $|V|$ loops. Inside the main iteration we require a check on all vertices ($\O{|V|}$ checks) and there is a nested loop inside the main iteration again looping through a subset of the vertices $\O{|V|}$. There is only a constant number of operations inside this nested loop, so the action in there does not matter for the asymptotic analysis.
 
-So, recap: $\O{|V|}$ loops in the main iteration, each requiring $\O{|V|}$ operations. So we require $\O{|V|^2}$ operations total. This is clearly (asymptotically bounded by) a polynomial in the input length. So we can find the optimal value in a polynomial number of steps, then simply check how the output compares with $k$, proving the decision version of the <Ref id="prob:shortestPath"/> is in $\P$.
+So, recap: $\O{|V|}$ loops in the main iteration, each requiring $\O{|V|}$ operations. So we require $\O{|V|^2}$ operations total. This is clearly (asymptotically bounded by) a polynomial in the input length. So we can find the optimal value in a polynomial number of steps, then simply check how the output compares with $k$, proving the decision version of  <Ref id="prob:shortestPath"/> is in $\P$.
 
-Lastly, let's check the <Ref id="algo:knapsackDP"/>. As we discussed earlier (and gave an example in <Ref id="fig:knapsackExampleInstanceRepresentation"/>), the length of an instance of the <Ref id="prob:knapsack"/> is on the order of $|J|\log C$, where $C$ is the maximum of the $v_j,w_j,$ and $b$ values. The main iteration of the algorithm includes an outer loop with $n=|J|$ iterations, then an inner loop with $b=\O{C}$ iterations. The number of operations per loop is constant, so the total number of operations is $\O{|J|C}$.
+Lastly, let's check <Ref id="algo:knapsackDP"/>. As we discussed earlier (and gave an example in <Ref id="fig:knapsackExampleInstanceRepresentation"/>), the length of an instance of <Ref id="prob:knapsack"/> is on the order of $|J|\log C$, where $C$ is the maximum of the $v_j,w_j,$ and $b$ values. The main iteration of the algorithm includes an outer loop with $n=|J|$ iterations, then an inner loop with $b\in\O{C}$ iterations. The number of operations per loop is constant, so the total number of operations is $\O{|J|C}$.
 
 Initially, that looks like a polynomial in the input size. But actually, it's not. $C$ is a factor in the number of operations, but $\log C$ is the factor in the input size. Recall that by the definition of logarithms, for any base $b$ we have:
 
@@ -175,17 +194,15 @@ $$
 b^{\log_b(C)} = C
 $$
 
-i.e. $C$ is exponentially larger than $\log C$<Footnote/>. So we can't bound the runtime by a polynomial in the input, thus <Ref id="algo:knapsackDP"/> is _not_ a polynomial algorithm for the <Ref id="prob:knapsack"/>. Of course that doesn't mean that the <Ref id="prob:knapsack"/> isn't a member of $\P$; the fact that one particular algorithm isn't polynomial doesn't mean that no polynomial algorithms exist. As it stands, nobody has found a polynomial algorithm for the <Ref id="prob:knapsack"/>, but also nobody has proven that no such algorithm can exist.
+i.e. $C$ is exponentially larger than $\log C$<Footnote/>. So we can't bound the runtime by a polynomial in the input, thus <Ref id="algo:knapsackDP"/> is _not_ a polynomial algorithm for <Ref id="prob:knapsack"/>. Of course that doesn't mean that <Ref id="prob:knapsack"/> isn't a member of $\P$; the fact that one particular algorithm isn't polynomial doesn't mean that no polynomial algorithms exist. As it stands, nobody has found a polynomial algorithm for <Ref id="prob:knapsack"/>, but also nobody has proven that no such algorithm can exist.
 
 <FootnoteBody>
-In this situation, where an algorithm is polynomial in the _magnitude_ of some input numbers instead of the length, we say the algorithm is _pseudo-polynomial_.
+In this situation, where an algorithm is polynomial in the _magnitude_ of some input numbers instead of the encoding length, we say the algorithm is _pseudo-polynomial_.
 </FootnoteBody>
 
 ### Easy to verify {/* sec:easyToCheck */}
 
 While $\P$ is an important class, we don't yet know if all our various <Ref id="prob:combOpt"/>s belong in it. But there is a different complexity class where they all fit in, called $\NP$.
-
-Recall that these complexity classes are made up of decision problems, i.e. problems for which the answer is either YES or NO. The class $\NP$ is the class of decision problems for which there is an algorithm that, for every instance $X$ where the answer is YES, there exists a _certificate_ $c$ such that
 
 <Definition id="def:classNP" title="$\NP$">
 The class of decision problems for which there is an algorithm that, for every instance $X$ where the answer is YES, there exists a certificate $c$ such that
@@ -194,34 +211,27 @@ The class of decision problems for which there is an algorithm that, for every i
 2. The algorithm run on $(X,c)$ can verify that $X$ is a YES instance in polynomial time.
 </Definition>
 
-<Definition id="def:certificate" title="Certificate">
-In the context of an instance of an $\NP$ problem, a certificate $c$ is a small (length polynomial in the instance length) bit of extra data used by an algorithm to verify the instance is a YES instance.
-</Definition>
-
-1. The length of $c$ is bounded by a polynomial in $L(X)$.
-2. The algorithm run on $(X,c)$ can verify that $X$ is a YES instance in polynomial time.
-
-Basically, for any YES instance, there is a small extra bit of data (the certificate) such that with access to it and the problem instance, you can show in polynomial time that the answer is YES. Colloquially, you can think of $\NP$ as the class of decision problems where a YES answer can be verified easily.
+Basically, for any YES instance, there is a small extra bit of data (the certificate) such that, with access to it and the problem instance, you can show in polynomial time that the answer is YES. Colloquially, you can think of $\NP$ as the class of decision problems where a YES answer can be verified easily.
 
 Note that we've said nothing about how the certificate was obtained. It doesn't matter if there is an efficient way to compute it. All that matters is that for any YES instance, such a certificate exists.
 
 This definition is maybe a little tough to parse at first, but it's really not so bad once you see a few examples. To that end, let's take <Ref id="prob:maxWeightIndSet"/> as an example, and for the instance let's look back to the graph in <Ref id="fig:indSetEx"/>. Since we're considering decision problems, let's set $k=13$ so that the question we're answering is "is there an independent set in the graph with weight at least 13?"
 
-I've already shown you the optimal independent set in this instance which has weight 14, so we already know this is a YES instance. Is there a small certificate we could present someone such that they can quickly verify that? Well, yes. Just list off the vertices in that optimal independent set. This is a list of $\O{|V|}$ vertices, so it is small enough to be a valid certificate. Then the verification algorithm consists of just checking that none of the vertices are adjacent (should take $\O{|E|}$ operations) and then adding up the weights of the vertices ($\O{|V|}$). This generalizes: for any YES instance of the <Ref id="prob:maxWeightIndSet"/> there exists a certificate<Footnote/> of length $\O{|V|}$ and an algorithm that runs in $\O{|E|}$ steps to verify the YES.
+We've already solved this instance and know the optimal independent set has weight 14, so we already know this is a YES instance. Is there a small certificate we could present someone such that they can quickly verify that? Well, yes. Just list off the vertices in that optimal independent set. This is a list of $\O{|V|}$ vertices, so it is small enough to be a valid certificate. Then the verification algorithm consists of just checking that none of the vertices are adjacent (should take $\O{|E|}$ operations) and then adding up the weights of the vertices ($\O{|V|}$). This generalizes: for any YES instance of <Ref id="prob:maxWeightIndSet"/> there exists a certificate<Footnote/> of length $\O{|V|}$ and an algorithm that runs in $\O{|E|}$ steps to verify the YES. Then the two conditions of the definition are met, verifying that <Ref id="prob:maxWeightIndSet"/> is in $\NP$.
 
 <FootnoteBody>
 I'll mention again: it only matters that this certificate exists. Being able to find it quickly (or at all!) is not a requirement.
 </FootnoteBody>
 
-The above verifies the <Ref id="prob:maxWeightIndSet"/> is in $\NP$. Let's think of a different question — do certificates and verifying algorithms exist for NO instances of <Ref id="prob:maxWeightIndSet"/>? Decision problems for which the NO instances are similarly verifiable make up the class $\coNP$.
+ Let's think of a different question — do certificates and verifying algorithms exist for NO instances of <Ref id="prob:maxWeightIndSet"/>? Decision problems that fit in this category belong to a class called $\coNP$.
 
 <Definition id="def:classCoNP" title="$\coNP$">
-The class of decision problems where NO instances are verifiable in the same way YES instances are verifiable for problems in <Ref id="def:classNP"/>.
+The class of decision problems defined analogously to <Ref id="def:classNP" useTitle/>, except it is the NO instances which are verifiable.
 </Definition>
 
 Might <Ref id="prob:maxWeightIndSet"/> be in $\coNP$ as well? Again, this hasn't been ruled out, but so far as we know, there is no quick way to verify a NO instance.
 
-What about <Ref id="prob:mst"/> or the <Ref id="prob:shortestPath"/>, which we've already shown to be in $\P$. Are they also in $\NP$? Trivially, yes. Since they are in $\P$, you already have a polynomial algorithm to tell if a YES instance is a YES instance... the same polynomial algorithm that solves the problem in the first place! No certificate needed! Due to the same reasoning, all problems in $\P$ are in $\NP$, which we can write as $\P\subseteq\NP$. And by similar reasoning, $\P\subseteq\coNP$ as well.
+What about <Ref id="prob:mst"/> or <Ref id="prob:shortestPath"/>, which we've already shown to be in $\P$. Are they also in $\NP$? Trivially, yes. Since they are in $\P$, you already have a polynomial algorithm to tell if a YES instance is a YES instance... the same polynomial algorithm that solves the problem in the first place! No certificate needed! Due to the same reasoning, all problems in $\P$ are in $\NP$, which we can write as $\P\subseteq\NP$. And by similar reasoning, $\P\subseteq\coNP$ as well.
 
 And the other <Ref id="prob:combOpt"/>s we've studied? All of them lie in $\NP$. The reasoning mirrors the reasoning for <Ref id="prob:maxWeightIndSet"/>: if the answer is yes, just present an optimal solution as the certificate. For each problem, checking the validity of the solution can be done in time bounded by polynomials in the input size.
 
@@ -243,9 +253,13 @@ People also like to get philosophical when discussing the implications of $\P=\N
 
 ## Completeness and reductions {/* sec:reductions */}
 
-In this section, we'll show how different, and sometimes seemingly unrelated problems, can be united via the concept of reduction. To do so, I'll need to introduce you to one of the most important problems in complexity theory. But before we get there, we should talk a little bit about Boolean algebra.
+In this section, we'll show how different (and sometimes seemingly unrelated) problems can be united via the concept of reduction. To do so, I'll need to introduce you to one of the most important problems in complexity theory. But before we get there, we should talk a little bit about Boolean algebra.
 
-In Boolean algebra, we deal with variables that take on one of the truth values "true" or "false", though we typically sub the numbers 1 for "true" and 0 for "false". We have three elementary operations, "and" (also known as conjunction, and denoted by $\land$), "or" (disjunction, $\lor$) and "not" (negation, $\neg$). For Boolean variables $x$ and $y$, they follow these simple conditions:
+<Definition id="def:booleanAlgebra">
+A branch of mathematics dealing with variables whose values are either "true" (1) or "false" (0).
+</Definition>
+
+In Boolean algebra, we have three elementary operations, "and" (also known as conjunction, and denoted by $\land$), "or" (disjunction, $\lor$) and "not" (negation, $\neg$). For Boolean variables $x$ and $y$, they follow these simple conditions:
 
 $$
 \begin{align*}
@@ -264,15 +278,17 @@ $$
 \end{align*}
 $$
 
-A _Boolean formula_ is an expression involving Boolean variables and operations. A Boolean formula is _satisfiable_ if some assignment of 0s and 1s to the variables makes the formula evaluate to 1. For example,
+The expressions $x\land y$ and $x\lor y$ from above are known as _Boolean formulas_:
 
 <Definition id="def:booleanFormula" title="Boolean Formula">
-An expression involving Boolean variables (which can take 0/1 values) and Boolean operations ($\land$, $\lor$, and $\neg$).
+An expression involving Boolean variables (true/false or 0/1 values) and Boolean operations ($\land$, $\lor$, and $\neg$).
 </Definition>
 
 <Definition id="def:satisfiable" title="Satisfiable">
-In Boolean algebra, a <Ref id="def:booleanFormula"/> is said to be satisfiable if there is some assignment of 0s and 1s to the variables that makes the formula evaluate to 1.
+In <Ref id="def:booleanAlgebra"/>, a <Ref id="def:booleanFormula"/> is said to be satisfiable if there is some assignment of 0s and 1s to the variables that makes the formula evaluate to 1.
 </Definition>
+
+As an example, consider the following Boolean formula:
 
 $$
 \begin{align*}
@@ -280,16 +296,16 @@ $$
 \end{align*}
 $$
 
-is a Boolean formula with three variables, $x,y,$ and $z$. It also happens to be satisfiable, as letting $x=0$ and $y=1$ (and then $z$ either 0 or 1) makes $\phi$ evaluate to 1.
+The formula is satisfiable, as letting $x=0$ and $y=1$ (and then $z$ either 0 or 1) makes it evaluate to 1.
 
-Now we are ready to define the problem:
+An important problem in computer science asks if a given formula is satisfiable:
 
 <Problem id="prob:sat" title="Satisfiability" label="SAT">
 <ProblemInstance>
-A Boolean formula $\phi$.
+A <Ref id="def:booleanFormula" altLabel="Boolean formula"/> $\phi$.
 </ProblemInstance>
 <ProblemQuestion>
-Is $\phi$ satisfiable? That is, is there an assignment of 0s and 1s to the variables such that $\phi$ evaluates to 1?
+Is $\phi$ <Ref id="def:satisfiable" useTitle textTransform="lowercase"/>? That is, is there an assignment of 0s and 1s to the variables such that $\phi$ evaluates to 1?
 </ProblemQuestion>
 </Problem>
 
@@ -297,26 +313,26 @@ It should be clear that <Ref id="prob:sat"/> is in $\NP$: the certificate for a 
 
 ### $\NP$-completeness {/* sec:npCompleteness */}
 
-What's less clear is that <Ref id="prob:sat"/> has a special property that relates it to _all other_ problems in $\NP$. It is not the only problem with this property, but it was the first one for which it was proven. It turns out that if you take an instance of _any_ problem in $\NP$, you can in polynomial time convert that instance into an instance of <Ref id="prob:sat"/>. Moreover, the instance of the original problem is a YES instance if and only if the converted <Ref id="prob:sat"/> instance is a YES instance.
+What's less clear is that <Ref id="prob:sat"/> has a special property that relates it to _all other_ problems in $\NP$. It is not the only problem with this property, but it was the first one for which it was proven. It turns out that if you take an instance of _any_ problem in $\NP$, you can, in polynomial time, convert that instance into an instance of <Ref id="prob:sat"/>. Moreover, the conversion ensures that the instance of the original problem is a YES instance if and only if the converted <Ref id="prob:sat"/> instance is a YES instance.
 
 It's a neat trick for sure, but there is a deeper implication. Suppose you happened to find a polynomial-time algorithm for <Ref id="prob:sat"/>. You could then use that algorithm to solve _any other_ $\NP$ problem in polynomial time. How? Take the instance of the other problem, reduce it in polynomial time (using the algorithm referenced above) to an instance of <Ref id="prob:sat"/>, then use your new polynomial algorithm for <Ref id="prob:sat"/> to get the answer. The addition of two polynomials is still a polynomial, so the total run time of this scheme is also polynomial.
 
 This means that, by virtue of your new algorithm for this one problem, you've now proven that any problem in $\NP$ has a polynomial-time algorithm. This means you've shown that $\P=\NP$! Congratulations on the $1 million and your newfound celebrity!
 
-More formally, this process of taking an instance of one problem and converting it to an instance of another problem, while preserving the solution (YES/NO) of the problem, is called a _reduction_. If the reduction can be done in polynomial time with respect to the length of the input instance, then it is called a _polynomial reduction_.
+This process of taking an instance of one problem, and converting it to an instance of another problem, is important enough to have its own name.
 
 <Definition id="def:reduction" title="Reduction">
-In complexity theory, a reduction is a process of converting an instance of one problem into an instance of another, while maintaining the property that the input instance is a YES instance if and only if the output instance is a YES instance.
+The process of converting an instance of one problem into an instance of another, while maintaining the property that the input instance is a YES instance if and only if the output instance is a YES instance.
 </Definition>
 
 <Definition id="def:polynomialReduction" title="Polynomial Reduction">
-A <Ref id="def:reduction"/> that can run in time bounded by a polynomial in the length of the input instance.
+A <Ref id="def:reduction" useTitle textTransform="lowercase"/> that runs in <Ref id="def:polyAlgo" altLabel="polynomial time"/>.
 </Definition>
 
 If a problem is in some complexity class and has the property that any problem in that class can be reduced to it in polynomial time, this problem is said to be "complete" for the class. This is meant to convey that the problem somehow embodies all the difficulty of problems in the class. In that way, you may think of the complete problems as the hardest problems in a given class. Since <Ref id="prob:sat"/> satisfies this for the class $\NP$, we say that <Ref id="prob:sat"/> is _$\NP$-complete_.
 
 <Definition id="def:npComplete" title="$\NP$-Complete">
-A problem in the class $\NP$ for which there exists a polynomial reduction from any other problem in $\NP$ to it.
+A problem in the class $\NP$ for which there exists a polynomial reduction from any problem in $\NP$ to it.
 </Definition>
 
 Unfortunately, [the original proof](https://en.wikipedia.org/wiki/Cook%E2%80%93Levin_theorem) of <Ref id="prob:sat"/>'s $\NP$-completeness is way outside the scope of this course. We would need to build up a more rigorous version of complexity theory, and even then the proof itself can get pretty lengthy. It takes up 6(!) pages in the excellent text <Cite id="sipser2012introduction"/><Footnote/>.
@@ -325,9 +341,9 @@ Unfortunately, [the original proof](https://en.wikipedia.org/wiki/Cook%E2%80%93L
 That text has also been my main inspiration for most of this section.
 </FootnoteBody>
 
-Luckily, once you have one complete problem for a class, it becomes much easier to add more. Why? The original complete problem needs a reduction scheme for _any_ problem in the class. But once you already have <Ref id="prob:sat"/> as an $\NP$-complete problem, for subsequent problems it suffices to only show a reduction from <Ref id="prob:sat"/> to the new problem. This works because any given problem in $\NP$ can be converted to <Ref id="prob:sat"/> in polynomial time, and then your new reduction will take it from <Ref id="prob:sat"/> to the problem of interest.
+Luckily, once you have one complete problem for a class, it becomes much easier to add more. Why? The original complete problem needs a reduction scheme for _any_ problem in the class. But once you already have <Ref id="prob:sat"/> as an $\NP$-complete problem, for subsequent problems in $\NP$ it suffices to only show a reduction from <Ref id="prob:sat"/> to the new problem. This works because any given problem in $\NP$ can be converted to <Ref id="prob:sat"/> in polynomial time, and then your new reduction will take it from <Ref id="prob:sat"/> to the problem of interest.
 
-And there is no limit to the length of the chain of reductions, since the sum of a finite number of polynomials will always be a polynomial. So that is how $\NP$-completeness proofs go these days: pick some problem in $\NP$ and create a reduction to your new problem.
+And there is no limit to the length of the chain of reductions, since the sum of a finite number of polynomials will always be a polynomial. So that is how $\NP$-completeness proofs go these days: pick some problem in $\NP$ and create a reduction from some known $\NP$-complete problem to your new problem.
 
 ### An example reduction {/* sec:exampleReduction */}
 
@@ -336,15 +352,19 @@ There is now a fairly large [collection of problems](https://en.wikipedia.org/wi
 In a Boolean expression, any variable or negated variable (e.g. $x$ or $\neg x$) is called a _literal_. A _clause_ is a sequence of literals connected with "or" operators, e.g. $x_1\lor\neg x_2\lor x_3$. A Boolean formula is said to be in _conjunctive normal form_ if it comprises several clauses connected with "and" operators.
 
 <Definition id="def:literal" title="Literal">
-A variable or negated variable in a Boolean formula. For example, in the formula $(x_1\lor x_2)\land(\neg x_3\lor \neg x_2)$, $x_1$, $x_2$, $\neg x_2$, and $x_3$ are all literals.
+A variable or negated variable in a Boolean formula. For example, in the formula
+
+$$(x_1\lor x_2)\land(\neg x_3\lor \neg x_2),$$
+
+$x_1$, $x_2$, $\neg x_2$, and $\neg x_3$ are all literals.
 </Definition>
 
 <Definition id="def:clause" title="Clause">
-Several Boolean literals connected with "or" operators, e.g. $x_1\lor\neg x_2\lor x_3$.
+Several Boolean <Ref id="def:literal" altLabel='literals'/> connected with "or" operators, e.g. $x_1\lor\neg x_2\lor x_3$.
 </Definition>
 
 <Definition id="def:cnf" title="Conjunctive Normal Form">
-A Boolean formula comprising several <Ref id="def:clause"/>s connected with "and" operators.
+A Boolean formula comprising several <Ref id="def:clause" altLabel='clauses'/> connected with "and" operators.
 </Definition>
 
 So the formula
@@ -372,7 +392,73 @@ Obviously, every <Ref id="prob:3sat"/> instance is also a <Ref id="prob:sat"/> i
 Or, consequently, any other problem in $\NP$.
 </FootnoteBody>
 
-That reduction is interesting in its own right, but we are not going to go through it here. Instead, for our first reduction, I'd like to introduce a problem that's given in the language of graph theory, and consequently looks more like the types of problems we've been studying.
+That reduction is interesting in its own right, but we are not going to go through it here. Instead, for our first reduction, I'd like to introduce a problem that's given in the language of graph theory, and consequently looks more like the types of problems we've been studying. First, a few definitions:
+
+<Definition id="def:clique" title="Clique">
+A set of vertices $K\subseteq V$ in a <Ref id="def:graph" useLabel textTransform="lowercase"/> such that there is an edge between every pair of vertices in $K$.
+</Definition>
+
+<Definition id="def:kClique" title="$k$-Clique">
+A <Ref id="def:clique"/> with $k$ vertices.
+</Definition>
+
+Figure <Ref id="fig:cliqueExample"/> displays a graph with a 5-clique highlighted.
+
+<Figure id="fig:cliqueExample" caption="A graph with a 5-clique highlighted (vertices $\{a, b, c, d, e\}$).">
+  <Graph
+    width={400} height={300}
+    nodeRadius={22}
+    nodes={[
+      {id: 'a', x: 0.50, y: 1.00},
+      {id: 'b', x: 0.78, y: 0.71},
+      {id: 'c', x: 0.67, y: 0.24},
+      {id: 'd', x: 0.31, y: 0.24},
+      {id: 'e', x: 0.19, y: 0.71},
+      {id: 'f', x: 0.00, y: 0.86},
+      {id: 'g', x: 0.50, y: 0.00},
+      {id: 'h', x: 1.00, y: 0.71},
+    ]}
+    edges={[
+      {from: 'a', to: 'b'},
+      {from: 'a', to: 'c'},
+      {from: 'a', to: 'd'},
+      {from: 'a', to: 'e'},
+      {from: 'b', to: 'c'},
+      {from: 'b', to: 'd'},
+      {from: 'b', to: 'e'},
+      {from: 'c', to: 'd'},
+      {from: 'c', to: 'e'},
+      {from: 'd', to: 'e'},
+      {from: 'e', to: 'f'},
+      {from: 'a', to: 'f'},
+      {from: 'c', to: 'g'},
+      {from: 'd', to: 'g'},
+      {from: 'b', to: 'h'},
+    ]}
+    edgeStyles={{
+      'a,b': {stroke: 'var(--link)', strokeWidth: 2.5},
+      'a,c': {stroke: 'var(--link)', strokeWidth: 2.5},
+      'a,d': {stroke: 'var(--link)', strokeWidth: 2.5},
+      'a,e': {stroke: 'var(--link)', strokeWidth: 2.5},
+      'b,c': {stroke: 'var(--link)', strokeWidth: 2.5},
+      'b,d': {stroke: 'var(--link)', strokeWidth: 2.5},
+      'b,e': {stroke: 'var(--link)', strokeWidth: 2.5},
+      'c,d': {stroke: 'var(--link)', strokeWidth: 2.5},
+      'c,e': {stroke: 'var(--link)', strokeWidth: 2.5},
+      'd,e': {stroke: 'var(--link)', strokeWidth: 2.5},
+    }}
+    nodeStyles={{
+      a: {fill: 'var(--env-theorem-bg)', stroke: 'var(--link)', strokeWidth: 2},
+      b: {fill: 'var(--env-theorem-bg)', stroke: 'var(--link)', strokeWidth: 2},
+      c: {fill: 'var(--env-theorem-bg)', stroke: 'var(--link)', strokeWidth: 2},
+      d: {fill: 'var(--env-theorem-bg)', stroke: 'var(--link)', strokeWidth: 2},
+      e: {fill: 'var(--env-theorem-bg)', stroke: 'var(--link)', strokeWidth: 2},
+    }}
+    printScale={0.6}
+  />
+</Figure>
+
+The problem we will study is:
 
 <Problem id="prob:clique" title="Clique" label="CLIQUE">
 <ProblemInstance>
@@ -383,33 +469,20 @@ Is there a clique in $G$ of size $k$?
 </ProblemQuestion>
 </Problem>
 
-In graph theory, a _clique_ is a set of vertices $K\subseteq V$ such that $(u,v)\in E$ for any pair of vertices $u,v\in K$. In other words, it is a set of vertices, all of whom are adjacent to each other. A clique with $k\in\Z_{>0}$ vertices is called a _$k$-clique_.
-
-<Definition id="def:clique" title="Clique">
-In graph theory, a set of vertices $K\subseteq V$ in a graph such that there is an edge between every pair of vertices in $K$.
-</Definition>
-
-<Definition id="def:kClique" title="$k$-Clique">
-A <Ref id="def:clique"/> with $k$ vertices.
-</Definition>
-
-<Figure caption="A graph with a 5-clique highlighted (vertices $\{a, b, c, d, e\}$).">
-{/* TODO: come back to figure content later */}
-</Figure>
-
 What I'd like to do now is show you a reduction from <Ref id="prob:3sat"/> to <Ref id="prob:clique"/>. It's probably easiest to start with an example. How about this sample <Ref id="prob:3sat"/> instance:
 
-$$ {#3satInstanceToClique}
+$$ {#eq:3satInstanceToClique}
 \phi = (x_1\lor x_2\lor x_3)\land(\neg x_1\lor \neg x_2\lor x_3)\land(\neg x_1\lor x_2\lor \neg x_3)
 $$
 
 Compare that to the following graph:
 
-<Figure id="fig:cliqueInstanceFrom3sat" caption="The graph produced by reducing the 3-SAT instance above to an instance of CLIQUE.">
-{/* TODO: come back to figure content later */}
+<Figure id="fig:cliqueInstanceFrom3sat" caption={<>The graph produced by reducing the <Ref id="prob:3sat"/> instance <Ref id="eq:3satInstanceToClique"/> to an instance of <Ref id="prob:clique"/>.</>}>
+  <PrintExtra>_Interact with this content on the website_</PrintExtra>
+  <CliqueReductionGraph client:load />
 </Figure>
 
-The graph in <Ref id="fig:cliqueInstanceFrom3sat"/> is built using information from our <Ref id="prob:3sat"/> instance $\phi$ in <Ref id="3satInstanceToClique"/>. There is one vertex for every literal in each clause of $\phi$. In the figure, the vertex labels give first the clause being considered, then the variable in the literal represented. So the label $1x1$ corresponds to clause 1 variable $x_1$, the label $3x2$ corresponds to clause 3 variable $x_2$, and so on.
+The graph in <Ref id="fig:cliqueInstanceFrom3sat"/> is built using information from our <Ref id="prob:3sat"/> instance $\phi$ in <Ref id="eq:3satInstanceToClique"/>. There is one vertex for every literal in each clause of $\phi$. In the figure, the vertex labels give first the clause being considered, then the variable in the literal represented. So the label $1-x_1$ corresponds to clause 1 variable $x_1$, the label $3-x_2$ corresponds to clause 3 variable $x_2$, and so on.
 
 The rules for drawing edges are as follows:
 
@@ -418,7 +491,7 @@ The rules for drawing edges are as follows:
   - If the two vertices represent different variables, add an edge.
   - If the two vertices represent the same variable $x_i$, add an edge if and only if the _literals_ are equivalent (i.e. do not add an edge in the case that $x_i$ appears in one clause and $\neg x_i$ appears in the other).
 
-To check your understanding, you can go back to <Ref id="fig:cliqueInstanceFrom3sat"/> and click on some of the vertices to highlight their corresponding edges. For instance, no pair of nodes starting with the same number are connected with an edge, because that first number denotes the clause they represent. Looking across clauses, vertex $1x2$ has an edge to all the other cross-clause vertices, with the exception of $2x2$. This is because in the first clause the corresponding literal is $x_2$, while in the second clause the literal is the negation $\neg x_2$.
+To check your understanding, you can go back to <Ref id="fig:cliqueInstanceFrom3sat"/> and click on some of the vertices to highlight their corresponding edges. For instance, no pair of nodes starting with the same number are connected with an edge, because that first number denotes the clause they represent. Looking across clauses, vertex $1-x_2$ has an edge to all the other cross-clause vertices, with the exception of $2-x_2$. This is because in the first clause the corresponding literal is $x_2$, while in the second clause the literal is the negation $\neg x_2$.
 
 That's really the core of the reduction. Let's write up some very loose pseudocode to have as a reference.
 
@@ -426,8 +499,8 @@ That's really the core of the reduction. Let's write up some very loose pseudoco
 <AlgoStep>Set $k$ to be the number of clauses in $\phi$.</AlgoStep>
 <AlgoStep>Create a graph $G=(V,E)$ with three vertices per clause, each vertex representing one of the clause's literals.</AlgoStep>
 <AlgoFor each="distinct vertices $v_i,v_j\in V$ (representing clauses $c_i,c_j$, literals $l_i,l_j$, and variables $x_i,x_j$)">
-  <AlgoIf cond="c_i\neq c_j">
-    <AlgoIf cond="x_i\neq x_j">
+  <AlgoIf cond="$c_i\neq c_j$">
+    <AlgoIf cond="$x_i\neq x_j$">
       <AlgoStep>Add edge $(v_i,v_j)$ to $E$.</AlgoStep>
     </AlgoIf>
     <AlgoElse>
@@ -437,11 +510,11 @@ That's really the core of the reduction. Let's write up some very loose pseudoco
 </AlgoFor>
 </Algorithm>
 
-The claim is that this is a valid polynomial reduction from <Ref id="prob:3sat"/> to <Ref id="prob:clique"/>. As a reminder, in order to do that we'll need to show three things:
+The claim is that this is a valid polynomial reduction from <Ref id="prob:3sat"/> to <Ref id="prob:clique"/>. As a reminder, in order to prove that we'll need to show three things:
 
 - The transformation requires a number of steps bounded by a polynomial in the input instance's length.
 - If the <Ref id="prob:3sat"/> instance is a YES instance, then the <Ref id="prob:clique"/> instance is also a YES instance.
-- Conversely, if the <Ref id="prob:3sat"/> instance is a NO instance, then the <Ref id="prob:clique"/> instance is also a NO instance. Note that by contrapositive (and the fact that each instance must be either a YES or a NO), this is the same as saying that if the <Ref id="prob:clique"/> instance is a YES instance, then the <Ref id="prob:3sat"/> instance is a YES instance.
+- Conversely, if the <Ref id="prob:3sat"/> instance is a NO instance, then the <Ref id="prob:clique"/> instance is also a NO instance. Note that by <Ref id="def:contrapositive" useTitle textTransform="lowercase"/>, this is the same as saying that if the <Ref id="prob:clique"/> instance is a YES instance, then the <Ref id="prob:3sat"/> instance is a YES instance.
 
 Let's do it.
 
@@ -450,32 +523,30 @@ Let's do it.
 </Theorem>
 
 <Proof>
-It is clear that the length of the input instance is directly related to the number of clauses $k$ in $\phi$. Meanwhile, the graph created has $|V|=3k$ and $|E|$ is bounded by $k^2$. Thus the run time of <Ref id="algo:3sat2clique"/> is $\O{k^2}$.
+It is clear that the length of the input instance is directly related to the number of clauses $k$ in <Ref id="prob:3sat"/> instance $\phi$. Meanwhile, the graph created has $|V|=3k$ and $|E|$ is bounded by $k^2$. Thus the run time of <Ref id="algo:3sat2clique"/> is $\O{k^2}$.
 
 Now let's suppose that the input is a YES instance. Then there must be some satisfying assignment of the variables, and hence in each clause there is at least one literal whose assignment evaluates to true. Take one such literal for each clause, and let $K\subseteq V$ be the set of vertices representing these literals. We claim $K$ is a $k$-clique. Clearly $|K|=k$. Also, for each distinct pair $v_i,v_j\in K$, $v_i$ and $v_j$ represent different clauses, and if they represent the same variable the literals cannot contradict each other (since they came from a satisfying assignment). So, following the rules of the construction, $(v_i,v_j)\in E$, confirming $K$ is a $k$-clique.
 
 Now suppose that $G$ has a $k$-clique $K$. By construction, there can only be one vertex per clause in $K$ (because there are no edges between vertices representing the same clause). So there must be exactly one vertex in $K$ representing any particular clause. To satisfy $\phi$, for each vertex $v\in K$ consider the variable (call it $x_{v}$) and clause it represents. For the assignment, set $x_{v}$ to 1 if the corresponding literal is not negated in the clause, and set it to 0 otherwise. This gives us a satisfied literal in each clause, and it cannot lead to any contradictions in variable values, since contradictory vertices cannot have edges between them. Therefore such an assignment will satisfy $\phi$.
 </Proof>
 
-{/* NEED TO REDO, DEFINING AND MAKING USE OF THE TERM "LITERAL" */}
-
 ## Optimization is (often) hard {/* sec:optIsHard */}
 
-With that, our surface-level tour of complexity theory is over. What was the point? Well, for one thing, it brought us this notion of polynomiality, which gives us a stronger underpinning to what we might describe as a "good" algorithm, or an "easy" problem. Among the problems and algorithms we've studied so far, we know that a few of them (<Ref id="prob:shortestPath"/>, <Ref id="prob:mst"/>) fall into this "easy" camp.
+With that, our surface-level tour of complexity theory is over. What was the point? Well, for one thing, it brought us this notion of polynomiality, which gives us a stronger underpinning to what we might describe as a "good" algorithm, or an "easy" problem. Among the problems we've studied so far, we know that a few of them (<Ref id="prob:shortestPath"/>, <Ref id="prob:mst"/>) fall into this "easy" camp.
 
 On the other hand, we know there's an apparent gap between these problems and the seemingly more difficult $\NP$-complete problems. Whether that gap is real or imaginary will be up to future researchers to settle, but for now exponential algorithms are the state of the art for most of the problems we care about.
 
 For most of the rest of the class, we will be focusing on these difficult problems, where the decision version of the problem is $\NP$-complete. These optimization problems are actually part of another class of so-called _$\NP$-hard_ problems. The definition mirrors $\NP$-completeness, in that a problem is said to be $\NP$-hard when any problem in $\NP$ has a polynomial reduction to it. The difference is that you do not need to be a member of $\NP$ to be considered $\NP$-hard<Footnote/>. So we are theoretically justified in saying that many optimization problems are hard!
 
 <Definition id="def:npHard" title="$\NP$-Hard">
-A problem for which there exists a polynomial reduction from any problem in $\NP$ to it. Note that, in contrast to <Ref id="def:npComplete"/> problems, there is no requirement that the problem itself is a member of $\NP$.
+A problem for which there exists a polynomial reduction from any problem in $\NP$ to it. (In contrast to <Ref id="def:npComplete" useTitle/> problems, there is no requirement that the problem itself is a member of $\NP$.)
 </Definition>
 
 <FootnoteBody>
 So $\NP$-complete is the intersection of $\NP$ and $\NP$-hard.
 </FootnoteBody>
 
-These theoretical notions also back up some rules-of-thumb to keep in mind when deciding if a solution method may scale. Polynomial steps are good. Combinatorial explosions (like we saw in our <Ref id="prob:ip"/> model for <Ref id="prob:tsp"/> in <Ref id="tspIp"/>) are bad.
+These theoretical notions also back up some rules-of-thumb to keep in mind when deciding if a solution method may scale. Polynomial steps are good. Combinatorial explosions (like we saw in our <Ref id="prob:ip"/> model for <Ref id="prob:tsp"/> in <Ref id="eq:tspIp"/>) are bad.
 
 Looking ahead a bit, we'll spend a little more time talking about easy problems, how to recognize them, and some theory that unites them. Then it's back to the world of $\NP$-hard problems and how we can tackle them. Most of this discussion will focus on <Ref id="prob:ip"/> as a unifying framework. If you need exact solutions for these problems, either <Ref id="prob:ip"/> or methods derived from it are usually among the best choices.
 

@@ -3,6 +3,7 @@ import React, { useId } from 'react';
 type Node = { id: string; x: number; y: number };
 type Edge = { from: string; to: string; weight?: number };
 type EdgeStyle = { stroke?: string; strokeWidth?: number };
+type NodeStyle = { fill?: string; stroke?: string; strokeWidth?: number };
 
 type GraphProps = {
   width: number;
@@ -14,6 +15,7 @@ type GraphProps = {
   labelFontSize?: number;
   edgeWeightFontSize?: number;
   edgeStyles?: Record<string, EdgeStyle>;
+  nodeStyles?: Record<string, NodeStyle>;
   edgeWeightOnTop?: boolean;
   printScale?: number;  // fraction of content width in print, e.g. 0.6 → 60%
 };
@@ -30,6 +32,7 @@ export function Graph({
   labelFontSize = 16,
   edgeWeightFontSize = 14,
   edgeStyles = {},
+  nodeStyles = {},
   edgeWeightOnTop = false,
   printScale = 0.8,
 }: GraphProps) {
@@ -185,13 +188,14 @@ export function Graph({
 
       {nodes.map(node => {
         const p = pos.get(node.id)!;
+        const ns = nodeStyles[node.id] ?? {};
         return (
           <g key={node.id}>
             <circle
               cx={p.x} cy={p.y} r={nodeRadius}
-              fill="var(--bg)"
-              stroke="currentColor"
-              strokeWidth={1.5}
+              fill={ns.fill ?? 'var(--bg)'}
+              stroke={ns.stroke ?? 'currentColor'}
+              strokeWidth={ns.strokeWidth ?? 1.5}
             />
             <text
               x={p.x} y={p.y}

@@ -1,17 +1,10 @@
-import { defineCollection, z } from 'astro:content';
+import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
+import { chapterSchema } from 'astro-math-book';
 
 const sample = defineCollection({
   loader: glob({ pattern: '**/*.mdx', base: './content' }),
-  schema: z.object({
-    title: z.string(),
-    chapter: z.union([z.number(), z.string()]).optional(),
-    bookPart: z.string().optional(),
-    chapterId: z.string().optional(),
-    order: z.number().optional(),
-    section: z.number().optional(),
-    pagefind: z.boolean().optional(),
-  }),
+  schema: chapterSchema,
 });
 
 export const collections = { sample };

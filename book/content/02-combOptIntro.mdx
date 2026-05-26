@@ -298,7 +298,7 @@ In what follows, we will present both algorithms and approximation algorithms fo
 
 ### Dijkstra's shortest path algorithm {/* sec:dijkstraShortestPath */}
 
-We'll first talk about an algorithm for <Ref id="prob:shortestPath"/> known as <Ref id="alg:dijkstra"/>. Let's use the graph in <Ref id="fig:shortestPathFirstExample"/> as we illustrate the mechanics.
+We'll first talk about an algorithm for <Ref id="prob:shortestPath"/> known as <Ref id="algo:dijkstra"/>. Let's use the graph in <Ref id="fig:shortestPathFirstExample"/> as we illustrate the mechanics.
 
 The goal of <Ref id="prob:shortestPath"/> is to find the shortest possible path between vertices $s$ and $t$. During the iterations of the algorithm, we will find shortest paths between $s$ and other vertices $v\in V$. In fact, before we even start, we already know the shortest path from $s$ to one other vertex. Namely, the shortest path from $s$ to itself starts at $s$ and goes... well, nowhere! You're already at your destination!<Footnote/>
 
@@ -323,12 +323,12 @@ We continue on like this. Continuing out of $a$, we find a path from $s$ to $c$ 
 The algorithm continues like this until we eventually reach vertex $t$ and hence find a shortest $s$-$t$ path<Footnote/>.
 
 <FootnoteBody>
-In some versions of <Ref id="alg:dijkstra"/>, we actually don't stop when we get to vertex $t$. Instead it continues on until shortest paths have been identified from $s$ to _all_ vertices in the graph. But since our version of <Ref id="prob:shortestPath"/> only wants an $s$-$t$ path, we will stop short in this course.
+In some versions of <Ref id="algo:dijkstra"/>, we actually don't stop when we get to vertex $t$. Instead it continues on until shortest paths have been identified from $s$ to _all_ vertices in the graph. But since our version of <Ref id="prob:shortestPath"/> only wants an $s$-$t$ path, we will stop short in this course.
 </FootnoteBody>
 
 For a formal specification of the algorithm, we'll need to define a few more objects used for bookkeeping. We'll let $U\subseteq V$ be the set of "unexplored" vertices, for which we have _not_ yet found a shortest path from $s$. We'll define functions $d:V\rightarrow \R$ and $p:V\rightarrow V$ where $d(v)$ is the distance of the currently-best-known path from $s$ to $v$, and $p(v)$ is the _predecessor_ vertex for $v$ in the currently-best-known $s$-$v$ path (i.e. the vertex $u$ such that our currently-best-known $s$-$v$ path concludes by taking the edge between $u$ and $v$). Finally, at the end we will return a list of vertices $P$ as the final path. The full algorithm is as follows:
 
-<Algorithm id="alg:dijkstra" caption="Dijkstra's Algorithm" label="Dijkstra's Algorithm">
+<Algorithm id="algo:dijkstra" caption="Dijkstra's Algorithm" label="Dijkstra's Algorithm">
 <AlgoComment>Initialize</AlgoComment>
 <AlgoStep>Set $U\leftarrow V$</AlgoStep>
 <AlgoStep>Set $p(v)\leftarrow$ undefined for all $v\in V$</AlgoStep>
@@ -381,9 +381,9 @@ Update the predecessor of $v$ to be $u$.
 Initialize the path to an empty list.
 </FootnoteBody>
 
-You can click through the buttons in <Ref id="fig:dijkstraExample"/> to work through a full example of <Ref id="alg:dijkstra"/>. You step through the main iterations by making the correct selection for the next $u$ vertex, then selecting the neighbors of $u$ whose $d(v)$ value can improve by routing through $u$. Once $u=t$, use the $p(v)$ values to trace back the optimal $s$-$t$ path. If you get stuck, you can use the "Next" button to move forward in the algorithm. Similarly, the "Prev" button will rewind a step if you need to see something again.
+You can click through the buttons in <Ref id="fig:dijkstraExample"/> to work through a full example of <Ref id="algo:dijkstra"/>. You step through the main iterations by making the correct selection for the next $u$ vertex, then selecting the neighbors of $u$ whose $d(v)$ value can improve by routing through $u$. Once $u=t$, use the $p(v)$ values to trace back the optimal $s$-$t$ path. If you get stuck, you can use the "Next" button to move forward in the algorithm. Similarly, the "Prev" button will rewind a step if you need to see something again.
 
-<Figure id="fig:dijkstraExample" caption={<>Stepping through an example of <Ref id="alg:dijkstra"/>. Under the label for each vertex $v\in V$ is the pair $d(v),p(v)$, i.e. the distance of the best-known $s$-$v$ path and the predecessor to $v$ on that path. The table keeps track of the identity of $u$ at each main iteration loop, as well as the $d(v),p(v)$ values for each $v\in V$.</>}>
+<Figure id="fig:dijkstraExample" caption={<>Stepping through an example of <Ref id="algo:dijkstra"/>. Under the label for each vertex $v\in V$ is the pair $d(v),p(v)$, i.e. the distance of the best-known $s$-$v$ path and the predecessor to $v$ on that path. The table keeps track of the identity of $u$ at each main iteration loop, as well as the $d(v),p(v)$ values for each $v\in V$.</>}>
   <PrintExtra>_Interact with this content on the website_</PrintExtra>
   <DijkstraAlgo
     client:load
@@ -418,7 +418,7 @@ You can click through the buttons in <Ref id="fig:dijkstraExample"/> to work thr
 
 After you finish the above example, how about working through this longer one?
 
-<Figure id="fig:dijkstraExample2" caption={<>Stepping through <Ref id='alg:dijkstra'/> on a larger <Ref id='prob:shortestPath'/> instance.</>}>
+<Figure id="fig:dijkstraExample2" caption={<>Stepping through <Ref id='algo:dijkstra'/> on a larger <Ref id='prob:shortestPath'/> instance.</>}>
   <PrintExtra>_Interact with this content on the website_</PrintExtra>
   <DijkstraAlgo
     client:load
@@ -467,7 +467,7 @@ After you finish the above example, how about working through this longer one?
 
 Hungry for even more? Use <Ref id="fig:dijkstraRandom"/> to generate random <Ref id="prob:shortestPath"/> instances and solve them.
 
-<Figure id="fig:dijkstraRandom" caption={<>Using <Ref id='alg:dijkstra'/> to solve randomly generated <Ref id='prob:shortestPath'/> instances.</>}>
+<Figure id="fig:dijkstraRandom" caption={<>Using <Ref id='algo:dijkstra'/> to solve randomly generated <Ref id='prob:shortestPath'/> instances.</>}>
   <DijkstraAlgo client:only="react"
     randomMinEdges={10}
     randomMaxEdges={14}
@@ -477,16 +477,16 @@ Hungry for even more? Use <Ref id="fig:dijkstraRandom"/> to generate random <Ref
   <PrintFallback>_Interactive content not available - see it on the website._</PrintFallback>
 </Figure>
 
-Now that you've seen the algorithm in action, there is one more thing left to do. We've said Dijkstra's is an _algorithm_ for the <Ref id="prob:shortestPath"/>. According to our definition, to be an algorithm you must guarantee the output is an optimal solution to the problem at hand. To wrap up this section, we will now prove that <Ref id="alg:dijkstra"/> is indeed a valid algorithm.
+Now that you've seen the algorithm in action, there is one more thing left to do. We've said Dijkstra's is an _algorithm_ for the <Ref id="prob:shortestPath"/>. According to our definition, to be an algorithm you must guarantee the output is an optimal solution to the problem at hand. To wrap up this section, we will now prove that <Ref id="algo:dijkstra"/> is indeed a valid algorithm.
 
 <Theorem id="thm:dijkstra" title="Correctness of Dijkstra's Algorithm">
-<Ref id="alg:dijkstra"/> solves <Ref id="prob:shortestPath"/> by returning a shortest $s$-$t$ path when one exists.
+<Ref id="algo:dijkstra"/> solves <Ref id="prob:shortestPath"/> by returning a shortest $s$-$t$ path when one exists.
 </Theorem>
 
 <Proof>
 It should be clear that if no $s$-$t$ path exists, $d(t)$ can never update and we end the algorithm at <Ref id="algoStep:noSTPath" short/>. So let's assume that an $s$-$t$ path does exist.
 
-For each vertex $v\in V$, let $\mathrm{dist}(v)$ represent the length of a shortest $s$-$v$ path in $G$ (contrast this with $d(v)$, which is the length of the best-known path at any given time while running the algorithm). We intend to show that throughout the main iterations of <Ref id="alg:dijkstra"/>, whichever vertex $u$ we select as the minimizer of $d$ over $U$ will satisfy $d(u) = \mathrm{dist}(u)$. That is, at each iteration, we have found the best path to each vertex we remove from $U$<Footnote/>.
+For each vertex $v\in V$, let $\mathrm{dist}(v)$ represent the length of a shortest $s$-$v$ path in $G$ (contrast this with $d(v)$, which is the length of the best-known path at any given time while running the algorithm). We intend to show that throughout the main iterations of <Ref id="algo:dijkstra"/>, whichever vertex $u$ we select as the minimizer of $d$ over $U$ will satisfy $d(u) = \mathrm{dist}(u)$. That is, at each iteration, we have found the best path to each vertex we remove from $U$<Footnote/>.
 
 The proof goes by induction on the number of iterations of the algorithm. As a base case, it is clear that in the first iteration $u=s$ and $d(s)=\mathrm{dist}(s)=0$.
 
@@ -535,7 +535,7 @@ Otherwise, there would be a shorter $s$-$u$ path that incorporates the shorter $
 
 We now turn our attention to <Ref id="prob:mst"/>, which can be solved by a fairly simple algorithm. The algorithm begins with an empty set $T$, which we will iteratively fill with edges from $E$ until the minimum spanning tree is found. Here's the algorithm:
 
-<Algorithm id="alg:prim" caption="Prim's Algorithm" label="Prim's Algorithm">
+<Algorithm id="algo:prim" caption="Prim's Algorithm" label="Prim's Algorithm">
   <AlgoComment>Initialize</AlgoComment>
   <AlgoStep>Select an arbitrary vertex $r\in V$</AlgoStep>
   <AlgoStep>Set $U\leftarrow\lbrace r\rbrace$</AlgoStep>
@@ -557,10 +557,10 @@ Ready to see it in action? Go ahead and work through some examples in <Ref id="f
   <PrimAlgo client:only="react" density={1.5}/>
 </Figure>
 
-Now let's prove the correctness of <Ref id="alg:prim"/>. Note that this proof makes use of a claim (<Ref id="thm:newSpanningTree"/>) proven in the appendix — check that one out too if you're curious!
+Now let's prove the correctness of <Ref id="algo:prim"/>. Note that this proof makes use of a claim (<Ref id="thm:newSpanningTree"/>) proven in the appendix — check that one out too if you're curious!
 
 <Theorem id="thm:prim" title="Correctness of Prim's Algorithm">
-<Ref id="alg:prim"/> solves <Ref id="prob:mst"/> by returning a minimum-cost spanning tree in $G$.
+<Ref id="algo:prim"/> solves <Ref id="prob:mst"/> by returning a minimum-cost spanning tree in $G$.
 </Theorem>
 
 <Proof>
@@ -577,7 +577,7 @@ Now consider the set of edges $M'=(M\setminus\lbrace e\rbrace)\cup\lbrace e'\rbr
 By definition, the empty set is a subset of any other set.
 </FootnoteBody>
 
-<Ref id="alg:prim"/> is an example of what is called a _greedy algorithm_, which means that it makes a locally-optimal decision at each step. In this case, the algorithm selects the lowest-cost edge that keeps the edges of $T$ as a tree. There is no thought to the future, or to whether we may need to undo any short-sighted decisions made in earlier steps. The algorithm just goes along greedily selecting the smallest edges possible.
+<Ref id="algo:prim"/> is an example of what is called a _greedy algorithm_, which means that it makes a locally-optimal decision at each step. In this case, the algorithm selects the lowest-cost edge that keeps the edges of $T$ as a tree. There is no thought to the future, or to whether we may need to undo any short-sighted decisions made in earlier steps. The algorithm just goes along greedily selecting the smallest edges possible.
 
 <Definition id="def:greedyAlgorithm" title="Greedy Algorithm">
 An algorithm that proceeds by making a locally-optimal decision at each step.
@@ -628,7 +628,7 @@ Let's turn our attention now to <Ref id="prob:knapsack"/>, a simple-looking but 
 It's not too hard to create an example that proves greedy doesn't work. See if you can come up with one yourself!
 </FootnoteBody>
 
-What does work? The method we will discuss uses a common algorithmic technique known as dynamic programming, a particular approach to solving problems that requires a recursive breaking down of the problems into simpler subproblems<Footnote/>. We've actually already seen an example of dynamic programming in <Ref id="alg:dijkstra"/>. Adding a second example should help you see how the technique can work generally.
+What does work? The method we will discuss uses a common algorithmic technique known as dynamic programming, a particular approach to solving problems that requires a recursive breaking down of the problems into simpler subproblems<Footnote/>. We've actually already seen an example of dynamic programming in <Ref id="algo:dijkstra"/>. Adding a second example should help you see how the technique can work generally.
 
 <FootnoteBody>
 If you're familiar with operations research already, you may find the name _dynamic programming_ a little confusing. Other similarly-named concepts in the field (linear programming, integer programming) are classes of _problems_ to be solved, in contrast to dynamic programming which is a class of _algorithms_ for solving problems.
@@ -676,7 +676,7 @@ The above is the basis of our dynamic programming algorithm. For a simple implem
 
 The full algorithm looks like this:
 
-<Algorithm id="alg:knapsackDP" caption="Knapsack DP Algorithm" label="Knapsack DP">
+<Algorithm id="algo:knapsackDP" caption="Knapsack DP Algorithm" label="Knapsack DP">
   <AlgoComment>Initialize</AlgoComment>
   <AlgoStep>
     For all $r\in\lbrace0,1,\dots,n\rbrace$ and $s\in\lbrace0,1,\dots,b\rbrace$, set:
@@ -724,7 +724,7 @@ The full algorithm looks like this:
 
 Let's work through an example in <Ref id="fig:knapsackExample"/>:
 
-<Figure id="fig:knapsackExample" caption={<>Solving random instances of <Ref id="prob:knapsack"/> using <Ref id="alg:knapsackDP"/>. The top table lists each item's weight and value. The main DP table shows $f_r(s)$ and $S_r(s)$ — the optimal value and selected item set for the first $r$ items at weight limit $s$. The small table below it displays the values needed at each step to decide whether to include or exclude the current item.</>}>
+<Figure id="fig:knapsackExample" caption={<>Solving random instances of <Ref id="prob:knapsack"/> using <Ref id="algo:knapsackDP"/>. The top table lists each item's weight and value. The main DP table shows $f_r(s)$ and $S_r(s)$ — the optimal value and selected item set for the first $r$ items at weight limit $s$. The small table below it displays the values needed at each step to decide whether to include or exclude the current item.</>}>
   <KnapsackDPAlgo client:only="react" n={4}/>
   <PrintFallback>_Interactive content not available - see it on the website._</PrintFallback>
 </Figure>
@@ -732,7 +732,7 @@ Let's work through an example in <Ref id="fig:knapsackExample"/>:
 We've already discussed why this algorithm works in our discussions on <Ref id="eq:knapsackRecursion"/>, but let's go ahead and formalize it with a proof.
 
 <Theorem id="thm:knapsackDP" title="Correctness of Knapsack DP Algorithm">
-<Ref id="alg:knapsackDP"/> solves <Ref id="prob:knapsack"/> by returning a maximum-value set of items whose combined weight does not exceed the weight limit.
+<Ref id="algo:knapsackDP"/> solves <Ref id="prob:knapsack"/> by returning a maximum-value set of items whose combined weight does not exceed the weight limit.
 </Theorem>
 
 <Proof>
@@ -817,7 +817,7 @@ I should stress that this is often more of a theoretical win than a practical on
 
 Anyway, let's put that matter aside and talk about the actual algorithm! Throughout, we'll use the graph in <Ref id="fig:tsp2ApproxExBase"/> to guide our discussion.
 
-<Figure id="fig:tsp2ApproxExBase" caption={<>An example graph for demonstrating <Ref id="alg:tsp2Approx"/>.</>}>
+<Figure id="fig:tsp2ApproxExBase" caption={<>An example graph for demonstrating <Ref id="algo:tsp2Approx"/>.</>}>
   <Graph
     width={500} height={320}
     nodeRadius={30}
@@ -846,7 +846,7 @@ Anyway, let's put that matter aside and talk about the actual algorithm! Through
   />
 </Figure>
 
-The first step uses something we already know. Take the graph $G$ and find a minimum spanning tree $T$, using e.g. <Ref id="alg:prim"/>. Now, $T$ is not an optimal solution to the problem, nor is it even a tour in $G$. But, we can still say something about the costs of the edges in $T$ in relation to the optimal tour. Let $z^*$ represent the value of the optimal solution to our <Ref id="prob:tsp"/> instance. We know that the sum of the costs of the edges in $T$ is no more than $z^*$, i.e.
+The first step uses something we already know. Take the graph $G$ and find a minimum spanning tree $T$, using e.g. <Ref id="algo:prim"/>. Now, $T$ is not an optimal solution to the problem, nor is it even a tour in $G$. But, we can still say something about the costs of the edges in $T$ in relation to the optimal tour. Let $z^*$ represent the value of the optimal solution to our <Ref id="prob:tsp"/> instance. We know that the sum of the costs of the edges in $T$ is no more than $z^*$, i.e.
 
 $$ {#eq:tsp2ApproxObservation1}
 \sum_{e\in T} c_e\leq z^*
@@ -854,7 +854,7 @@ $$
 
 Why is that? We know that $z^*$ comes from a minimum-cost tour in $G$. If you remove any edge from that tour, what remains is a spanning tree on $G$, which we'll call $T'$. Since all edge costs are nonnegative, clearly $z^*\geq\sum_{e\in T'} c_e$, and since both $T$ and $T'$ are spanning trees and $T$ is also a minimum spanning tree, $\sum_{e\in T'} c_e\geq\sum_{e\in T} c_e$. Combining these two inequalities yields <Ref id="eq:tsp2ApproxObservation1"/>.
 
-Let's return to our example graph <Ref id="fig:tsp2ApproxExBase"/>. We can quickly find a minimum spanning tree on this graph (using <Ref id="alg:prim"/> or just simply by visual inspection). In this case, the set of edges $\{(1,2), (2,4), (2,5), (3,5)\}$ defines a minimum spanning tree, which we can see in <Ref id="fig:tsp2ApproxExMST"/>.
+Let's return to our example graph <Ref id="fig:tsp2ApproxExBase"/>. We can quickly find a minimum spanning tree on this graph (using <Ref id="algo:prim"/> or just simply by visual inspection). In this case, the set of edges $\{(1,2), (2,4), (2,5), (3,5)\}$ defines a minimum spanning tree, which we can see in <Ref id="fig:tsp2ApproxExMST"/>.
 
 <Figure id="fig:tsp2ApproxExMST" caption={<>A minimum spanning tree in the graph from <Ref id="fig:tsp2ApproxExBase"/>.</>}>
   <Graph
@@ -960,7 +960,7 @@ So the final step of the algorithm is to take the traversal we built and simply 
 
 There you have it, your first approximation algorithm! Let's formalize this by presenting the algorithm and writing the proof of correctness.
 
-<Algorithm id="alg:tsp2Approx" caption="TSP 2-Approximation" label="TSP 2-Approx">
+<Algorithm id="algo:tsp2Approx" caption="TSP 2-Approximation" label="TSP 2-Approx">
 <AlgoStep>Find a minimum spanning tree $T$ of $G$.</AlgoStep>
 <AlgoStep>Find a traversal $R$ of $T$.</AlgoStep>
 <AlgoStep>Build the final tour by iterating through $R$ and skipping any vertices that have already been visited.</AlgoStep>
@@ -968,7 +968,7 @@ There you have it, your first approximation algorithm! Let's formalize this by p
 </Algorithm>
 
 <Theorem id="thm:tsp2Approx" title="TSP 2-Approximation Guarantee">
-  <Ref id="alg:tsp2Approx"/> returns a tour with cost at most $2z^*$, where $z^*$ is the cost of an optimal tour.
+  <Ref id="algo:tsp2Approx"/> returns a tour with cost at most $2z^*$, where $z^*$ is the cost of an optimal tour.
 </Theorem>
 
 <Proof>
@@ -995,7 +995,7 @@ There you have it, your first approximation algorithm! Let's formalize this by p
 
 You can test your knowledge of the algorithm by working out a few examples in <Ref id="fig:tsp2ApproxExamples"/>
 
-<Figure id="fig:tsp2ApproxExamples" caption={<>Using <Ref id="alg:tsp2Approx"/> to approximate random <Ref id="prob:tsp"/> instances.</>}>
+<Figure id="fig:tsp2ApproxExamples" caption={<>Using <Ref id="algo:tsp2Approx"/> to approximate random <Ref id="prob:tsp"/> instances.</>}>
 <PrintFallback>_Interactive content not available - see it on the website._</PrintFallback>
 <TSP2Approx client:only="react" />
 </Figure>
@@ -1003,7 +1003,7 @@ You can test your knowledge of the algorithm by working out a few examples in <R
 A few notes before we wrap up:
 
 - When an approximation algorithm satisfies $z^{\text{approx}}\leq\alpha z^*$ for some $\alpha$, we often refer to the algorithm as an $\alpha$-approximation algorithm. Hence why we named this algorithm the TSP 2-approximation algorithm.
-- There is another famous approximation algorithm for the metric <Ref id="prob:tsp"/>, known as the [Christofides algorithm](https://en.wikipedia.org/wiki/Christofides_algorithm). It is similar to <Ref id="alg:tsp2Approx"/> in that it starts by finding a minimum spanning tree, but it gets slightly more complicated from there. What it gains from the minor complication is an improved approximation ratio, namely the final solution is guaranteed to be within a factor 1.5 of the optimal instead of 2.
+- There is another famous approximation algorithm for the metric <Ref id="prob:tsp"/>, known as the [Christofides algorithm](https://en.wikipedia.org/wiki/Christofides_algorithm). It is similar to <Ref id="algo:tsp2Approx"/> in that it starts by finding a minimum spanning tree, but it gets slightly more complicated from there. What it gains from the minor complication is an improved approximation ratio, namely the final solution is guaranteed to be within a factor 1.5 of the optimal instead of 2.
 
 Hopefully you've found this section informative, and maybe even a little fun! We've seen a variety of <Ref id="prob:combOpt"/> problems and gotten a feel for how they might be useful in real-life applications. Beyond that, we've gotten into the details of how to find solutions, with both exact and approximation algorithms, along the way introducing common techniques like greedy algorithms and dynamic programming.
 
