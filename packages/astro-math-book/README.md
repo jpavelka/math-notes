@@ -2,7 +2,23 @@
 
 An [Astro](https://astro.build) integration for building academic math textbook sites. Provides automatic equation numbering, cross-references, bibliography support, theorem/definition environments, and a responsive textbook layout.
 
+## Quick start
+
+```bash
+npx create-astro-math-book
+```
+
+This scaffolds a minimal book directory (`book/` by default — you'll be prompted for an alternative name if that already exists) containing all the files needed to start writing. Then:
+
+```bash
+cd book
+npm install
+npm run dev
+```
+
 ## Installation
+
+To add `astro-math-book` to an existing Astro project:
 
 ```bash
 npm install astro-math-book
@@ -27,6 +43,24 @@ export default defineConfig({
   ],
 });
 ```
+
+Set up your content collection using the provided schema:
+
+```ts
+// src/content.config.ts
+import { defineCollection } from 'astro:content';
+import { glob } from 'astro/loaders';
+import { chapterSchema } from 'astro-math-book';
+
+const chapters = defineCollection({
+  loader: glob({ pattern: '**/*.mdx', base: './content' }),
+  schema: chapterSchema,
+});
+
+export const collections = { chapters };
+```
+
+`chapterSchema` defines all the frontmatter fields consumed by the framework (`title`, `chapter`, `bookPart`, `order`, `section`, `pagefind`, etc.). Extend it with `chapterSchema.extend({...})` if your book needs additional fields.
 
 ## Features
 
@@ -376,6 +410,40 @@ See also <Ref id="fig:diagram" /> for a visual illustration.
 
 The link text is generated automatically from the registry (e.g. "Theorem 2.3", "equation (2.3)", "Figure 2.1").
 
+### Editor autocomplete for `id`
+
+`registryIntegration` generates `.astro/registry-ids.d.ts` alongside `registry.json`. This file declares a global `RegistryId` union type containing every known registry id. Two additional setup steps wire it into VS Code:
+
+**1. Include the generated type file in `tsconfig.json`:**
+
+```json
+{
+  "include": ["src", ".astro/registry-ids.d.ts"]
+}
+```
+
+**2. Declare `Ref` as a globally-provided MDX component in `src/env.d.ts`:**
+
+```ts
+/// <reference types="astro/client" />
+
+declare module 'mdx/types' {
+  interface MDXProvidedComponents {
+    Ref: (props: {
+      id: RegistryId;
+      altLabel?: string;
+      useTitle?: boolean;
+      short?: boolean;
+      textTransform?: 'lowercase' | 'uppercase' | 'capitalize';
+    }) => import('react').ReactElement | null;
+  }
+}
+```
+
+With both in place, VS Code will offer completions for every registry id when you type `<Ref id="`. The `| (string & {})` tail of the generated union means arbitrary strings are still accepted, so unknown ids don't cause type errors — they just don't appear in the completion list.
+
+The generated file is rebuilt automatically whenever a structural change to any MDX file is detected (new `id=`, label, section ref, etc.), so completions stay in sync during development.
+
 Use `altLabel` to override the link text for a specific reference without changing the registry entry. Inline math with `$...$` is supported:
 
 ```mdx
@@ -404,11 +472,11 @@ Use `short` on a reference to an algorithm line to omit the algorithm name prefi
 
 ```mdx
 {/* Default: includes algorithm name */}
-In <Ref id="alg:dijkstra:relax" />, we update $d(v)$.
+In <Ref id="algo:dijkstra:relax" />, we update $d(v)$.
 {/* renders: "In Dijkstra's Algorithm, line 6, we update d(v)." */}
 
 {/* short: line number only */}
-In <Ref id="alg:dijkstra:relax" short />, we update $d(v)$.
+In <Ref id="algo:dijkstra:relax" short />, we update $d(v)$.
 {/* renders: "In line 6, we update d(v)." */}
 ```
 
@@ -466,7 +534,7 @@ Section numbers are assigned sequentially per chapter in document order, using a
 
 ## Annotated align blocks
 
-`<AnnotatedAlign>` renders a multi-line aligned equation block (like `align*`) where each line can carry an optional reasoning annotation revealed by clicking a small **?** button next to the line.
+`<AnnotatedAlign>` renders a multi-line aligned equation block (like `align*`) where each line can carry an optional annotationing annotation revealed by clicking a small **?** button next to the line.
 
 ```mdx
 import { AnnotatedAlign } from 'astro-math-book/components';
@@ -474,11 +542,11 @@ import { AnnotatedAlign } from 'astro-math-book/components';
 <AnnotatedAlign rows={[
   {
     math: '(a + b)^2 &= a^2 + 2ab + b^2',
-    reason: 'Expand using the binomial identity',
+    annotation: 'Expand using the binomial identity',
   },
   {
     math: '&\\geq 2ab',
-    reason: '$a^2 + b^2 \\geq 0$, so we can drop those terms',
+    annotation: '$a^2 + b^2 \\geq 0$, so we can drop those terms',
   },
   {
     math: '&\\geq 0',
@@ -492,24 +560,69 @@ Use `&` to mark the alignment point, exactly as in LaTeX `align*`. Multiple alig
 <AnnotatedAlign rows={[
   {
     math: 'f(x) &= x^2 + 1  &  g(x) &= x^3 - x',
-    reason: 'Definitions',
+    annotation: 'Definitions',
   },
   {
     math: "f'(x) &= 2x  &  g'(x) &= 3x^2 - 1",
-    reason: 'Differentiate each with respect to $x$',
+    annotation: 'Differentiate each with respect to $x$',
   },
 ]} />
 ```
+
+**Block props:**
+
+| Prop | Type | Description |
+|---|---|---|
+| `id` | `string` | Optional id for the whole block; enables the subequations numbering pattern |
 
 **Row props:**
 
 | Prop | Type | Description |
 |---|---|---|
 | `math` | `string` | Row content with `&` as alignment separators |
-| `reason` | `string` | Optional annotation; supports `$...$` inline math |
+| `annotation` | `string` | Optional annotation; supports `$...$` inline math |
 | `id` | `string` | Optional anchor id for cross-referencing with `<Ref>` |
 
-If no rows have a `reason`, the `?` button column is omitted entirely and the block renders as a plain aligned display.
+If no rows have a `annotation`, the `?` button column is omitted entirely and the block renders as a plain aligned display.
+
+### Numbered block (block id only)
+
+When the block has an `id` but no rows have ids, the block's number is shown on the middle row (lower-middle for even row counts).
+
+```mdx
+<AnnotatedAlign
+  id="eq:shortestPath"
+  rows={[
+    { math: '\\min && \\sum_{e} c_e x_e' },
+    { math: '\\st  && \\sum_{e\\in E^+(s)} x_e &\\geq 1' },
+    { math: '     && x_e &\\in\\{0,1\\}' },
+  ]}
+/>
+```
+
+- `<Ref id="eq:shortestPath" />` renders `(3.5)` and links to the block.
+- The number `(3.5)` is injected automatically on the middle row.
+
+### Subequations (block id + row ids)
+
+When the block has an `id` **and** some rows also have ids, it uses one equation counter slot and the labeled rows are lettered off it — matching LaTeX's `subequations` environment.
+
+```mdx
+<AnnotatedAlign
+  id="eq:lp"
+  rows={[
+    { math: '\\max && \\sum_{v} w_v x_v' },
+    { math: '\\st && x_u + x_v &\\leq 1', id: 'eq:lp-edge' },
+    { math: '&& x_v &\\in\\{0,1\\}',       id: 'eq:lp-bin'  },
+  ]}
+/>
+```
+
+- `<Ref id="eq:lp" />` renders `(3.5)` and links to the whole block.
+- `<Ref id="eq:lp-edge" />` renders `(3.5a)`, `<Ref id="eq:lp-bin" />` renders `(3.5b)`.
+- Row numbers `(3.5a)`, `(3.5b)` are injected automatically into the right margin; no need to write `number:` in the row objects.
+
+Without a block `id`, each row `id` is an independent equation with its own counter slot.
 
 ---
 
@@ -605,7 +718,7 @@ import {
   AlgoIf, AlgoElseIf, AlgoElse,
 } from 'astro-math-book/components';
 
-<Algorithm id="alg:bfs" caption="Breadth-First Search">
+<Algorithm id="algo:bfs" caption="Breadth-First Search">
   <AlgoInput>Graph $G = (V, E)$, source vertex $s$</AlgoInput>
   <AlgoOutput>Distance array $d$</AlgoOutput>
   <AlgoStep>$d[s] \gets 0$; add $s$ to queue $Q$</AlgoStep>
@@ -623,7 +736,7 @@ import {
 </Algorithm>
 ```
 
-Reference the algorithm with `<Ref id="alg:bfs" />` → "Algorithm 2.1".
+Reference the algorithm with `<Ref id="algo:bfs" />` → "Algorithm 2.1".
 
 ### Pseudocode components
 
@@ -1079,3 +1192,4 @@ TypeScript types are provided automatically via `src/virtual.d.ts`.
 | `astro` | `>=4.0.0` |
 | `react` | `>=18.0.0` |
 | `react-dom` | `>=18.0.0` |
+| `zod` | `>=3.0.0` |

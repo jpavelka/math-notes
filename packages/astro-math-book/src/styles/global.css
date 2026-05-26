@@ -842,7 +842,7 @@ body {
   margin-top: 2.5rem;
   margin-bottom: 0.75rem;
   /* reset subsection counter at each section */
-  counter-reset: subsection 0;
+  counter-set: subsection 0;
 }
 
 .content h3 {

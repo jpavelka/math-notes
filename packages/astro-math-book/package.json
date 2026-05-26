@@ -2,6 +2,9 @@
   "name": "astro-math-book",
   "type": "module",
   "version": "0.1.0",
+  "bin": {
+    "create-astro-math-book": "./scripts/create-book.mjs"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./components": "./src/components/math/index.ts",
@@ -11,9 +14,12 @@
   "peerDependencies": {
     "astro": ">=4.0.0",
     "react": ">=18.0.0",
-    "react-dom": ">=18.0.0"
+    "react-dom": ">=18.0.0",
+    "zod": ">=3.0.0"
   },
   "dependencies": {
+    "@astrojs/mdx": "^5.0.4",
+    "@astrojs/react": "^5.0.4",
     "@fontsource/source-serif-4": "^5.2.9",
     "katex": "^0.16.45",
     "remark-math": "^6.0.0",

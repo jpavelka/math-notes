@@ -18,3 +18,4 @@ export { remarkNumberEnvs } from './plugins/remark-number-envs.mjs';
 export { remarkHeadingTexts } from './plugins/remark-heading-texts.mjs';
 export { remarkSectionRefs } from './plugins/remark-section-refs.mjs';
 export { mathBook } from './integration.mjs';
+export { chapterSchema } from './schema';

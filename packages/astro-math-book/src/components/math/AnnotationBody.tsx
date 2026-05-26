@@ -4,7 +4,7 @@ const populateScript = `(function(){
   var body=document.currentScript.previousElementSibling;
   var row=body.dataset.annotBody;
   var block=body.closest('.annot-align-block');
-  var panel=block&&block.querySelector('[data-annot-reason="'+row+'"]');
+  var panel=block&&block.querySelector('[data-annot-annotation="'+row+'"]');
   if(panel) panel.innerHTML=body.innerHTML;
 })();`;
 

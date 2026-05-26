@@ -318,7 +318,7 @@ function readFrontmatterField(source: string, key: string): string | undefined {
 //   tiebreaker  = original filesystem order (stable sort)
 // Single uppercase letter chapter values (A, B, …) use char code (65, 66, …),
 // placing lettered appendices after numeric chapters and before order:101+ back-matter.
-async function collectChapters(dir: string): Promise<Array<{ slug: string; title: string; chapterNum: string | null }>> {
+async function collectChapters(dir: string): Promise<Array<{ slug: string; title: string; chapterNum: string | null; bookPart: string | null }>> {
   async function walk(d: string, prefix = ''): Promise<string[]> {
     const entries = await readdir(d, { withFileTypes: true });
     const results: string[] = [];
@@ -337,6 +337,7 @@ async function collectChapters(dir: string): Promise<Array<{ slug: string; title
   const meta = await Promise.all(slugs.map(async (slug, i) => {
     const src = await readFile(join(dir, `${slug}.mdx`), 'utf8');
     const title = readFrontmatterField(src, 'title') ?? slug;
+    const bookPart = readFrontmatterField(src, 'bookPart') ?? null;
     const order = readFrontmatterField(src, 'order');
     let key: number;
     let chapterNum: string | null = null;
@@ -360,12 +361,12 @@ async function collectChapters(dir: string): Promise<Array<{ slug: string; title
         key = Infinity;
       }
     }
-    return { slug, title, key, i, chapterNum };
+    return { slug, title, key, i, chapterNum, bookPart };
   }));
 
   return meta
     .sort((a, b) => a.key !== b.key ? a.key - b.key : a.i - b.i)
-    .map(({ slug, title, chapterNum }) => ({ slug, title, chapterNum }));
+    .map(({ slug, title, chapterNum, bookPart }) => ({ slug, title, chapterNum, bookPart }));
 }
 
 function findChrome(): string {
@@ -535,7 +536,7 @@ function sanitizeText(text: string): string {
 // Returns the number of TOC pages inserted (needed to offset page-number labels).
 async function insertTableOfContents(
   doc: PDFDocument,
-  chapterOutlines: Array<{ entries: OutlineEntry[]; pageOffset: number; chapterNum: string | null }>,
+  chapterOutlines: Array<{ entries: OutlineEntry[]; pageOffset: number; chapterNum: string | null; bookPart: string | null }>,
 ): Promise<number> {
   interface TocItem {
     title: string;
@@ -549,14 +550,21 @@ async function insertTableOfContents(
   const docPages = doc.getPages();
   const items: TocItem[] = [];
 
+  const ROMAN_NUMERALS = ['I','II','III','IV','V','VI','VII','VIII','IX','X'];
+  let partCount = 0;
   let seenNumericChapter = false;
   let appendixSeparatorInserted = false;
 
-  for (const { entries, pageOffset, chapterNum } of chapterOutlines) {
+  for (const { entries, pageOffset, chapterNum, bookPart } of chapterOutlines) {
     if (entries.length === 0) continue;
 
     const isNumeric = chapterNum !== null && /^\d+$/.test(chapterNum);
     const isAppendix = chapterNum !== null && /^[A-Z]$/.test(chapterNum);
+    if (!isAppendix && bookPart !== null) {
+      partCount++;
+      const roman = ROMAN_NUMERALS[partCount - 1] ?? String(partCount);
+      items.push({ title: `Part ${roman}: ${bookPart}`, pageIndex: 0, level: 0, pageRef: null as unknown as PDFRef, isSeparator: true });
+    }
     if (isNumeric) seenNumericChapter = true;
     if (isAppendix && seenNumericChapter && !appendixSeparatorInserted) {
       items.push({ title: 'Appendices', pageIndex: 0, level: 0, pageRef: null as unknown as PDFRef, isSeparator: true });
@@ -922,9 +930,9 @@ async function main() {
   try {
     console.log(`Printing ${chapters.length} chapter(s)…\n`);
 
-    const generated: Array<{ slug: string; title: string; pdfPath: string; chapterNum: string | null }> = [];
+    const generated: Array<{ slug: string; title: string; pdfPath: string; chapterNum: string | null; bookPart: string | null }> = [];
 
-    for (const { slug, title, chapterNum } of chapters) {
+    for (const { slug, title, chapterNum, bookPart } of chapters) {
       const url = `${BASE}/${slug.toLowerCase()}`;
       const outFile = join(CHAPTERS_OUT, `${slug.replace(/\//g, '_')}.pdf`);
       console.log(`  ${url} → ${outFile}`);
@@ -951,7 +959,7 @@ async function main() {
         await page.pdf({ path: outFile, format: 'A4', printBackground: true, outline: true });
         await page.close();
         console.log(`  ✓ saved`);
-        generated.push({ slug, title, pdfPath: outFile, chapterNum });
+        generated.push({ slug, title, pdfPath: outFile, chapterNum, bookPart });
       } catch (err) {
         console.error(`  ✗ ${err}`);
       }
@@ -965,7 +973,7 @@ async function main() {
       const merged = await PDFDocument.create();
       merged.setTitle(bookTitle);
 
-      const chapterOutlines: Array<{ entries: OutlineEntry[]; pageOffset: number; chapterNum: string | null }> = [];
+      const chapterOutlines: Array<{ entries: OutlineEntry[]; pageOffset: number; chapterNum: string | null; bookPart: string | null }> = [];
       const slugMap = new Map<string, { pageOffset: number; anchors: Map<string, AnchorDest> }>();
 
       for (const ch of generated) {
@@ -984,7 +992,7 @@ async function main() {
         const mdxTexts = await mdxHeadingTexts(join(ROOT, 'content', `${ch.slug}.mdx`), macros, registry);
         const h1 = latexToUnicode(expandMacros(ch.title, macros));
         patchEntryTitles(entries, [h1, ...mdxTexts]);
-        chapterOutlines.push({ entries, pageOffset, chapterNum: ch.chapterNum });
+        chapterOutlines.push({ entries, pageOffset, chapterNum: ch.chapterNum, bookPart: ch.bookPart });
 
         const copied = await merged.copyPages(doc, doc.getPageIndices());
         copied.forEach(pg => merged.addPage(pg));

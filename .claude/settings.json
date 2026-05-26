@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // \"\"' | { read -r f; echo \"$f\" | grep -q 'packages/astro-math-book/' && echo \"$f\" | grep -qv 'README' && printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"REMINDER: You just modified a file in packages/astro-math-book/. Check whether packages/astro-math-book/README.md needs to be updated (new props, removed props, new components, changed behaviour, new exports).\"}}' || true; }"
+          }
+        ]
+      }
+    ]
+  }
+}

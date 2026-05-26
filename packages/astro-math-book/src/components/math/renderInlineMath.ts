@@ -15,9 +15,9 @@ export function renderInlineMath(text: string): string {
  * via the existing CSS.
  *
  * Use this in contexts where JSX components cannot be embedded in a string,
- * e.g. AnnotatedAlign reason strings.
+ * e.g. AnnotatedAlign annotation strings.
  */
-export function renderReasonText(text: string): string {
+export function renderAnnotationText(text: string): string {
   return text
     .replace(/\$([^$]+)\$/g, (_, math) =>
       katex.renderToString(math, { throwOnError: false, output: 'html', macros: katexMacros })

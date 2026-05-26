@@ -55,6 +55,38 @@ export function remarkNumberEnvs({ getRegistryPath, getChaptersDir, numberedEnvi
     let fallbackCount = 0;
 
     visit(tree, 'mdxJsxFlowElement', (node) => {
+      if (node.name === 'AnnotatedAlign') {
+        // remark-equations (which runs before this plugin) replaces the rows
+        // ArrayExpression with exprAttr('rows', plainArray) — a Literal node
+        // whose .value is the actual JS array. Row-level numbers for subequations
+        // are already injected by remark-equations. Here we only need to handle
+        // the block-id-only case: no row has a number yet, so show the block
+        // number on the last row.
+        const blockIdAttr = node.attributes?.find(a => a.name === 'id');
+        const blockId = typeof blockIdAttr?.value === 'string' ? blockIdAttr.value : null;
+        if (!blockId || !registry[blockId]) return;
+
+        const rowsAttr = node.attributes?.find(a => a.name === 'rows');
+        const expr = rowsAttr?.value?.data?.estree?.body?.[0]?.expression;
+        if (!expr || expr.type !== 'Literal' || !Array.isArray(expr.value)) return;
+
+        const rows = expr.value;
+        // If any row already has a number, remark-equations handled this block.
+        if (rows.some(r => r?.number != null)) return;
+
+        const blockNum = registry[blockId].number;
+        if (blockNum == null) return;
+        const midIdx = Math.floor((rows.length - 1) / 2);
+        const lastRow = rows[midIdx];
+        if (!lastRow) return;
+
+        lastRow.number = String(blockNum);
+        const updated = JSON.stringify(rows);
+        expr.raw = updated;
+        rowsAttr.value.value = updated;
+        return;
+      }
+
       if (!NUMBERED.has(node.name)) return;
       const thisIdx = envIndex++;
       if (node.attributes.some((a) => a.name === 'number')) return;

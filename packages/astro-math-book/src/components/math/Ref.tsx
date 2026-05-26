@@ -95,10 +95,9 @@ export function Ref({ id, altLabel, useTitle, short, textTransform }: Props) {
     tooltipHTML = `<strong>${prefix}</strong>${titleHTML}`;
   } else {
     const isCaption = isFloat;
-    const titleHTML = entry.title
-      ? isCaption
-        ? `. <em>${renderInlineMath(entry.title)}</em>`
-        : ` <em>(${renderInlineMath(entry.title)})</em>`
+    const captionContent = entry.captionHTML ?? (entry.title ? renderInlineMath(entry.title) : '');
+    const titleHTML = captionContent
+      ? isCaption ? `. <em>${captionContent}</em>` : ` <em>(${captionContent})</em>`
       : '';
     const labelHTML = `<span style="display:block;margin-bottom:0.4em"><strong>${entry.type} ${entry.number}</strong>${titleHTML}</span>`;
     tooltipHTML = labelHTML + bodyHTML;

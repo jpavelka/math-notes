@@ -59,9 +59,9 @@
   /* Footnote bodies must stay hidden — never let them bleed into print layout */
   .footnote-body { display: none !important; }
 
-  /* Hide annotation toggles and open reason panels */
+  /* Hide annotation toggles and open annotation panels */
   .annot-align-toggle-cell { display: none !important; }
-  .annot-align-reason { display: none !important; }
+  .annot-align-annotation { display: none !important; }
 
   /* YouTube embeds: swap iframe for thumbnail + link */
   .yt-embed-screen { display: none !important; }

@@ -160,12 +160,15 @@ function makeSerializer(katexMacros) {
 
   // Render a prop that may be a plain string or a JSX expression to HTML.
   function getAttrHtml(attrs, name) {
-    const str = getAttrString(attrs, name);
-    if (str != null) return renderAttr(str);
     const a = attrs?.find(a => a.name === name);
     if (!a) return '';
+    if (typeof a.value === 'string') return renderAttr(a.value);
     const expr = a.value?.data?.estree?.body?.[0]?.expression;
-    return expr ? jsxEstreeToHtml(expr) : '';
+    if (!expr) return a.value?.value ? renderAttr(a.value.value) : '';
+    // Plain literal — treat as string with inline math
+    if (expr.type === 'Literal') return renderAttr(String(expr.value));
+    // JSX fragment/element — walk the JSX AST (handles <Ref> → placeholders)
+    return jsxEstreeToHtml(expr);
   }
 
   function nodeToHtml(node, svg = false) {
@@ -293,10 +296,12 @@ function getAttrString(attrs, name) {
   const a = attrs?.find((a) => a.name === name);
   if (!a) return null;
   if (typeof a.value === 'string') return a.value;
-  // Expression attribute — try to extract literal value
+  // Expression attribute — only return a value for plain string literals.
+  // Non-literal expressions (JSX fragments, etc.) return null; callers that
+  // need HTML from JSX should use getAttrHtml instead.
   const lit = a.value?.data?.estree?.body?.[0]?.expression;
   if (lit?.type === 'Literal') return String(lit.value);
-  return a.value?.value ?? null;
+  return null;
 }
 
 function getBoolAttr(attrs, name) {
@@ -545,6 +550,7 @@ function collectItems(tree, katexMacros, environments = []) {
         items.push({ id, autoIdx: thisIdx, type: 'Video', kind: 'float', ...(labelAttr ? { label: labelAttr } : {}), title: caption ?? undefined, contentHTML: thumbHTML });
       } else if (FLOAT_ENVS.has(node.name)) {
         const caption = getAttrString(node.attributes, 'caption');
+        const captionHTML = getAttrHtml(node.attributes, 'caption') || undefined;
         items.push({
           id,
           autoIdx: thisIdx,
@@ -552,6 +558,7 @@ function collectItems(tree, katexMacros, environments = []) {
           kind: 'float',
           ...(labelAttr ? { label: labelAttr } : {}),
           title: caption ?? undefined,
+          ...(captionHTML ? { captionHTML } : {}),
           contentHTML: nodesToHtml(node.children),
         });
         if (node.name === 'Algorithm') {
@@ -562,7 +569,8 @@ function collectItems(tree, katexMacros, environments = []) {
         const desc = envMap.get(node.name);
         if (desc?.kind === 'float') {
           const caption = getAttrString(node.attributes, 'caption');
-          items.push({ id, autoIdx: thisIdx, type: desc.type ?? node.name, kind: 'float', ...(labelAttr ? { label: labelAttr } : {}), title: caption ?? undefined, contentHTML: nodesToHtml(node.children) });
+          const captionHTML = getAttrHtml(node.attributes, 'caption') || undefined;
+          items.push({ id, autoIdx: thisIdx, type: desc.type ?? node.name, kind: 'float', ...(labelAttr ? { label: labelAttr } : {}), title: caption ?? undefined, ...(captionHTML ? { captionHTML } : {}), contentHTML: nodesToHtml(node.children) });
         } else if (desc?.collectContent) {
           const result = desc.collectContent(node, { getAttrString, nodesToHtml });
           items.push({ id, autoIdx: thisIdx, type: desc.type ?? node.name, ...(labelAttr ? { label: labelAttr } : {}), ...result });
@@ -589,20 +597,34 @@ function collectItems(tree, katexMacros, environments = []) {
       if (!rowsExpr) return;
       const rows = evalEstreeExpr(rowsExpr, {});
       if (!Array.isArray(rows)) return;
-      for (const row of rows) {
-        if (!row?.id || !row?.math) continue;
-        const mathClean = String(row.math).replace(/&/g, ' ').trim();
+      const blockId = getAttrString(node.attributes, 'id');
+      if (blockId) {
+        // Block-level id: subequations pattern — one counter slot for the group.
         items.push({
-          id: row.id,
-          type: 'Equation',
-          kind: 'equation',
-          ...(row.label ? { label: String(row.label) } : {}),
-          contentHTML: katex.renderToString(mathClean, {
-            displayMode: true,
-            throwOnError: false,
-            macros: katexMacros,
-          }),
+          type: 'SubAlignGroup',
+          id: blockId,
+          rows: rows.filter(r => r?.math).map(r => ({
+            id: r.id ?? null,
+            math: String(r.math),
+            ...(r.label ? { label: String(r.label) } : {}),
+          })),
         });
+      } else {
+        // No block id: each row with an id gets its own independent equation slot.
+        for (const row of rows) {
+          if (!row?.id || !row?.math) continue;
+          items.push({
+            id: row.id,
+            type: 'Equation',
+            kind: 'equation',
+            ...(row.label ? { label: String(row.label) } : {}),
+            contentHTML: katex.renderToString(`\\begin{aligned}${String(row.math).trim()}\\end{aligned}`, {
+              displayMode: true,
+              throwOnError: false,
+              macros: katexMacros,
+            }),
+          });
+        }
       }
     } else if (node.type === 'heading') {
       const children = node.children ?? [];
@@ -622,6 +644,7 @@ function collectItems(tree, katexMacros, environments = []) {
         id,
         type: 'Section',
         kind: 'section',
+        depth: node.depth,
         title: headingToText(titleChildren),
         contentHTML: '',
       });
@@ -759,6 +782,7 @@ function buildRegistry(root, katexMacros = {}, environments = [], symbols = [], 
     const ch = frontmatter.chapter ?? 0;
     let count = 0;
     let sectionCount = 0;
+    let subsectionCount = 0;
     const checkDupe = (id) => {
       if (seenIds.has(id)) {
         throw new Error(`[registry] duplicate id "${id}" in ${slug} (first seen in ${seenIds.get(id)})`);
@@ -801,13 +825,21 @@ function buildRegistry(root, katexMacros = {}, environments = [], symbols = [], 
         continue;
       }
       if (item.type === 'Section') {
-        sectionCount++;
         checkDupe(item.id);
+        let number;
+        if (item.depth <= 2) {
+          sectionCount++;
+          subsectionCount = 0;
+          number = `${ch}.${sectionCount}`;
+        } else {
+          subsectionCount++;
+          number = `${ch}.${sectionCount}.${subsectionCount}`;
+        }
         registry[item.id] = {
           id: item.id,
           type: 'Section',
           kind: 'section',
-          number: `${ch}.${sectionCount}`,
+          number,
           ...(item.title ? { title: item.title } : {}),
           chapter: ch,
           contentHTML: '',
@@ -838,6 +870,45 @@ function buildRegistry(root, katexMacros = {}, environments = [], symbols = [], 
             href: `${base}/${slug}#${id}`,
           };
         });
+      } else if (item.type === 'SubAlignGroup') {
+        const blockNum = `${ch}.${count}`;
+        // Register the block itself
+        checkDupe(item.id);
+        const allMath = item.rows.map(r => r.math).join(' \\\\ ');
+        registry[item.id] = {
+          id: item.id,
+          type: 'Equation',
+          kind: 'equation',
+          number: blockNum,
+          chapter: ch,
+          contentHTML: katex.renderToString(`\\begin{aligned}${allMath}\\end{aligned}`, {
+            displayMode: true,
+            throwOnError: false,
+            macros: katexMacros,
+          }),
+          href: `${base}/${slug}#${item.id}`,
+        };
+        // Register each row that has an id, lettered a, b, c, …
+        const numberedRows = item.rows.filter(r => r.id);
+        numberedRows.forEach((row, i) => {
+          const rowNum = `${blockNum}${String.fromCharCode(97 + i)}`;
+          checkDupe(row.id);
+          if (row.label) checkDupeLabel(row.label, row.id, slug);
+          registry[row.id] = {
+            id: row.id,
+            type: 'Equation',
+            kind: 'equation',
+            number: rowNum,
+            ...(row.label ? { label: row.label } : {}),
+            chapter: ch,
+            contentHTML: katex.renderToString(`\\begin{aligned}${row.math.trim()}\\end{aligned}`, {
+              displayMode: true,
+              throwOnError: false,
+              macros: katexMacros,
+            }),
+            href: `${base}/${slug}#${row.id}`,
+          };
+        });
       } else {
         const effectiveId = item.id ?? `__auto-${slug}-${item.autoIdx}`;
         checkDupe(effectiveId);
@@ -849,6 +920,7 @@ function buildRegistry(root, katexMacros = {}, environments = [], symbols = [], 
           number: `${ch}.${count}`,
           ...(item.label ? { label: item.label } : {}),
           ...(item.title ? { title: item.title } : {}),
+          ...(item.captionHTML ? { captionHTML: item.captionHTML } : {}),
           ...(item.alt?.length ? { alt: item.alt } : {}),
           chapter: ch,
           contentHTML: item.contentHTML,
@@ -877,23 +949,27 @@ function buildRegistry(root, katexMacros = {}, environments = [], symbols = [], 
       : (t) => t.replace(/\b\w/g, c => c.toUpperCase());
     return s.split(/(\$[^$]+\$)/).map((part, i) => i % 2 === 0 ? fn(part) : part).join('');
   };
+  const refReplacer = (_, payload) => {
+    let refId, useTitle = false, altLabel = null, textTransform = null;
+    try {
+      const props = JSON.parse(payload);
+      refId = props.id; useTitle = props.useTitle ?? false;
+      altLabel = props.altLabel ?? null; textTransform = props.textTransform ?? null;
+    } catch { refId = payload; }
+    const ref = registry[refId];
+    if (!ref) return `<span style="color:red">[?:${esc(refId)}]</span>`;
+    let rawLabel;
+    if (altLabel) rawLabel = altLabel;
+    else if (useTitle && ref.title) rawLabel = ref.title;
+    else rawLabel = ref.type === 'Equation' ? `(${ref.label ?? ref.number})` : (ref.label ?? `${ref.type} ${ref.number}`);
+    if (textTransform) rawLabel = applyRefTransform(rawLabel, textTransform);
+    return `<a href="${esc(ref.href)}" class="ref-link">${renderRefLabel(rawLabel)}</a>`;
+  };
   for (const entry of Object.values(registry)) {
-    entry.contentHTML = entry.contentHTML.replace(/\x00REF:([^\x00]+)\x00/g, (_, payload) => {
-      let refId, useTitle = false, altLabel = null, textTransform = null;
-      try {
-        const props = JSON.parse(payload);
-        refId = props.id; useTitle = props.useTitle ?? false;
-        altLabel = props.altLabel ?? null; textTransform = props.textTransform ?? null;
-      } catch { refId = payload; }
-      const ref = registry[refId];
-      if (!ref) return `<span style="color:red">[?:${esc(refId)}]</span>`;
-      let rawLabel;
-      if (altLabel) rawLabel = altLabel;
-      else if (useTitle && ref.title) rawLabel = ref.title;
-      else rawLabel = ref.type === 'Equation' ? `(${ref.label ?? ref.number})` : (ref.label ?? `${ref.type} ${ref.number}`);
-      if (textTransform) rawLabel = applyRefTransform(rawLabel, textTransform);
-      return renderRefLabel(rawLabel);
-    });
+    entry.contentHTML = entry.contentHTML.replace(/\x00REF:([^\x00]+)\x00/g, refReplacer);
+    if (entry.captionHTML) {
+      entry.captionHTML = entry.captionHTML.replace(/\x00REF:([^\x00]+)\x00/g, refReplacer);
+    }
   }
 
   // Inject symbol entries from symbols.ts
@@ -925,6 +1001,13 @@ function buildRegistry(root, katexMacros = {}, environments = [], symbols = [], 
   mkdirSync(astroDir, { recursive: true });
   writeFileSync(join(astroDir, 'registry.json'), JSON.stringify(registry, null, 2));
   console.log(`[registry] ${Object.keys(registry).length} entries → .astro/registry.json`);
+
+  const namedIds = Object.keys(registry).filter(id => !id.startsWith('__auto'));
+  const unionLines = namedIds.map(id => `  | ${JSON.stringify(id)}`).join('\n');
+  writeFileSync(
+    join(astroDir, 'registry-ids.d.ts'),
+    `// Auto-generated by registryIntegration — do not edit\ndeclare type RegistryId =\n${unionLines}\n  | (string & {});\n`
+  );
 }
 
 // ── Astro integration ────────────────────────────────────────────────────────

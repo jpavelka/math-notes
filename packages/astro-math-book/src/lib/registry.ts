@@ -18,6 +18,8 @@ export interface RegistryEntry {
   /** optional display label overriding the number, e.g. "★" or "FTC" */
   label?: string;
   title?: string;
+  /** For float entries: pre-rendered caption HTML (may contain inline KaTeX). Used in cross-chapter tooltips when the caption is a JSX expression that can't be stored as a plain string. */
+  captionHTML?: string;
   /** Alternate terms for this entry (used for search and glossary "See …" entries) */
   alt?: string[];
   chapter: number | string;

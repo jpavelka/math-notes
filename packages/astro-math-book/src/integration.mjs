@@ -84,6 +84,9 @@ export function mathBook(options = {}) {
 
         updateConfig({
           vite: {
+            resolve: {
+              dedupe: ['react', 'react-dom'],
+            },
             plugins: [{
               name: 'astro-math-book-virtual',
               resolveId(id) {

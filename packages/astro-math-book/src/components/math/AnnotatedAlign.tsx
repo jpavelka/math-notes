@@ -1,11 +1,11 @@
 import React from 'react';
 import katex from 'katex';
 import { katexMacros } from 'virtual:astro-math-book/katex-macros';
-import { renderReasonText } from './renderInlineMath';
+import { renderAnnotationText } from './renderInlineMath';
 
 export interface AlignRow {
   math: string;              // row content; use & as alignment separator (same as LaTeX align*)
-  reason?: string;           // optional annotation; supports $...$ inline math
+  annotation?: string;       // optional annotation; supports $...$ inline math
   body?: boolean;            // set true when annotation content comes from an <AnnotationBody row={i}> child
   id?: string;               // optional HTML anchor id for cross-referencing
   number?: string | number;  // injected automatically by the remark plugin; can be overridden
@@ -28,45 +28,48 @@ function renderSeg(src: string, continuation = false): string {
 const toggleScript = `(function(){
   var b=document.currentScript.previousElementSibling;
   b.querySelectorAll('[data-annot-toggle]').forEach(function(btn){
-    var reason=b.querySelector('[data-annot-reason="'+btn.dataset.annotToggle+'"]');
+    var panel=b.querySelector('[data-annot-annotation="'+btn.dataset.annotToggle+'"]');
     btn.addEventListener('click',function(){
       var wasOpen=btn.classList.contains('annot-align-btn--open');
-      b.querySelectorAll('[data-annot-reason]').forEach(function(r){r.style.display='none';});
+      b.querySelectorAll('[data-annot-annotation]').forEach(function(r){r.style.display='none';});
       b.querySelectorAll('[data-annot-toggle]').forEach(function(t){
         t.classList.remove('annot-align-btn--open');
-        t.setAttribute('aria-label','Show reasoning');
+        t.setAttribute('aria-label','Show annotation');
       });
-      if(!wasOpen&&reason){
-        reason.style.display='';
+      if(!wasOpen&&panel){
+        panel.style.display='';
         btn.classList.add('annot-align-btn--open');
-        btn.setAttribute('aria-label','Hide reasoning');
+        btn.setAttribute('aria-label','Hide annotation');
       }
     });
   });
-  b.querySelectorAll('.annot-align-reason .ref').forEach(function(ref){
+  b.querySelectorAll('.annot-align-annotation .ref').forEach(function(ref){
     ref.addEventListener('mouseenter',function(){ b.classList.add('has-open-ref-tooltip'); });
     ref.addEventListener('mouseleave',function(){ b.classList.remove('has-open-ref-tooltip'); });
   });
 })();`;
 
-export function AnnotatedAlign({ rows = [], children }: { rows?: AlignRow[]; children?: React.ReactNode }) {
+export function AnnotatedAlign({ id, rows = [], children }: { id?: string; rows?: AlignRow[]; children?: React.ReactNode }) {
   const maxCols = rows.reduce((m, r) => Math.max(m, r.math.split('&').length), 1);
-  const hasReasons = rows.some(r => r.reason || r.body);
+  const hasAnnotations = rows.some(r => r.annotation || r.body);
   const hasNumbers = rows.some(r => r.number != null || r.label != null);
 
-  const toggleColIdx = maxCols + 1;
-  const numberColIdx = maxCols + (hasReasons ? 1 : 0) + 1;
-  const totalCols    = maxCols + (hasReasons ? 1 : 0) + (hasNumbers ? 1 : 0);
+  // Layout: [1fr] [math cols…] [toggle?] [1fr] [number?]
+  // The two 1fr spacers center the math content; number is pinned at the right edge.
+  const toggleColIdx = maxCols + 2;
+  const numberColIdx = maxCols + (hasAnnotations ? 1 : 0) + 3;
 
   const colTemplate = [
+    '1fr',
     ...Array.from({ length: maxCols }, () => 'max-content'),
-    ...(hasReasons ? ['1.5rem'] : []),
+    ...(hasAnnotations ? ['1.5rem'] : []),
+    '1fr',
     ...(hasNumbers ? ['3.5rem'] : []),
   ].join(' ');
 
   return (
     <>
-      <div className="annot-align-block">
+      <div className="annot-align-block" {...(id ? { id } : {})}>
         <div
           className="annot-align-grid"
           style={{
@@ -84,8 +87,8 @@ export function AnnotatedAlign({ rows = [], children }: { rows?: AlignRow[]; chi
                 {Array.from({ length: maxCols }, (_, ci) => (
                   <span
                     key={ci}
-                    className={`annot-align-cell ${ci % 2 === 0 ? 'annot-align-cell--r' : 'annot-align-cell--l'}`}
-                    style={{ gridRow: mathRow, gridColumn: ci + 1 }}
+                    className={`annot-align-cell ${ci % 2 === 0 ? 'annot-align-cell--r' : 'annot-align-cell--l'}${ci > 0 && ci % 2 === 0 ? ' annot-align-cell--pair-r' : ''}`}
+                    style={{ gridRow: mathRow, gridColumn: ci + 2 }}
                   >
                     {ci === 0 && row.id && (
                       <span id={row.id} className="subeq-anchor" />
@@ -94,17 +97,17 @@ export function AnnotatedAlign({ rows = [], children }: { rows?: AlignRow[]; chi
                   </span>
                 ))}
 
-                {hasReasons && (
+                {hasAnnotations && (
                   <span
                     className="annot-align-toggle-cell"
                     style={{ gridRow: mathRow, gridColumn: toggleColIdx }}
                   >
-                    {(row.reason || row.body) && (
+                    {(row.annotation || row.body) && (
                       <button
                         className="annot-align-btn"
                         data-annot-toggle={ri}
                         type="button"
-                        aria-label="Show reasoning"
+                        aria-label="Show annotation"
                       >
                         ?
                       </button>
@@ -123,18 +126,18 @@ export function AnnotatedAlign({ rows = [], children }: { rows?: AlignRow[]; chi
                   </span>
                 )}
 
-                {hasReasons && (row.reason || row.body) && (
-                  row.reason ? (
+                {hasAnnotations && (row.annotation || row.body) && (
+                  row.annotation ? (
                     <span
-                      className="annot-align-reason"
-                      data-annot-reason={ri}
+                      className="annot-align-annotation"
+                      data-annot-annotation={ri}
                       style={{ display: 'none', gridRow: annotRow, gridColumn: '1 / -1' }}
-                      dangerouslySetInnerHTML={{ __html: renderReasonText(row.reason) }}
+                      dangerouslySetInnerHTML={{ __html: renderAnnotationText(row.annotation) }}
                     />
                   ) : (
                     <span
-                      className="annot-align-reason"
-                      data-annot-reason={ri}
+                      className="annot-align-annotation"
+                      data-annot-annotation={ri}
                       style={{ display: 'none', gridRow: annotRow, gridColumn: '1 / -1' }}
                     />
                   )
@@ -145,7 +148,7 @@ export function AnnotatedAlign({ rows = [], children }: { rows?: AlignRow[]; chi
         </div>
         {children}
       </div>
-      {hasReasons && (
+      {hasAnnotations && (
         <script dangerouslySetInnerHTML={{ __html: toggleScript }} />
       )}
     </>

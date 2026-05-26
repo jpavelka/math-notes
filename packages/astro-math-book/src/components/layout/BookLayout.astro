@@ -423,7 +423,7 @@ const currentChapterPart = currentChapterId ? partMap.get(currentChapterId) : un
       }
 
       function addRefDragHandle(tooltip: HTMLElement) {
-        if (tooltip.querySelector('.ref-drag-handle')) return;
+        if (tooltip.querySelector(':scope > .ref-drag-handle')) return;
         const handle = document.createElement('div');
         handle.className = 'ref-drag-handle';
         const pinBtn = tooltip.querySelector('.ref-pin-btn');

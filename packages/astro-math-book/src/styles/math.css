@@ -61,8 +61,9 @@
   justify-content: center;
 }
 
-/* Remove default katex-display margins inside our flex container */
-.equation-block .katex-display {
+/* Remove default katex-display margins inside our flex container and tooltips */
+.equation-block .katex-display,
+.ref-tooltip .katex-display {
   margin: 0;
 }
 
@@ -140,19 +141,23 @@
   overflow-y: hidden;
 }
 
+.annot-align-block[id] {
+  scroll-margin-top: 4rem;
+}
+
 .annot-align-block.has-open-ref-tooltip {
   overflow: visible;
 }
 
 .annot-align-grid {
   display: grid;
-  width: fit-content;
-  margin: 0 auto;
+  width: 100%;
+  align-items: baseline;
 }
 
 .annot-align-cell {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   padding: 0.2em 0;
 }
 
@@ -162,6 +167,11 @@
 
 .annot-align-cell--l {
   justify-content: flex-start;
+}
+
+/* inter-pair gap: matches \quad spacing between column pairs in LaTeX align */
+.annot-align-cell--pair-r {
+  padding-left: 1em;
 }
 
 .annot-align-num {
@@ -210,7 +220,7 @@
   color: var(--bg, #fff);
 }
 
-.annot-align-reason {
+.annot-align-annotation {
   display: block;
   contain: inline-size;
   padding: 0.3em 0.7em;
@@ -257,6 +267,13 @@
 .math-figure-content {
   display: inline-block;
   max-width: 100%;
+}
+
+/* The global .katex-display { overflow-x: auto } rule causes an inline-block
+   to collapse to min-content width, making even narrow equations scroll.
+   Inside a figure the content drives the width, so overflow must stay visible. */
+.math-figure-content .katex-display {
+  overflow: visible;
 }
 
 .math-figure-caption {
@@ -610,13 +627,24 @@
 /* ── Tooltip drag handle ── */
 .ref-drag-handle {
   display: block;
-  height: 4px;
-  margin-bottom: 0.55em;
+  height: 16px;
+  margin-bottom: 0.2em;
   margin-right: 1.8em;
-  border-radius: 2px;
   cursor: grab;
   opacity: 0.3;
   transition: opacity 0.12s;
+  position: relative;
+}
+
+.ref-drag-handle::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 4px;
+  border-radius: 2px;
   background-color: var(--border);
 }
 

@@ -1,0 +1,14 @@
+{
+  "Ref component (after <)": {
+    "scope": "mdx",
+    "prefix": "Ref",
+    "body": "Ref id=\"$1\"/$0",
+    "description": "Complete <Ref id=\"\"/> when editor auto-closed the >"
+  },
+  "Ref component (fresh)": {
+    "scope": "mdx",
+    "prefix": "ref",
+    "body": "<Ref id=\"$1\"/>$0",
+    "description": "Insert full <Ref id=\"\"/> from scratch"
+  }
+}
