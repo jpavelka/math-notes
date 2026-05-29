@@ -118,8 +118,6 @@ $$
 
 Let's try to make this more concrete, yes? As luck would have it, we've already seen a few polynomial algorithms. One such example is <Ref id="algo:prim"/> for <Ref id="prob:mst"/>. To show this, let's first analyze the length of an instance $X$ of <Ref id="prob:mst"/>. Actually, we won't be quite as formal as the above definitions would imply. For our purposes, it is good enough to just determine the main elements of the input length, which we'll loosely define as the relevant parameters whose combination gives the input length. To describe the input for <Ref id="prob:mst"/>, we need to identify the vertices and edges, plus give costs $c_e$ for each $e\in\{i,j\}$. If we let $C=\max_{e\in E} c_e$, then we can safely bound the input length by something on the order of $|V| + |E|\log C$.
 
-<Ref id="prob:"/>
-
 Now let's think about the algorithm. How many elementary operations might it take (in a worst case) to complete <Ref id="algo:prim"/>? In each pass through the main iteration, we add a new edge to the tree. This keeps going until the tree is a spanning tree, so $|V|-1$ iterations in the main loop. Each loop requires us to check the costs on each edge incident to $U$. While the size of $U$ changes, we know in every case that the number of edges we check can be no more than $|E|$. So that's $\O{|E|}$ checks of edge costs, over $|V|-1\in\O{|V|}$ iterations, or $\O{|V||E|}$ operations.
 
 Do we need to keep counting operations? I'd say no. Yes, there is the initialization step, but those are just one-off operations. Whatever we do there won't add up to anything that's $\O{|V||E|}$, so the initialization won't affect things asymptotically. Remember, the beauty of using big-O notation is that we don't need to sweat the small stuff!

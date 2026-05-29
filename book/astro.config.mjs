@@ -42,6 +42,6 @@ export default defineConfig({
     ],
   },
   integrations: [
-    mathBook({ katexMacros, symbols, bookSlug: 'sample', contentDir: 'content', urlBase: '', bibliographyHref: '/d-references' }),
+    mathBook({ katexMacros, symbols, bookSlug: 'sample', contentDir: 'content', urlBase: '', symbolsSlug: 'notation', bibliographyHref: '/references' }),
   ],
 });

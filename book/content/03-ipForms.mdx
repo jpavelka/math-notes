@@ -26,7 +26,7 @@ This is a little confusing, since you can certainly formulate a mathematical pro
 
 There are a few common components to mathematical programming or optimization problems, integer programming included.
 
-<Definition id="def:decisionVariable" title="Decision Variable" alt="Variable">
+<Definition id="def:variable" title="Variable" alt="Decision Variable">
 A quantity that can be adjusted while solving an optimization problem.
 </Definition>
 
@@ -52,7 +52,21 @@ A <Ref id="def:solution" useTitle textTransform="lowercase"/> to an optimization
 A <Ref id="def:solution" useTitle textTransform="lowercase"/> to an optimization problem that does not satisfy all <Ref id="def:constraint" altLabel="constraints"/> (i.e. violates at least one <Ref id="def:constraint" altLabel="constraint"/>).
 </Definition>
 
-The goal of an optimization problem is to find an _optimal solution_, a feasible solution that obtains the best possible objective function value. Note the language: we're looking for _an_ optimal solution, not _the_ optimal solution. It is very possible for an optimization problem to have multiple optimal solutions, but we are generally only tasked with finding one of them. Conversely, it is also possible for a problem to have _no_ feasible solutions (a so-called _infeasible problem_), in which case there are no optimal solutions either.
+<Definition id="def:feasibleRegion" title="Feasible Region">
+The set of all <Ref id="def:feasibleSolution" altLabel="feasible solutions"/> to an optimization problem.
+</Definition>
+
+Optimization problems often use inequality constraints, i.e. constraints of the form $f(x)\leq b$ for some function $f$ and right-hand side value $b\in\R$. Sometimes we are interested not just in if a solution satisfies a constraint, but also whether or not the constraint is met at equality ($f(x)=b$) versus having some "wiggle room".
+
+<Definition id="def:tightConstraint" title="Tight Constraint">
+In optimization, a <Ref id="def:constraint"/> in inequality form $f(x)\leq b$ is said to be **tight** at some solution $x'$ if $f(x)=b$.
+</Definition>
+
+<Definition id="def:relaxedConstraint" title="Relaxed Constraint" alt="Slack constraint">
+In optimization, a <Ref id="def:constraint"/> in inequality form $f(x)\leq b$ is said to be **relaxed** at some solution $x'$ if $f(x)<b$.
+</Definition>
+
+The goal of an optimization problem is to find an _optimal solution_, a feasible solution that obtains the best possible objective function value. Note the language: we're looking for _an_ optimal solution, not _the_ optimal solution. It is very possible for an optimization problem to have multiple optimal solutions, but we are generally only tasked with finding one of them. Conversely, it is also possible for a problem to have _no_ feasible solutions (a so-called _infeasible problem_), or for the problem to be under-constrained in a way that allows solutions of artitrarily high value (an _unbounded problem_). In either of these cases, there is no optimal solution.
 
 <Definition id="def:optimalSolution" title="Optimal Solution">
 A <Ref id="def:feasibleSolution" altLabel="feasible solution"/> that obtains the most favorable (maximum for a maximization problem, or minimum for a minimization problem) <Ref id="def:objectiveFunction" altLabel="objective function"/> value.
@@ -60,6 +74,18 @@ A <Ref id="def:feasibleSolution" altLabel="feasible solution"/> that obtains the
 
 <Definition id="def:infeasibleProblem" title="Infeasible Problem">
 An optimization problem for which all solutions are <Ref id="def:infeasibleSolution" altLabel="infeasible"/>.
+</Definition>
+
+<Definition id="def:feasibleProblem" title="Feasible Problem">
+An optimization problem for which <Ref id="def:feasibleSolution" altLabel="feasible solutions"/> exist.
+</Definition>
+
+<Definition id="def:unboundedProblem" title="Unbounded Problem">
+An optimization problem for which <Ref id="def:feasibleSolution" altLabel="feasible solutions"/> can attain arbitrarily high (maximization) or low (minimization) <Ref id="def:objectiveFunction" textTransform="lowercase"/> values.
+</Definition>
+
+<Definition id="def:boundedProblem" title="Bounded Problem">
+An optimization problem that is not <Ref id="def:unboundedProblem" label="unbounded"/>. That is, the set of objective function values over the <Ref id="def:feasibleRegion" textTransform="lowercase"/> has a finite bound.
 </Definition>
 
 We now have the vocabulary to properly define linear programming, which is an optimization problem where the objective and constraints are all linear functions of the variables.
@@ -137,6 +163,24 @@ $$
 i.e. find nonnegative integer vector $x\in\Z^n_{\geq0}$ satisfying the constraints $Ax\leq b$ that maximizes the objective $cx$.
 </ProblemQuestion>
 </Problem>
+
+It's worth pausing for a moment to note the difference between <Ref id="prob:lp"/> and <Ref id="prob:ip"/>, since it is an example of a relationship that pops up often in the study of optimization problems. The notion we are interested in is that of a _relaxation_:
+
+<Definition id="def:relaxation" title="Relaxation">
+Let $P_1, P_2$ be optimization problems with <Ref id="def:feasibleRegion" altLabel="feasible regions"/> $X_1,X_2$ and <Ref id="def:objectiveFunction" altLabel="objective functions"/> $f_1,f_2$, repsectively. $P_2$ is a **relaxation** $P_1$ if:
+ - $X_1\subseteq X_2$, and
+ - We have:
+   - $f_2(x)\leq f_1(x)$ if $P_1,P_2$ are minimization problems.
+   - $f_2(x)\geq f_1(x)$ if $P_1,P_2$ are maximization problems.
+
+In other words, any feasible solution to $P_1$ is also feasible for $P_2$ and has an objective value at least as good.
+</Definition>
+
+It should be obvious that any <Ref id="prob:ip"/> has associated with it a natural relaxation <Ref id="prob:lp"/>:
+
+<Definition id="def:lpRelaxation" title="LP Relaxation" label="LP relaxation">
+The **LP relaxation** of an instance of <Ref id="prob:ip"/> is the instance of <Ref id="prob:lp"/> that arises by removing the requirement that variables be integers.
+</Definition>
 
 Often when formulating <Ref id="prob:ip"/>s for <Ref id="prob:combOpt"/>s, the variables will further be restricted to equaling either $0$ or $1$. The subset of integer programming that requires all variables be either $0$ or $1$ is called _binary programming_ or _binary integer programming_:
 

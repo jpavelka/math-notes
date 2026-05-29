@@ -30,6 +30,8 @@ export const katexMacros: Record<string, string> = {
     '\\coNP': '\\text{co-}\\mathcal{NP}',
     '\\floor': '\\lfloor #1 \\rfloor',
     '\\ceil': '\\lceil #1 \\rceil',
+    '\\conv': '\\operatorname{conv}',
+    '\\cone': '\\operatorname{cone}',
     '\\bpi': '\\mathbb{\\pi}',
     '\\Q': '\\mathbf{Q}',
     '\\indicator': '\\boldsymbol{1}',

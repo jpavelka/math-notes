@@ -4,15 +4,613 @@ chapter: 5
 chapterId: easyOpt
 ---
 
-import { Theorem, Definition, Lemma, Corollary, Proof, Remark, Ref, Figure, Table, PrintFallback, Cite, AnnotatedAlign, YouTubeEmbed } from '@/components';
+import { Theorem, Definition, Lemma, Corollary, Proof, Remark, Ref, Figure, Table, PrintFallback, PrintExtra, Cite, AnnotatedAlign, YouTubeEmbed, Footnote, FootnoteBody, Problem, ProblemInstance, ProblemQuestion, Algorithm, AlgoInput, AlgoOutput, AlgoStep, AlgoFor, AlgoIf, AlgoReturn, PolytopeViz2d, PolytopeViz3d } from '@/components';
 
-Before we dive headlong into the world of $$\NP$$-hard optimization problems, let's take a bit longer to reflect on problems where polynomial-time algorithms _do_ exist. It's worth learning a bit about some theory that ties them together, so we may learn to recognize them when encountered in the wild.
+Before we dive headlong into the world of $\NP$-hard optimization problems, let's take a bit longer to reflect on problems where polynomial-time algorithms _do_ exist. It's worth learning a bit about some theory that ties them together, so we may learn to recognize them when encountered in the wild.
 
-{/* lp and polyhedra
- - intersection of halfspaces = convex hull of points
- - basic solutions = corner points, always an optimal at corner points
- - solving lps: simplex, interior point
- - integral polyhedra (ip for free)
-total unimodularity
-network flows
-matroids */}
+We'll look at three different sources of this "easiness," each offering its own reason a problem might fall to a polynomial-time algorithm:
+
+- **Linear programming** We will see that <Ref id="prob:lp"/>s are solvable in polynomial time, so any problem we can efficiently write as a linear program is easy. We'll develop the geometry of LP, its duality theory, and the notion of an _integral polyhedron_ — together with **total unimodularity**, a checkable condition guaranteeing the LP relaxation hands back integer answers.
+- **Network flows** are the killer application of that machinery. Because the constraints of a flow problem are totally unimodular, flows come with a free integrality guarantee, and a surprising number of problems turn out to be flows in disguise.
+- **Matroids** explain easiness from a completely different angle. Rather than leaning on polyhedra, they pin down exactly when the simplest strategy of all — a greedy algorithm — is guaranteed to be optimal.
+
+Along the way we'll reconnect with old friends. Problems like <Ref id="prob:shortestPath"/>, <Ref id="prob:mst"/>, and the <Ref id="prob:assignment"/> — which we tackled with ad hoc algorithms earlier in the course — will reappear here as special cases of these broader theories, giving us a deeper sense of _why_ they were easy to begin with.
+
+## Linear programming {/* sec:lp */}
+
+Our first "easy" optimization problem is <Ref id="prob:lp"/>, which we introduced back in <Ref id="sec:ipForms"/>. I'm assuming this is not your first course in optimization, and therefore you are likely familiar with <Ref id="prob:lp"/>. In what follows we will present the important definitions and basic results that you've likely seen before. But we'll pay special attention to results that relate to why certain problems may be easier to solve than others.
+
+### Polyhedra {/* sec:polyhedra */}
+
+Let's start by reviewing <Ref id="prob:lp"/> from a geometric point of view. Recall that the set of feasible solutions to an <Ref id="prob:lp"/> is the set $\{x \geq 0 : Ax \leq b\}$.
+
+Each individual inequality $a_i x \leq b_i$ (the $i$th row of $Ax \leq b$) cuts the space $\R^n$ in half: points on one side satisfy the constraint and points on the other do not. We call the half of $\R^n$ satisfying the inequality a _halfspace_.
+
+<Definition id="def:halfspace" title="Halfspace">
+For a vector $a \in \R^n$ and scalar $b \in \R$, the set $\{x \in \R^n : ax \leq b\}$ is a **halfspace**.
+</Definition>
+
+The feasible region of an LP is then just the intersection of all the halfspaces corresponding to its constraints — the $m$ rows of $Ax \leq b$ plus the $n$ non-negativity conditions $x_j \geq 0$. A set that arises as an intersection of finitely many halfspaces gets its own name:
+
+<Definition id="def:polyhedron" title="Polyhedron">
+A **polyhedron** is a set of the form
+$$
+P = \{x \in \R^n : Ax \leq b\}
+$$
+for some matrix $A \in \R^{m \times n}$ and vector $b \in \R^m$.
+</Definition>
+
+So the feasible region of any <Ref id="prob:lp"/> is a polyhedron. When a polyhedron happens to be bounded (i.e. if you pick any point inside the polyhedron and pick some direction to travel, you will eventually leave the polyhedron) we call it a *polytope*.
+
+<Definition id="def:polytope" title="Polytope">
+A bounded <Ref id="def:polyhedron" useTitle textTransform="lowercase"/>.
+</Definition>
+
+These definitions are easiest to grasp by looking at a few small examples. In two dimensions each halfspace is a side of the plane cut off by a line, and intersecting a handful of them carves out a flat-sided region: the four constraints in <Ref id="fig:polytopeExample2d"/> fence off a quadrilateral. The same recipe works one dimension up, where each halfspace is bounded by a plane rather than a line; in <Ref id="fig:polytopeExample3d"/> three coordinate planes and one slanted plane enclose a tetrahedron. Both regions are bounded, so both are polytopes. The figures are interactive — drag to rotate the 3D view, and notice in each case how the boundary is assembled from flat faces meeting at sharp corners.
+
+<Figure id="fig:polytopeExample2d" caption="Visualizing the polytope in $\R^2$ generated from the constraints $x_1 + x_2 \leq 4$, $2x_1 + x_2 \leq 6$, $x_1, x_2 \geq 0$.">
+  <PrintExtra>_Interact with this content on the website_</PrintExtra>
+  <PolytopeViz2d
+    client:load
+    constraints={["x_1 + x_2 <= 4", "2x_1 + x_2 <= 6", "x_1 >= 0", "x_2 >= 0"]}
+  />
+</Figure>
+
+<Figure id="fig:polytopeExample3d" caption="Visualizing the polytope in $\R^3$ generated from the constraints $x_1 + x_2 + x_3 \leq 4$, $x_1, x_2, x_3 \geq 0$.">
+  <PrintExtra>_Interact with this content on the website_</PrintExtra>
+  <PolytopeViz3d
+    client:load
+    constraints={["x_1 + 2x_2 + x_3 <= 4", "x_1 >= 0", "x_2 >= 0", "x_3 >= 0"]}
+  />
+</Figure>
+
+The corners of these polytopes are hard to miss, and they will turn out to matter enormously — much of LP theory is organized around them. Let's start by pinning down what a "corner" really is.
+
+<Definition id="def:lpVertex" title="Vertex">
+A point $x^* \in P$ is a **vertex** (or **extreme point**) of a polyhedron $P$ if it cannot be written as $x^* = \lambda y + (1-\lambda)z$ for any two distinct points $y, z \in P$ and $\lambda \in (0,1)$. That is, $x^*$ does not lie strictly between any two other points of $P$.
+</Definition>
+
+A vertex is a genuine "pointy corner": you cannot place it in the middle of any line segment that stays inside the set. A polytope, being bounded, is held up entirely by its vertices. A general polyhedron, though, can also stretch off to infinity, and capturing those unbounded directions calls for a second kind of feature — a _ray_.
+
+<Definition id="def:lpRay" title="Ray">
+A nonzero vector $r \in \R^n$ is a **ray** of a polyhedron $P$ if travelling from any point of $P$ in the direction $r$ never leaves $P$ — that is, $x + t\,r \in P$ for every $x \in P$ and every $t \geq 0$.
+</Definition>
+
+A polytope has no rays at all; an unbounded polyhedron has at least one. The first quadrant $\{x \in \R^2 : x \geq 0\}$, for instance, is a polyhedron with a single vertex (the origin) and two rays $e_1=(1,0)$ and $e_2=(0,1)$ pointing along the axes — and every point $(x_1, x_2)$ in it is just $x_1 e_1 + x_2 e_2$, a non-negative combination of those rays.
+
+So far we've described a polyhedron from the outside in: start with all of $\R^n$ and whittle it down one halfspace at a time. Vertices and rays give us a complementary way to build the very same set from the inside out — fill in the bounded part by taking weighted averages of the vertices, then extend it outward by adding on non-negative combinations of the rays. Averaging the vertices like this gives their _convex hull_.
+
+<Definition id="def:convexHull" title="Convex Hull">
+The **convex hull** of points $v^1, v^2, \ldots, v^k \in \R^n$ is the set of all of their convex combinations:
+$$
+\conv(v^1, \ldots, v^k) = \left\{ \sum_{i=1}^k \lambda_i v^i\ :\ \lambda_i \geq 0\ \forall\ i,\quad \sum_{i=1}^k \lambda_i = 1 \right\}.
+$$
+Equivalently, it is the smallest convex set containing all of the $v^i$.
+</Definition>
+
+Meanwhile, the set of non-negative combinations of the rays is called a _cone_<Footnote/>.
+
+<FootnoteBody>
+It is worth explicitly noting the difference between $\cone$ and $\conv$. Both require non-negative linear combinations of points in $\R^n$. But for $\conv$ all the multipliers must sum to 1, while $\cone$ has no such restriction. This limit keeps $\conv$ a bounded set, while $\cone$ is unbounded.
+</FootnoteBody>
+
+<Definition id="def:cone" title="Cone">
+Given a finite collection $r^1,r^2,\dots r^l\in\R^n$, the **cone** generated by these points is given by
+$$
+\cone(r^1, \ldots, r^\ell) = \left\{ \sum_{j=1}^{l} \mu_j r^j\ :\ \mu_j \geq 0 \right\}
+$$
+i.e., it is the set of all non-negative linear combinations of $r^1,r^2,\dots r^l$
+</Definition>
+
+It is not at all obvious that these two constructions — carving from the outside with halfspaces versus generating from the inside with points and rays — should describe the same family of sets. Remarkably, they do.<Footnote/>
+
+<FootnoteBody>
+The two directions are sometimes credited separately: **Weyl's theorem** says any polyhedron can be generated from finitely many points and rays, and **Minkowski's theorem** is the converse.
+</FootnoteBody>
+
+<Theorem id="thm:minkowskiWeyl" title="Minkowski–Weyl Theorem">
+A set $P \subseteq \R^n$ is a polyhedron if and only if there are finite sets of points $v^1, \ldots, v^k$ and rays $r^1, \ldots, r^\ell$ with
+$$
+P = \{x + y : x\in\conv(v^1, \ldots, v^k), y\in\cone(r^1, \ldots, r^\ell)\}.
+$$
+</Theorem>
+
+This means every polyhedron can be described in two complementary ways: as an intersection of halfspaces — its **H-representation**, the $Ax \leq b$ we started with — or as a sum of finitely many points and rays — its **V-representation**, where the points can always be taken to be its vertices and the rays its unbounded edge-directions. For a _polytope_ the rays drop out, and the V-representation is simply the convex hull of the vertices. Each description earns its keep later on: the H-representation is what we hand to an algorithm, while the V-representation is what ties the geometry back to the combinatorial objects we care about.
+
+Let's make this concrete with the polytope we already drew in <Ref id="fig:polytopeExample2d"/>. On one hand, it is the region carved out by four halfspaces:
+
+$$
+\begin{align*}
+x_1 + x_2 &\leq 4 \\
+2x_1 + x_2 &\leq 6 \\
+x_1, x_2 &\geq 0
+\end{align*}
+$$
+
+On the other, the very same quadrilateral is the convex hull of its four vertices $(0,0)$, $(3,0)$, $(2,2)$, and $(0,4)$ — and because it is bounded it has no rays, so the cone term of <Ref id="thm:minkowskiWeyl" altLabel="Minkowski–Weyl"/> is empty. The theorem guarantees that these two descriptions pick out the identical set.
+
+### Algorithms for LP {/* sec:lpAlgorithms */}
+
+Knowing the shape of a polyhedron is one thing; optimizing over it is another. Our starting point is a structural fact about where the optimum can sit. Picture sweeping the objective $cx$ across the feasible region in the direction that increases it: assuming the underlying <Ref id="prob:lp"/> is <Ref id="def:boundedProblem" altLabel="bounded"/> the last point it touches before leaving the polyhedron is a corner. We'll formalize this notion shortly, but in the meantime you can play around with <Ref id="fig:objectiveSweep"/> to get a sense for what we mean.
+
+<Figure id="fig:objectiveSweep" caption={<>The polytope of <Ref id="fig:polytopeExample2d"/> with a linear objective $cx$. Edit the coefficients to change the objective, and drag the slider to sweep the level line $cx = v$ across the region; everything shaded has objective value at most $v$. The arrow points in the direction of increase, and the last point the line touches before it clears the polytope is the optimal vertex (ringed).</>}>
+  <PrintExtra>_Interact with this content on the website_</PrintExtra>
+  <PolytopeViz2d
+    client:load
+    constraints={["x_1 + x_2 <= 4", "2x_1 + x_2 <= 6", "x_1 >= 0", "x_2 >= 0"]}
+    objective="x_1 + 2x_2"
+  />
+</Figure>
+
+The punch line: there is always an optimum at a vertex, meaning we may collapse our search space from the whole continuous region down to the finitely many corners.
+
+<Theorem id="thm:optimalVertex" title="Optimality at a Vertex">
+If a <Ref id="prob:lp"/> is <Ref id="def:feasibleProblem" altLabel="feasible"/> and <Ref id="def:boundedProblem" altLabel="bounded"/> , then there exists an optimal solution at a <Ref id="def:lpVertex" textTransform="lowercase"/> of the feasible polyhedron.
+</Theorem>
+
+<Proof>
+Write every constraint — the rows of $Ax \leq b$ together with the bounds $x_j \geq 0$ — uniformly as $a_i x \leq b_i$, and for a feasible point $x$ let $T(x) = \{\, i : a_i x = b_i \,\}$ be its set of <Ref id="def:tightConstraint" altLabel="tight constraints"/>. Let $x^*$ be an optimal solution with value $z^* = cx^*$, chosen so that $|T(x^*)|$ is as large as possible.
+
+We claim $x^*$ is a vertex. Suppose not. By <Ref id="def:lpVertex" useEnvNum/> there are distinct $y, z \in P$ and $\lambda \in (0,1)$ with
+$$
+x^* = \lambda y + (1-\lambda) z,
+$$
+and we set $d = y - z \neq 0$. We claim the following two facts follow:
+
+<AnnotatedAlign
+  rows={[
+    { math: "cd&=0", id: "eq:optimalVertexObj0" },
+    { math: "&\\text{and}" },
+    { math: "a_id&=0&\\forall i\\in T(x^*)", id: "eq:optimalVertexConstr0" },
+  ]}
+/>
+
+For <Ref id="eq:optimalVertexObj0"/>, note that linearity gives
+
+$$ {#eq:optimalVertexEq}
+  z^* = cx^* = \lambda\, cy + (1-\lambda)\, cz
+$$
+
+and since $x^*$ is optimal we get $cy \leq z^*$ and $cz \leq z^*$. But since $\lambda, (1-\lambda)\geq0$, for <Ref id="eq:optimalVertexEq"/> to hold we must have $cy = cz = z^*$ and hence $cd = cy - cz = 0$.
+
+For <Ref id="eq:optimalVertexConstr0"/>, select some $i\in T(x^*)$. Note that
+
+$$ {#eq:optimalVertexYX}
+\begin{align*}
+  y-x^*&=y - (\lambda y + (1 - \lambda) z)\\
+  &=y - \lambda y - z + \lambda z\\
+  &=(1 - \lambda)y-(1 - \lambda)z\\
+  &=(1 - \lambda)(y - z)\\
+  &=(1 - \lambda)d
+\end{align*}
+$$
+
+from which it follows
+
+<AnnotatedAlign id="eq:optimalVertexAid"
+  rows={[
+    { math: "a_i(1-\\lambda)d&=a_i(y-x^*)", annotation: "by [ref:eq:optimalVertexYX]" },
+    { math: "&=a_iy-a_ix^*" },
+    { math: "&\\leq b-b", annotation: "$a_ix^*=b$ by definition of $T(x^*)$, $a_iy\\leq b$ since $y$ is feasible." },
+    { math: "&=0" },
+  ]}
+/>
+
+Dividing each side by $1-\lambda$<Footnote/> gives $a_id\leq0$. But via a process similar to <Ref id="eq:optimalVertexYX"/> we find $z-x^*=-\lambda d$. Using that fact and reasoning like in <Ref id="eq:optimalVertexAid"/> will imply $a_id\geq0$. The only way to satisfy both $a_id\leq0$ and $a_id\geq0$ is $a_id=0$.
+
+<FootnoteBody>
+Which is safe, since by assumption $x\neq y\neq z$ and hence $1 - \lambda > 0$.
+</FootnoteBody>
+
+Because $d \neq 0$, some coordinate $d_j$ is nonzero, hence the index $i$ corresponding to the bound constraint $x_i\geq 0$ cannot be in $T(x^*)$<Footnote/>. So this constraint is <Ref id="def:relaxedConstraint" label="slack"/> at $x^*$. Since $d_j$ is nonzero, moving along $d$ in the correct direction will eventually tighten the constraint.
+
+This is precisely what we need. We have demonstrated that there exists some $\mu\in\R$ such that $x'=x^*+\mu d$ is tight for some constraint $a_{i'}x\leq b$ with $i'\not\in T$. Choosing the smallest such $\mu$ ensures $x'$ is feasible. Furthermore, by <Ref id="eq:optimalVertexObj0"/>, $cx'=cx^*+\mu cd=cx^*$, so $x'$ is an optimal solution. Lastly, <Ref id="eq:optimalVertexConstr0"/> tells us that for any $i\in T(x^*)$ we have $a_ix'=a_ix^*+\mu a_id=a_ix^*=b_i$, meaning those constraints are tight at $x'$. But since constraint $i'\not\in T$ is _also_ tight at $x'$, $x'$ is an optimal solution which is tight at more constraints than $x^*$, contradicting the selection criteria of $x^*$.
+</Proof>
+
+<FootnoteBody>
+Since $y_j=x^*_j + (1-\lambda)d_j$ while $z_j=x^*_j - \lambda z_j$, i.e. one is strictly greater than $x^*_j$ and the other is strictly less. So if $x^*_j=0$, one of $y_j$ or $z_j$ would be negative, contradicting their feasibility.
+</FootnoteBody>
+
+This hands us a finite algorithm for <Ref id="prob:lp"/> for free. A polytope has only finitely many vertices,<Footnote/> so we could simply enumerate them all and keep the best. The trouble is that the number of vertices grows exponentially, so brute-force enumeration is hopeless for all but the tiniest problems.
+
+<FootnoteBody>
+Each vertex is the unique solution of the system you get by taking some $n$ of the constraints — rows of $Ax \leq b$ together with the non-negativity conditions $x_j \geq 0$ — and forcing them to hold with equality (the chosen $n$ must be linearly independent). There are only finitely many ways to pick which constraints are tight, so there are only finitely many vertices: at most $\binom{m+n}{n}$.
+</FootnoteBody>
+
+The **simplex method**, introduced by George Dantzig in 1947, is far more clever. It starts at one vertex and repeatedly hops to an adjacent vertex<Footnote/> with a strictly better objective, stopping when no neighbor is an improvement. At that point it has found the optimum: because the feasible region is convex, a vertex that beats all its neighbors beats every point in the polytope. In effect, simplex walks along the edges of the polytope, climbing toward the top.
+
+<FootnoteBody>
+Two vertices are _adjacent_ if they are joined by an edge of the polytope.
+</FootnoteBody>
+
+In practice simplex is wonderfully fast, usually terminating after a manageable number of steps. For decades it was natural to assume this meant it was a polynomial-time algorithm. In 1972, Klee and Minty <Cite id="kleeMinty1972"/> dashed that hope: they built a family of distorted $n$-dimensional cubes — the _Klee–Minty cubes_ — on which a standard pivoting rule marches simplex through all $2^n$ vertices before it finds the optimum. Different pivoting rules have been proposed, but even so no variant of simplex has been shown to be polynomial-time. Whether LP belonged to $\P$ at all was, for a while, genuinely open.
+
+The question was settled in 1979 by Leonid Khachiyan <Cite id="khachiyan1979"/>:
+
+<Theorem id="thm:lpPolyTime" title="LP is in $\P$">
+Linear programs can be solved in polynomial time.
+</Theorem>
+
+Khachiyan's tool was the **ellipsoid method**, which traps the feasible region inside a sequence of shrinking ellipsoids, at each step either landing on a feasible point or cutting the enclosed volume by a guaranteed fraction. It is a theoretical triumph but a practical disappointment — simplex routinely beats it by orders of magnitude on real instances.<Footnote/> The practical sequel arrived in 1984, when Narendra Karmarkar <Cite id="karmarkar1984"/> introduced **interior-point methods**: these are polynomial _and_ fast, cutting straight through the interior of the polytope along a curved path rather than crawling along its boundary. Today's industrial LP solvers are built on refined versions of both simplex and interior-point methods.
+
+<FootnoteBody>
+The ellipsoid method's deepest payoff was theoretical. In 1981 Grötschel, Lovász, and Schrijver <Cite id="grotschelLovaszSchrijver1981"/> showed it can solve an LP in polynomial time even when there are _exponentially many_ constraints, provided we have a _separation oracle_: a polynomial-time routine that, given a point, either certifies feasibility or hands back a violated constraint. We'll see at the end of this section why that is such a big deal for combinatorial optimization.
+</FootnoteBody>
+
+The upshot — and the reason LP earns its place in this chapter — is simple to state. Since <Ref id="prob:lp"/> can be solved in polynomial time, **any problem with a polynomial-time reduction to <Ref id="prob:lp"/> can also be solved in polynomial time**. The rest of this section is about cashing in that fact, by figuring out which combinatorial problems are secretly linear programs in disguise.
+
+### LP duality {/* sec:lpDuality */}
+
+There is one more pillar of LP theory we need before connecting LPs to integer programs: _duality_. Every LP comes paired with a second LP, its _dual_, and the two always meet at the same optimal value. This min-max structure is the hidden engine behind nearly every deep min-max theorem in combinatorial optimization, so it is well worth our time.
+
+The dual arises from a very natural question: what is the best upper bound on the primal objective that we can read straight off the constraints? Start with a primal LP in standard form,
+
+$$
+\text{(P)}\qquad \max\quad cx \qquad \st\quad Ax \leq b,\quad x \geq 0,
+$$
+
+and attach a multiplier $y_i \geq 0$ to each constraint. Taking that non-negative combination of the constraints gives $yAx \leq yb$. If we additionally insist that $yA \geq c$, then for any feasible $x \geq 0$,
+
+$$
+cx \;\leq\; (yA)x \;\leq\; yb,
+$$
+
+so $yb$ is an upper bound on the primal objective. The dual is the LP that hunts for the _tightest_ such bound:
+
+<Definition id="def:lpDual" title="LP Dual">
+The **dual** of $\max\{cx : Ax \leq b,\ x \geq 0\}$ is the LP
+$$
+\text{(D)}\qquad \min\quad yb \qquad \st\quad yA \geq c,\quad y \geq 0,
+$$
+where $y \in \R^m$.
+</Definition>
+
+The two inequalities we just chained together are exactly the content of _weak duality_:
+
+<Theorem id="thm:weakDuality" title="Weak Duality">
+For any primal-feasible $x$ and dual-feasible $y$, we have $cx \leq yb$.
+</Theorem>
+
+<Proof>
+Since $yA \geq c$ and $x \geq 0$, we have $cx \leq (yA)x = y(Ax)$. Since $y \geq 0$ and $Ax \leq b$, we have $y(Ax) \leq yb$.
+</Proof>
+
+<Ref id="thm:weakDuality" altLabel="Weak duality"/> is already useful: any dual-feasible $y$ certifies an upper bound on the primal, and any primal-feasible $x$ certifies a lower bound on the dual. So if we ever stumble on a pair $x^*, y^*$ with $cx^* = y^*b$, the bounds pinch shut and both must be optimal. The remarkable fact is that such a matching pair is always out there:
+
+<Theorem id="thm:strongDuality" title="Strong Duality">
+If $\max\{cx : Ax \leq b,\ x \geq 0\}$ is feasible and bounded, then its dual $\min\{yb : yA \geq c,\ y \geq 0\}$ is also feasible and bounded, and their optimal values are equal.
+</Theorem>
+
+<Ref id="thm:strongDuality" altLabel="Strong duality"/> also tells us, slot by slot, exactly how an optimal primal and dual pair fit together:
+
+<Theorem id="thm:compSlackness" title="Complementary Slackness">
+Feasible solutions $x^*$ and $y^*$ are both optimal if and only if
+$$
+y^*_i \bigl(b_i - a_i x^*\bigr) = 0 \quad \forall\ i, \qquad\qquad \bigl(c_j - y^* A_j\bigr)\, x^*_j = 0 \quad \forall\ j.
+$$
+In words: a primal constraint is either tight or its dual multiplier is zero; and a dual constraint is either tight or its primal variable is zero.
+</Theorem>
+
+There is a feasibility-flavored cousin of all this. Back in <Ref id="sec:easyToCheck"/> we made much of _certificates_ — short pieces of evidence that let you verify an answer quickly. Duality gives LPs a certificate of _infeasibility_:
+
+<Theorem id="thm:farkas" title="Farkas' Lemma">
+For $A \in \R^{m \times n}$ and $b \in \R^m$, exactly one of the following systems has a solution:
+1. $Ax \leq b$, $x \geq 0$.
+2. $yA \geq 0$, $yb < 0$, $y \geq 0$.
+</Theorem>
+
+The "exactly one" is the whole point. If the system $Ax \leq b,\ x \geq 0$ has no solution, <Ref id="thm:farkas" altLabel="Farkas' lemma"/> guarantees a vector $y$ of the second type — a single non-negative combination of the constraints that adds up to the visibly absurd statement $0 \leq yb < 0$. That $y$ is a short, checkable proof that no feasible $x$ exists.
+
+<Remark>
+Many of the classical min-max theorems in combinatorial optimization — König's theorem, the max-flow min-cut theorem, and others — are really LP <Ref id="thm:strongDuality" altLabel="strong duality"/> in disguise, applied to a cleverly chosen formulation. When we meet these theorems later, it's worth pausing to spot the duality lurking underneath. We'll get a first taste of this at the end of the section.
+</Remark>
+
+<Remark>
+I'll admit I have a soft spot for duality, but it earns its keep here for more than its elegance: it quietly runs through most of what's still to come in this book. <Ref id="thm:weakDuality" altLabel="Weak duality"/> is the principle behind every _bound_ we'll compute — relaxing an integer program and solving the relaxation hands us a dual-side certificate that no integer solution can do better, and the gap between that bound and the best solution in hand is exactly what **branch and bound** works to close. The dual values are workhorses in their own right: **column generation** prices out new variables by their reduced cost $c_j - y A_j$ from the dual solution $y$, halting — by <Ref id="thm:strongDuality" altLabel="strong duality"/> — once no column can improve the bound, while reduced-cost reasoning (really <Ref id="thm:compSlackness" altLabel="complementary slackness"/>) lets us _fix_ variables outright inside the search tree. Even <Ref id="thm:farkas" altLabel="Farkas' lemma"/> comes back: the feasibility cuts of **Benders decomposition** are precisely Farkas certificates of an infeasible subproblem. And in **Lagrangian relaxation** the whole story generalizes — Lagrangian duality is LP duality's more flexible cousin. So if duality feels like a detour right now, rest assured we'll be cashing it in for the rest of the course.
+</Remark>
+
+### Integral polyhedra {/* sec:integralPolyhedra */}
+
+We now have what we need to return to the relationship between LP and IP. Recall that the LP relaxation of an IP is what we get by dropping integrality — replacing $x \in \Z_{\geq 0}^n$ with $x \in \R_{\geq 0}^n$. Relaxing only enlarges the feasible region, so the LP optimum is always at least as good as the IP optimum; the catch is that the LP optimum is usually fractional, and a fractional answer is no answer at all if we needed whole numbers.
+
+But sometimes we get lucky, and the relaxation hands back an integer point all on its own. The polyhedra for which this always happens have a name:
+
+<Definition id="def:integralPolyhedron" title="Integral Polyhedron">
+A polyhedron $P$ is **integral** if every vertex of $P$ is an integer vector.
+</Definition>
+
+Here is where our work on vertices pays off. By <Ref id="thm:optimalVertex"/>, an LP always attains its optimum at a vertex. If every vertex of $P$ happens to be an integer vector, then that optimal vertex is _already_ a feasible integer solution — so the LP relaxation and the IP have the same optimal value, and solving the easy LP solves the hard IP for free.
+
+<Theorem id="thm:integralLP" title="Integral Polyhedra Solve IPs">
+If $P = \{x : Ax \leq b,\ x \geq 0\}$ is integral, then for any $c \in \R^n$,
+$$
+\max\{cx : x \in P\} = \max\{cx : x \in P,\ x \in \Z_{\geq 0}^n\}.
+$$
+</Theorem>
+
+This is exactly the kind of "easy" we came here looking for. The whole game now reduces to a single question: **when is $P$ integral?** Checking every vertex by hand is out of the question — there are exponentially many. We'd much prefer a condition we can read off the matrix $A$. The most useful such condition is total unimodularity.
+
+### Total unimodularity {/* sec:totalUnimodularity */}
+
+<Definition id="def:totallyUnimodular" title="Totally Unimodular">
+A matrix $A \in \R^{m \times n}$ is **totally unimodular (TU)** if the determinant of every square submatrix of $A$ is $0$, $+1$, or $-1$.
+</Definition>
+
+Note the strength of the condition: it asks about _every_ square submatrix, not just $A$ itself. In particular, taking $1 \times 1$ submatrices, every individual entry of a TU matrix must already lie in $\{0, \pm 1\}$.
+
+The reason TU matters is that it is precisely the lever that forces integrality:
+
+<Theorem id="thm:hoffmanKruskal" title="Hoffman–Kruskal">
+If $A$ is totally unimodular and $b \in \Z^m$, then the polyhedron $P = \{x : Ax \leq b,\ x \geq 0\}$ is integral.
+</Theorem>
+
+<Proof>
+It suffices to show every vertex of $P$ is an integer vector. At a vertex $x^*$, exactly $n$ of the $m + n$ constraints are tight: let $J$ index the tight rows of $Ax \leq b$, and let $I$ index the variables forced to zero by tight non-negativity constraints. The remaining variables $x^*_{I^c}$ are then pinned down by the square system
+
+$$
+A_{J,\, I^c}\, x^*_{I^c} = b_J,
+$$
+
+where $A_{J,I^c}$ is the submatrix of $A$ with rows $J$ and columns $I^c$. Because the vertex is determined uniquely, $A_{J,I^c}$ is non-singular, and since $A$ is TU its determinant must be $\pm 1$. By Cramer's rule, each entry of $x^*_{I^c} = A_{J,I^c}^{-1} b_J$ is an integer cofactor (in $\{0,\pm 1\}$, again by TU) divided by $\det(A_{J,I^c}) = \pm 1$, hence an integer. So $x^*$ is an integer vector.
+</Proof>
+
+That settles _why_ we want TU matrices. But how do we recognize one without computing a galaxy of determinants? The following characterization, due to Ghouila-Houri, is usually the most practical test:
+
+<Theorem id="thm:ghouliaHouri" title="Ghouila-Houri Characterization">
+A matrix $A \in \{0, \pm 1\}^{m \times n}$ is totally unimodular if and only if every subset $R \subseteq \{1, \ldots, m\}$ of rows can be split into two parts $R = R_1 \cup R_2$ such that, in every column $j$,
+$$
+\left|\, \sum_{i \in R_1} a_{ij} - \sum_{i \in R_2} a_{ij} \,\right| \leq 1.
+$$
+</Theorem>
+
+In plainer terms: you can always two-color any set of rows so that, column by column, the two colors nearly cancel out. It's a balanced-partition condition, and it is often far easier to verify than the determinant definition. To see it in action, let's identify the two most important TU matrices in all of combinatorial optimization.
+
+<Theorem id="thm:directedTU" title="Directed Incidence Matrices are TU">
+Let $G = (V, E)$ be a directed graph. Its **node-arc incidence matrix** $A \in \{0, \pm 1\}^{|V| \times |E|}$, defined by
+$$
+a_{ve} = \begin{cases} +1 & \text{if } v \text{ is the head of arc } e, \\ -1 & \text{if } v \text{ is the tail of arc } e, \\ 0 & \text{otherwise,} \end{cases}
+$$
+is totally unimodular.
+</Theorem>
+
+<Proof>
+We show by induction on $k$ that every $k \times k$ submatrix $B$ of $A$ has $\det(B) \in \{0, \pm 1\}$. The base case $k = 1$ holds because every entry of $A$ is in $\{0, \pm 1\}$.
+
+For the inductive step, recall that each column of $A$ has exactly one $+1$ and one $-1$ (the head and tail of its arc), so each column of $B$ has _at most_ one of each. There are three cases:
+
+- **Some column of $B$ is all zeros.** Then $\det(B) = 0$. ✓
+- **Some column of $B$ has a single nonzero entry.** Expanding along that column gives $\det(B) = \pm \det(B')$ for a $(k-1) \times (k-1)$ submatrix $B'$, and induction finishes the job. ✓
+- **Every column of $B$ has exactly one $+1$ and one $-1$.** Then the rows of $B$ sum to the zero vector, so they are linearly dependent and $\det(B) = 0$. ✓
+</Proof>
+
+<Theorem id="thm:bipartiteTU" title="Bipartite Incidence Matrices are TU">
+Let $G = (U \cup V, E)$ be an undirected bipartite graph. Its **node-edge incidence matrix** $A \in \{0, 1\}^{(|U|+|V|) \times |E|}$, with $a_{ve} = 1$ exactly when vertex $v$ is an endpoint of edge $e$, is totally unimodular.
+</Theorem>
+
+<Proof>
+We apply the Ghouila-Houri criterion (<Ref id="thm:ghouliaHouri"/>). Given any subset $R$ of rows (vertices), split it along the bipartition: $R_1 = R \cap U$ and $R_2 = R \cap V$. Each edge $e = (u, v)$ with $u \in U$, $v \in V$ contributes at most one $1$ to the $R_1$ sum (from $u$, if $u \in R$) and at most one $1$ to the $R_2$ sum (from $v$, if $v \in R$). Whichever of $u, v$ happen to be in $R$, the difference of the two column sums is $0$, $+1$, or $-1$. ✓
+</Proof>
+
+These two matrices are not arbitrary examples — they are exactly the structures sitting inside two of the most important easy problems in the field:
+
+- **Minimum-cost network flow.** The constraint matrix of the min-cost flow LP _is_ the node-arc incidence matrix of a directed graph, hence TU. By <Ref id="thm:hoffmanKruskal" altLabel="Hoffman–Kruskal"/> the relaxation is integral, so min-cost flow can be solved in polynomial time as a plain LP — and an integer optimal flow always exists. We'll dig into flows in the next section.
+
+- **Bipartite matching.** The constraint matrix of the bipartite matching LP — one degree constraint per vertex, one variable per edge — is the node-edge incidence matrix of a bipartite graph, hence TU. So the relaxation has an integer optimum, which is a genuine matching. Even better, feeding this LP through strong duality (<Ref id="thm:strongDuality"/>) yields a one-line proof of **König's theorem**: in any bipartite graph, the size of a maximum matching equals the size of a minimum vertex cover. This is the duality-in-disguise we promised back in <Ref id="sec:lpDuality"/>.
+
+### Polyhedral combinatorics (a glimpse) {/* sec:polCombo */}
+
+The bipartite matching story suggests a general strategy, and it's worth naming. Suppose the feasible solutions to your problem are subsets of some ground set $E$ — say, sets of edges. Encode each feasible subset as an _incidence vector_ $x \in \{0,1\}^E$. If you can describe the convex hull of all those incidence vectors by a manageable system of linear inequalities, then optimizing any linear objective over your combinatorial problem collapses into solving a single LP, which we know how to do in polynomial time.
+
+For bipartite matching, TU did this for us automatically. The convex hull of all matchings in a bipartite graph $G = (U \cup V, E)$ is exactly the relaxation polytope,
+
+$$
+P_{\text{match}}^=(G) = \left\{ x \in [0,1]^E\ :\ \sum_{e \ni v} x_e \leq 1\quad \forall\, v \in U \cup V \right\}.
+$$
+
+For _general_, non-bipartite graphs, life is not so kind. This same polytope can have fractional vertices: on a triangle $K_3$, setting $x_e = \tfrac12$ on all three edges satisfies every degree constraint and scores $\tfrac32$, even though no actual matching on a triangle uses more than one edge. The degree constraints alone simply don't describe the right polytope. In a landmark 1965 paper, Jack Edmonds <Cite id="edmonds1965matching"/> found the inequalities that do:
+
+$$
+P_{\text{match}}(G) = \left\{ x \in [0,1]^E\ :\ \sum_{e \ni v} x_e \leq 1\ \forall\, v,\quad \sum_{e \in \delta(S)} x_e \leq \floor{\tfrac{|S|}{2}}\ \ \forall\text{ odd } S \subseteq V \right\},
+$$
+
+where $\delta(S)$ is the set of edges with exactly one endpoint in $S$. These extra **odd-set inequalities** are exactly what kills off fractional solutions like the half-edges on a triangle, and Edmonds showed they make the polytope integral.
+
+Notice something, though: there is one odd-set inequality for every odd subset $S \subseteq V$ — exponentially many constraints. We could never even write the LP down in full. And yet matching is solvable in polynomial time. This is precisely the scenario the ellipsoid method was built to handle: as long as we have a separation oracle that can spot a violated odd-set inequality efficiently (and we do), Grötschel–Lovász–Schrijver <Cite id="grotschelLovaszSchrijver1981"/> lets us optimize over $P_{\text{match}}(G)$ without ever listing its constraints. The footnote we left back in <Ref id="sec:lpAlgorithms"/> has come home to roost.
+
+This is the heart of _polyhedral combinatorics_: for each combinatorial problem, search for the "right" inequalities that make the LP relaxation coincide with the integer program. Sometimes, as with bipartite matching, total unimodularity gives them to you for nothing. Other times, as with general matching, it takes a deep and dedicated analysis. As we move through the rest of the course, this is a question we will return to again and again: what does the LP relaxation look like, and is it integral?
+
+## Network flows {/* sec:networkFlows */}
+
+We promised at the end of the last section that we'd dig into flows, and for good reason: network flow is the single most useful "easy" problem in combinatorial optimization. An astonishing number of problems — including some we've already met — turn out to be flows in disguise, and once you spot the disguise you inherit a polynomial-time algorithm and an integrality guarantee for free.
+
+The setting is a directed graph in which we ship some commodity along the arcs. Each arc has a _capacity_ limiting how much can flow through it and a _cost_ per unit of flow, and each node either produces the commodity, consumes it, or merely passes it along.
+
+<Problem id="prob:minCostFlow" title="Minimum-Cost Flow Problem" label="MinCostFlow">
+<ProblemInstance>
+A digraph $G=(V,E)$ with arc capacities $u_e \in \Z_{\geq 0}$ and arc costs $c_e \in \Z$ for each $e \in E$, together with node supplies $b_v \in \Z$ for each $v \in V$ satisfying $\sum_{v \in V} b_v = 0$.
+</ProblemInstance>
+<ProblemQuestion>
+Find a flow $x = (x_e)_{e \in E}$ of minimum total cost that respects every capacity and conserves flow at every node.
+</ProblemQuestion>
+</Problem>
+
+Writing $E^+(v)$ for the arcs leaving $v$ and $E^-(v)$ for the arcs entering $v$ (the same notation from our shortest-path formulation in <Ref id="sec:shortestPathIp"/>), the problem is the linear program
+
+$$
+\begin{align*}
+\min\quad & \sum_{e \in E} c_e x_e \\
+\st\quad & \sum_{e \in E^+(v)} x_e - \sum_{e \in E^-(v)} x_e = b_v && \forall\, v \in V, \\
+& 0 \leq x_e \leq u_e && \forall\, e \in E.
+\end{align*}
+$$
+
+The equality constraints are the _flow conservation_ conditions: at each node, the flow out minus the flow in must equal its supply $b_v$ (positive at sources, negative at sinks, zero at the relay nodes in between). The inequalities are the capacity bounds. <Ref id="fig:flowNetwork"/> shows a small network and a feasible flow.
+
+<Figure id="fig:flowNetwork" caption={<>A small flow network. Each arc is labeled with its flow and capacity (e.g. $2/3$), and node supplies $b_v$ are shown beside the nodes. The cheapest cut separating the source from the sink is highlighted.</>}>
+  {/* TODO (interactive) — proposed <FlowNetworkViz/> component:
+       - A draggable digraph with editable arc capacities/costs and node supplies.
+       - A "Find min-cost flow" / "Find max flow" button that solves the LP and animates
+         the flow values appearing on each arc.
+       - Toggle to overlay the residual graph and to highlight the min cut (illustrating
+         max-flow min-cut from the duality discussion).
+       - Step-through mode for an augmenting-path algorithm so readers watch flow get pushed
+         along successive paths.
+       Static print fallback below. */}
+  _**Interactive figure placeholder.**_ A flow network where the reader can edit capacities, costs, and supplies, solve for the optimal flow, and toggle the residual graph / min cut.
+</Figure>
+
+### Why flows are easy {/* sec:flowIntegrality */}
+
+Look closely at the conservation constraints. The variable $x_e$ for arc $e = (i,j)$ appears with a $+1$ in node $i$'s equation (it leaves $i$) and a $-1$ in node $j$'s equation (it enters $j$), and nowhere else. That is precisely the node-arc incidence matrix from <Ref id="thm:directedTU"/> — which we proved is totally unimodular. The capacity bounds only append rows of the identity matrix, and appending identity rows preserves total unimodularity. So the entire constraint system is TU, and now our LP machinery does all the work:
+
+<Theorem id="thm:flowIntegrality" title="Integral Flow Theorem">
+If all capacities $u_e$ and supplies $b_v$ are integers, then the minimum-cost flow problem has an optimal flow in which every $x_e$ is an integer, and such a flow can be found in polynomial time.
+</Theorem>
+
+<Proof>
+The constraint matrix is totally unimodular (the conservation rows form a node-arc incidence matrix, by <Ref id="thm:directedTU"/>, and the capacity rows form an identity block), and the right-hand side is integer. By <Ref id="thm:hoffmanKruskal"/> the feasible polytope is therefore integral: every one of its vertices is an integer flow.<Footnote/> By <Ref id="thm:optimalVertex"/> the LP attains its optimum at a vertex, so an integer optimal flow exists. And since linear programs are solvable in polynomial time (<Ref id="thm:lpPolyTime"/>), we can actually compute one.
+</Proof>
+
+<FootnoteBody>
+We stated <Ref id="thm:hoffmanKruskal"/> for systems of the form $Ax \leq b,\ x \geq 0$. The same determinant argument goes through for the equalities and upper bounds here — rewrite each equality $a_v x = b_v$ as the pair $a_v x \leq b_v$, $-a_v x \leq -b_v$, and note that negating rows leaves all subdeterminants in $\{0, \pm 1\}$.
+</FootnoteBody>
+
+This is a remarkably strong payoff. Integer programs are hard in general, but the moment a problem's constraints look like flow conservation, the integrality constraints become _free_: the LP relaxation already returns whole-number answers. In practice we rarely even invoke a general LP solver — there are dedicated combinatorial flow algorithms (augmenting paths, successive shortest paths, network simplex) that are far faster, and <Cite id="ahuja1993network"/> is the encyclopedic reference — but the TU argument is the cleanest explanation of _why_ the problem is tractable in the first place.
+
+It's also worth noting that the most famous flow result of all, the **max-flow min-cut theorem** <Cite id="fordFulkerson1956"/>, is yet another face of LP duality (<Ref id="sec:lpDuality"/>): the maximum amount of flow you can push from a source to a sink equals the capacity of the cheapest "cut" separating them. This is exactly the kind of min-max identity we flagged in the duality section, now made concrete.
+
+### Shortest paths are flows {/* sec:shortestPathFlow */}
+
+The cleanest illustration is a problem we've already studied: <Ref id="prob:shortestPath"/>. Finding a shortest $s$-$t$ path is nothing more than a minimum-cost flow that ships **one unit** of commodity from $s$ to $t$. Set the supplies to
+
+$$
+b_s = 1, \qquad b_t = -1, \qquad b_v = 0 \ \text{ for all other } v,
+$$
+
+let each arc have capacity $1$ and cost equal to its length $c_e$, and minimize total cost. A single unit of flow has to travel from $s$ to $t$, and by the <Ref id="thm:flowIntegrality" altLabel="Integral Flow Theorem"/> we may take that flow to be integral — so each $x_e$ is $0$ or $1$, and the arcs carrying flow trace out exactly an $s$-$t$ path of minimum total length (<Ref id="fig:shortestPathFlow"/>).<Footnote/>
+
+<FootnoteBody>
+This is why our definition of <Ref id="prob:shortestPath"/> insisted on positive edge costs. With a negative-cost cycle available, the cheapest "flow" would loop around it forever, and the minimum-cost flow would no longer correspond to a simple path — the same subtlety we flagged for the IP formulation in <Ref id="sec:shortestPathIp"/>.
+</FootnoteBody>
+
+<Figure id="fig:shortestPathFlow" caption={<>Shortest path as a unit of flow. One unit is injected at $s$ and withdrawn at $t$; the integral min-cost flow lights up a single $s$-$t$ path, which is the shortest one.</>}>
+  {/* TODO (interactive) — could reuse/extend the <FlowNetworkViz/> from fig:flowNetwork,
+       specialized to unit flow:
+       - Reader picks the source s and sink t on a small weighted digraph.
+       - Edge labels show lengths c_e; "Solve" sends one unit of flow and highlights the arcs
+         carrying flow, which form the shortest path.
+       - A side-by-side toggle could show the SAME instance solved by Dijkstra (algo:dijkstra),
+         emphasizing that the flow LP and the combinatorial algorithm agree.
+       Static print fallback below. */}
+  _**Interactive figure placeholder.**_ A weighted digraph where choosing $s$ and $t$ and pushing one unit of flow highlights the shortest path; optional side-by-side with Dijkstra's algorithm.
+</Figure>
+
+This perspective also retroactively explains something from <Ref id="sec:shortestPathIp"/>. The IP we wrote for shortest path (<Ref id="eq:shortestPathIp"/>) had a node-arc incidence matrix as its constraint matrix — so it was TU all along. That is the deep reason its LP relaxation needs no integrality constraints to produce a path, and the reason a simple combinatorial method like <Ref id="algo:dijkstra"/> can solve it so quickly. Shortest path was "easy" in <Ref id="sec:easyToSolve"/>; now we can see it sitting inside the broader theory of flows.
+
+The same lens captures more of our menagerie. Bipartite matching and the <Ref id="prob:assignment"/> are min-cost flows between the two sides of the graph (push one unit through each matched vertex), which is another route to the integrality of bipartite matching we obtained polyhedrally above. The recurring moral: if you can phrase your problem as routing flow through a network, you are almost certainly in easy territory.
+
+## Matroids {/* sec:matroids */}
+
+Total unimodularity and network flows both explain easiness through _polyhedra_ — the LP relaxation happens to have integer vertices. Matroids offer a completely different lens. Here the magic is not geometric but combinatorial: matroids are exactly the structures on which the simplest, most naive strategy imaginable — be greedy — is guaranteed to find the optimum.
+
+Recall the <Ref id="def:greedyAlgorithm"/> from <Ref id="sec:combOptAlgos"/>: repeatedly make the locally best choice and never look back. Greedy is fast and easy to code, but as we noted then, it usually _fails_ — being greedy on <Ref id="prob:shortestPath"/>, for instance, can lead you badly astray. Matroid theory answers the natural question this raises: for which problems is greedy actually correct?
+
+### Independent sets {/* sec:matroidDefs */}
+
+A matroid abstracts the notion of "independence" away from any particular setting — a notion first distilled by Hassler Whitney in 1935 <Cite id="whitney1935"/>.<Footnote/> It is a ground set together with a family of subsets we declare to be _independent_, subject to three axioms.
+
+<FootnoteBody>
+Whitney's motivating example was linear independence of a set of vectors, which is where the name "matroid" (from "matrix") comes from. For a comprehensive modern treatment, see <Cite id="oxley2011matroid"/>.
+</FootnoteBody>
+
+<Definition id="def:matroid" title="Matroid">
+A **matroid** is a pair $M = (E, \mathcal{I})$ consisting of a finite **ground set** $E$ and a nonempty collection $\mathcal{I}$ of subsets of $E$, called the **independent sets**, satisfying:
+1. $\emptyset \in \mathcal{I}$.
+2. (**hereditary**) If $A \in \mathcal{I}$ and $B \subseteq A$, then $B \in \mathcal{I}$ — every subset of an independent set is independent.
+3. (**exchange**) If $A, B \in \mathcal{I}$ with $|A| < |B|$, then there exists an element $e \in B \setminus A$ such that $A \cup \{e\} \in \mathcal{I}$.
+</Definition>
+
+The first two axioms are mild bookkeeping; all the power lives in the exchange property. It says that no matter how you build up an independent set, you can never get "stuck" early: if your independent set is smaller than some other one, you can always borrow an element from the larger one to grow yours. A maximal independent set therefore can't be a dead end — they all have the same size.
+
+<Definition id="def:matroidBasis" title="Basis (Matroid)">
+A **basis** of a matroid is a maximal independent set: one to which no further element can be added while remaining independent. By the exchange property all bases share the same size, called the **rank** of the matroid.<Footnote/>
+</Definition>
+
+<FootnoteBody>
+Don't confuse this with the notion of a basis from linear algebra; the clash of names is an unfortunate historical accident. The two are related, though — a maximal set of linearly independent columns of a matrix is the prototypical matroid basis.
+</FootnoteBody>
+
+The motivating example comes straight from graph theory. Take a graph $G = (V, E)$, let the ground set be its edges, and declare a set of edges _independent_ exactly when it is <Ref id="def:acyclicGraph" altLabel="acyclic"/> — that is, when it forms a forest.
+
+<Definition id="def:graphicMatroid" title="Graphic Matroid">
+The **graphic matroid** of a graph $G = (V, E)$ has ground set $E$, with a subset of edges independent if and only if it is acyclic (a forest).
+</Definition>
+
+The axioms are easy to believe here: the empty edge set is acyclic, any subset of a forest is a forest, and the exchange property is essentially the spanning-tree swap of <Ref id="thm:newSpanningTree"/>. For a connected graph, the bases of the graphic matroid are precisely its <Ref id="def:spanningTree" altLabel="spanning trees"/> — every spanning tree has $|V| - 1$ edges, so the rank is $|V| - 1$. <Ref id="fig:graphicMatroid"/> contrasts an independent edge set with a dependent one.
+
+<Figure id="fig:graphicMatroid" caption="Independence in the graphic matroid. The left edge set is acyclic, so it is independent; the right edge set contains a cycle, so it is dependent. Adding the dashed edge to the left set would create a cycle, taking it out of $\mathcal{I}$.">
+  {/* TODO (interactive) — could reuse the existing <Graph/> component, or a small
+       <MatroidIndependenceViz/>:
+       - Reader clicks edges of a fixed graph to add/remove them from a candidate set.
+       - The widget colors the set green when acyclic (independent) and red the moment a
+         cycle appears (dependent), making the hereditary + cycle structure tangible.
+       Two static panels (independent vs. dependent) suffice for print. */}
+  _**Interactive figure placeholder.**_ A graph where the reader toggles edges into a candidate set and sees it flagged independent (acyclic) or dependent (contains a cycle).
+</Figure>
+
+### The greedy algorithm {/* sec:matroidGreedy */}
+
+Now suppose every element $e \in E$ carries a weight $w_e$, and we want a maximum-weight basis. The greedy algorithm could not be more naive: sort the elements from heaviest to lightest, then walk down the list adding each element whenever doing so keeps the set independent.
+
+<Algorithm id="algo:matroidGreedy" caption="Greedy Algorithm for a Matroid">
+  <AlgoInput>Matroid $M = (E, \mathcal{I})$, weights $w_e$ for $e \in E$</AlgoInput>
+  <AlgoOutput>A maximum-weight basis $S$</AlgoOutput>
+  <AlgoStep>Sort $E$ as $e_1, e_2, \ldots, e_{|E|}$ so that $w_{e_1} \geq w_{e_2} \geq \cdots \geq w_{e_{|E|}}$</AlgoStep>
+  <AlgoStep>$S \gets \emptyset$</AlgoStep>
+  <AlgoFor each="$i = 1, \ldots, |E|$">
+    <AlgoIf cond="$S \cup \{e_i\} \in \mathcal{I}$">
+      <AlgoStep>$S \gets S \cup \{e_i\}$</AlgoStep>
+    </AlgoIf>
+  </AlgoFor>
+  <AlgoReturn>$S$</AlgoReturn>
+</Algorithm>
+
+The defining theorem of matroid theory — due to Rado and Edmonds <Cite id="edmonds1971matroids"/> — is that this greedy strategy works on a hereditary set system if and only if that system is a matroid. Matroids are not merely _a_ class on which greedy succeeds; they are _exactly_ the class.
+
+<Theorem id="thm:matroidGreedy" title="Matroids and the Greedy Algorithm">
+Let $E$ be a finite ground set and $\mathcal{I}$ a nonempty hereditary collection of subsets of $E$. Then <Ref id="algo:matroidGreedy"/> returns a maximum-weight basis for _every_ weight function $w : E \to \R$ if and only if $(E, \mathcal{I})$ is a matroid.
+</Theorem>
+
+Why is this an _easy_-problem result? Because the greedy algorithm is plainly polynomial. It performs one sort of the $|E|$ elements and then a single pass making $|E|$ independence checks. As long as we can test independence efficiently — through a so-called _independence oracle_ — the whole procedure runs in polynomial time. For the graphic matroid the oracle is trivial: testing whether $S \cup \{e\}$ stays acyclic is just checking whether $e$ closes a cycle, which is a quick graph search.
+
+### Minimum spanning trees, revisited {/* sec:mstMatroid */}
+
+This immediately re-explains a result we proved by hand back in <Ref id="sec:combOptAlgos"/>. A spanning tree is a basis of the graphic matroid, so the <Ref id="prob:mst"/> is nothing but the search for a minimum-weight basis.<Footnote/> By the <Ref id="thm:matroidGreedy" altLabel="greedy theorem"/>, the greedy algorithm solves it — and greedily adding the cheapest edge that doesn't form a cycle is exactly **Kruskal's algorithm** <Cite id="kruskal1956"/>, stepped through in <Ref id="fig:kruskalGreedy"/>.
+
+<FootnoteBody>
+We stated the <Ref id="thm:matroidGreedy" altLabel="greedy theorem"/> for _maximum_-weight bases, but minimum-weight is the same problem under the weights $-c_e$ (or, equivalently, just sort the edges in increasing order of cost). Since every basis of the graphic matroid has the same size, minimizing cost over bases is well defined.
+</FootnoteBody>
+
+<Figure id="fig:kruskalGreedy" caption={<>Kruskal's algorithm building a minimum spanning tree. Edges are considered in increasing order of cost; each is accepted (solid) if it joins two different components and rejected (faded) if it would close a cycle.</>}>
+  {/* TODO (interactive) — proposed <KruskalViz/> component, the marquee interactive of
+       this section:
+       - A weighted graph with a "Next edge" / "Play" stepper.
+       - A sorted list of edges shown alongside; the current edge is highlighted.
+       - On each step the edge turns green (added to the forest) or red (rejected — would
+         form a cycle), and the growing forest's components are color-coded.
+       - Running total cost ticks up as edges are added; finishes on a spanning tree.
+       This makes the matroid greedy theorem tangible: "add cheapest edge that keeps us
+       independent (acyclic)."
+       Static print fallback below. */}
+  _**Interactive figure placeholder.**_ A step-through of Kruskal's algorithm on a weighted graph: edges considered cheapest-first, accepted when they grow the forest and rejected when they would create a cycle, until a spanning tree is complete.
+</Figure>
+
+We had already shown in <Ref id="thm:prim"/> that <Ref id="algo:prim"/> — another greedy method — solves <Ref id="prob:mst"/>, with a somewhat delicate exchange argument. Matroid theory reveals that this was no fluke specific to Prim's particular rule: the graphic matroid structure is _what makes greedy work at all_, and any greedy that respects it succeeds. The minimum spanning tree is easy for the same fundamental reason that linear algebra has a notion of basis.
+
+<Remark>
+There is a polyhedral footnote to all this, tying the two halves of the chapter back together. The convex hull of the independent sets of a matroid — the _matroid polytope_ — turns out to be integral, cut out by a (large) family of "rank" inequalities, and the greedy algorithm secretly solves the LP over it. So matroids fit the polyhedral-combinatorics program of <Ref id="sec:polCombo"/> after all; greedy is just a shortcut that avoids the LP entirely.
+</Remark>
+
+<Remark>
+Matroids also mark a frontier of tractability worth knowing about. Optimizing over the common independent sets of _two_ matroids at once — **matroid intersection** — is still solvable in polynomial time (a beautiful result of Edmonds), and it generalizes bipartite matching among other things. But push to _three_ matroids and the problem becomes $\NP$-hard. Two is easy, three is hard: a clean reminder that the boundary between easy and hard can be razor-thin.
+</Remark>

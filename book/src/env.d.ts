@@ -6,6 +6,7 @@ declare module 'mdx/types' {
       id: RegistryId;
       altLabel?: string;
       useTitle?: boolean;
+      useEnvNum?: boolean;
       short?: boolean;
       textTransform?: 'lowercase' | 'uppercase' | 'capitalize';
     }) => import('react').ReactElement | null;
