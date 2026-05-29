@@ -26,7 +26,6 @@ export function Proof({ for: forId, children }: Props) {
       const labelHTML = `<span style="display:block;margin-bottom:0.4em"><strong>${entry.type} ${entry.number}</strong>${titleHTML}</span>`;
       const tooltipStyle = {
         borderLeftColor: `var(--env-${envType}-border)`,
-        background: `var(--env-${envType}-bg)`,
         '--ref-tooltip-bg': `var(--env-${envType}-bg)`,
       };
 

@@ -61,10 +61,13 @@
   justify-content: center;
 }
 
-/* Remove default katex-display margins inside our flex container and tooltips */
+/* Remove default katex-display margins inside our flex container and tooltips.
+   Also reset overflow: the global rule's overflow-x:auto collapses inline-block
+   content to min-content width; .eq-content is the real scroll container here. */
 .equation-block .katex-display,
 .ref-tooltip .katex-display {
   margin: 0;
+  overflow: visible;
 }
 
 /* Sub-equation block — CSS table layout so numbers use real .eq-number spans */
@@ -550,6 +553,10 @@
   border-left-width: 3px;
   border-radius: 0 6px 6px 0;
   padding-left: 1.1em;
+  /* Env tints are translucent in dark mode, so layer them over an opaque
+     base — otherwise the floating popup shows the text behind it. The per-env
+     colour comes from --ref-tooltip-bg, set inline by the Ref/Proof components. */
+  background: linear-gradient(var(--ref-tooltip-bg), var(--ref-tooltip-bg)), var(--bg);
 }
 
 /* Small triangle pointing down */

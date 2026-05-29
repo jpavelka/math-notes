@@ -5,7 +5,7 @@ import { renderAnnotationText } from './renderInlineMath';
 
 export interface AlignRow {
   math: string;              // row content; use & as alignment separator (same as LaTeX align*)
-  annotation?: string;       // optional annotation; supports $...$ inline math
+  annotation?: string | React.ReactNode; // optional annotation; supports $...$ inline math, [ref:id] cross-references, or any JSX
   body?: boolean;            // set true when annotation content comes from an <AnnotationBody row={i}> child
   id?: string;               // optional HTML anchor id for cross-referencing
   number?: string | number;  // injected automatically by the remark plugin; can be overridden
@@ -126,14 +126,24 @@ export function AnnotatedAlign({ id, rows = [], children }: { id?: string; rows?
                   </span>
                 )}
 
-                {hasAnnotations && (row.annotation || row.body) && (
-                  row.annotation ? (
-                    <span
-                      className="annot-align-annotation"
-                      data-annot-annotation={ri}
-                      style={{ display: 'none', gridRow: annotRow, gridColumn: '1 / -1' }}
-                      dangerouslySetInnerHTML={{ __html: renderAnnotationText(row.annotation) }}
-                    />
+                {hasAnnotations && (row.annotation != null || row.body) && (
+                  row.annotation != null ? (
+                    typeof row.annotation === 'string' ? (
+                      <span
+                        className="annot-align-annotation"
+                        data-annot-annotation={ri}
+                        style={{ display: 'none', gridRow: annotRow, gridColumn: '1 / -1' }}
+                        dangerouslySetInnerHTML={{ __html: renderAnnotationText(row.annotation) }}
+                      />
+                    ) : (
+                      <span
+                        className="annot-align-annotation"
+                        data-annot-annotation={ri}
+                        style={{ display: 'none', gridRow: annotRow, gridColumn: '1 / -1' }}
+                      >
+                        {row.annotation}
+                      </span>
+                    )
                   ) : (
                     <span
                       className="annot-align-annotation"

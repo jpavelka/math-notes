@@ -22,6 +22,8 @@ export interface RegistryEntry {
   captionHTML?: string;
   /** Alternate terms for this entry (used for search and glossary "See …" entries) */
   alt?: string[];
+  /** Pre-computed copy-paste text of the rendered LaTeX (for search). Symbols only. */
+  copyText?: string;
   chapter: number | string;
   contentHTML: string;
   href: string;

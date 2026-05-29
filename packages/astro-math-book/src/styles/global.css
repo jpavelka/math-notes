@@ -659,41 +659,6 @@ body {
   color: var(--text);
 }
 
-.reg-search-section-header {
-  display: flex;
-  align-items: center;
-  padding: 0.4em 1.1em 0.25em;
-  font-family: system-ui, sans-serif;
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border);
-  cursor: pointer;
-  user-select: none;
-}
-
-.reg-search-section-header:hover {
-  color: var(--text);
-}
-
-.reg-search-section-header::after {
-  content: '▾';
-  margin-left: auto;
-  font-size: 1.1em;
-  line-height: 1;
-  transition: transform 0.15s;
-}
-
-.reg-search-section-header[data-collapsed]::after {
-  transform: rotate(-90deg);
-}
-
-.reg-search-body > section:first-child .reg-search-section-header {
-  border-top: none;
-}
-
 .reg-search-spinner {
   font-weight: normal;
   font-style: italic;
@@ -1173,4 +1138,297 @@ main[data-chapter] h3::before {
 
 #ref-sheet-jump:hover {
   text-decoration: underline;
+}
+
+/* ── PolytopeViz ── */
+
+.polytope-viz {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 0.5rem auto;
+}
+
+.polytope-viz-canvas-wrap {
+  position: relative;
+  max-width: 100%;
+  line-height: 0;
+}
+
+.polytope-viz canvas {
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  max-width: 100%;
+  height: auto;
+}
+
+/* Touch-only overlay: figure stays inert (page scrolls) until tapped. */
+.polytope-viz-touch-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  backdrop-filter: blur(0.5px);
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+}
+
+.polytope-viz-touch-overlay span {
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.polytope-viz-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.polytope-viz-help-wrap {
+  position: relative;
+}
+
+.polytope-viz-help {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid var(--border);
+  background: var(--bg-sidebar);
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.polytope-viz-help:hover {
+  color: var(--text);
+  filter: var(--btn-hover-filter);
+}
+
+.polytope-viz-help-popup {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.45rem 0.7rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.13);
+  z-index: 20;
+  white-space: nowrap;
+}
+
+.polytope-viz-help-row {
+  display: flex;
+  gap: 1.2em;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+.polytope-viz-help-row span:first-child {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.polytope-viz-reset {
+  font-size: 0.78rem;
+  padding: 2px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-sidebar);
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1.6;
+  transition: filter 0.1s;
+}
+
+.polytope-viz-reset:hover {
+  filter: var(--btn-hover-filter);
+}
+
+@media print {
+  .polytope-viz-controls { display: none; }
+  .polytope-viz-touch-overlay { display: none; }
+}
+
+/* ── PolytopeViz tooltip ── */
+
+.polytope-viz-tooltip {
+  position: absolute;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 0.82rem;
+  font-family: system-ui, sans-serif;
+  color: var(--text);
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  z-index: 10;
+}
+
+.polytope-viz-constraints {
+  list-style: none;
+  margin: 0.1rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.2rem 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.polytope-viz-constraints li {
+  cursor: pointer;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+  user-select: none;
+}
+
+.polytope-viz-constraints li:hover {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: var(--text);
+}
+
+.polytope-viz-constraints li.active {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.65);
+  color: var(--text);
+}
+
+.polytope-viz-constraints li.active:hover {
+  background: rgba(245, 158, 11, 0.26);
+}
+
+/* ── Objective slider ─────────────────────────────────────────────────────── */
+.polytope-viz-objective {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.polytope-viz-obj-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.polytope-viz-obj-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.polytope-viz-obj-coeff {
+  width: 2.8rem;
+  padding: 0.1rem 0.25rem;
+  font-size: 0.85rem;
+  text-align: center;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.polytope-viz-obj-coeff:focus {
+  outline: none;
+  border-color: #10b981;
+}
+
+.polytope-viz-obj-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  min-height: 1.65rem;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.polytope-viz-obj-step:hover,
+.polytope-viz-obj-step:active,
+.polytope-viz-obj-step:focus-visible {
+  outline: none;
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.polytope-viz-obj-plus {
+  color: var(--text-muted);
+}
+
+.polytope-viz-obj-steppers {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.25rem;
+  width: min(85%, 320px);
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--border);
+}
+
+.polytope-viz-obj-stepper-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.polytope-viz-obj-val {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.polytope-viz-obj-slider {
+  width: min(85%, 320px);
+  accent-color: #10b981;
+  cursor: pointer;
+}
+
+.polytope-viz-obj-opt {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media print {
+  .polytope-viz-obj-slider { display: none; }
 }

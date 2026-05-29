@@ -68,22 +68,42 @@ export function remarkNumberEnvs({ getRegistryPath, getChaptersDir, numberedEnvi
 
         const rowsAttr = node.attributes?.find(a => a.name === 'rows');
         const expr = rowsAttr?.value?.data?.estree?.body?.[0]?.expression;
-        if (!expr || expr.type !== 'Literal' || !Array.isArray(expr.value)) return;
-
-        const rows = expr.value;
-        // If any row already has a number, remark-equations handled this block.
-        if (rows.some(r => r?.number != null)) return;
 
         const blockNum = registry[blockId].number;
         if (blockNum == null) return;
-        const midIdx = Math.floor((rows.length - 1) / 2);
-        const lastRow = rows[midIdx];
-        if (!lastRow) return;
 
-        lastRow.number = String(blockNum);
-        const updated = JSON.stringify(rows);
-        expr.raw = updated;
-        rowsAttr.value.value = updated;
+        if (expr?.type === 'Literal' && Array.isArray(expr.value)) {
+          // Normal path: remark-equations already serialised rows to a JSON Literal.
+          const rows = expr.value;
+          if (rows.some(r => r?.number != null)) return;
+          const midIdx = Math.floor((rows.length - 1) / 2);
+          const lastRow = rows[midIdx];
+          if (!lastRow) return;
+          lastRow.number = String(blockNum);
+          const updated = JSON.stringify(rows);
+          expr.raw = updated;
+          rowsAttr.value.value = updated;
+        } else if (expr?.type === 'ArrayExpression') {
+          // JSX-annotation path: remark-equations left the original ArrayExpression
+          // intact to preserve non-serialisable values (e.g. JSX fragments).
+          const hasNumber = expr.elements.some(el =>
+            el?.type === 'ObjectExpression' &&
+            el.properties.some(p => p.type === 'Property' && p.key?.name === 'number')
+          );
+          if (hasNumber) return;
+          const midIdx = Math.floor((expr.elements.length - 1) / 2);
+          const midEl = expr.elements[midIdx];
+          if (!midEl || midEl.type !== 'ObjectExpression') return;
+          midEl.properties = midEl.properties.filter(
+            p => !(p.type === 'Property' && p.key?.name === 'number')
+          );
+          midEl.properties.push({
+            type: 'Property', kind: 'init',
+            method: false, shorthand: false, computed: false,
+            key: { type: 'Identifier', name: 'number' },
+            value: { type: 'Literal', value: String(blockNum), raw: JSON.stringify(String(blockNum)) },
+          });
+        }
         return;
       }
 

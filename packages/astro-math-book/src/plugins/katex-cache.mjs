@@ -14,7 +14,7 @@ const cache = new Map();
 const _orig = katex.renderToString.bind(katex);
 
 katex.renderToString = (expression, options) => {
-  const key = `${options?.displayMode ? 1 : 0}:${expression}`;
+  const key = `${options?.displayMode ? 1 : 0}:${options?.output ?? ''}:${expression}`;
   if (cache.has(key)) return cache.get(key);
   const html = _orig(expression, options);
   cache.set(key, html);

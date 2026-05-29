@@ -59,6 +59,60 @@
   /* Footnote bodies must stay hidden — never let them bleed into print layout */
   .footnote-body { display: none !important; }
 
+  /* ── Bibliography: suppress images, restore hanging indent ── */
+  .bib-entry-img { display: none !important; }
+
+  .bib-entry--with-image {
+    display: block;
+    padding-left: 2em;
+    text-indent: -2em;
+  }
+
+  /* ── Glossary: compact inline layout ── */
+  .glossary-entry {
+    padding: 0.3em 0;
+  }
+
+  /* Render dt and dd on one line: [term][↩]: definition */
+  .glossary-term {
+    display: inline;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .glossary-term::after {
+    content: ': ';
+    font-weight: normal;
+  }
+
+  .glossary-body {
+    display: inline;
+    margin: 0;
+  }
+
+  .glossary-body > p {
+    display: inline;
+    margin: 0;
+  }
+
+  /* Replace "Definition X.X →" link text with ↩ */
+  .glossary-ref {
+    font-size: 0 !important;
+    margin: 0;
+  }
+
+  .glossary-ref::before {
+    content: '\00a0';
+    font-size: 9pt;
+  }
+
+  .glossary-ref::after {
+    content: '↩';
+    font-size: 9pt;
+    font-weight: normal;
+    color: var(--text-muted);
+  }
+
   /* Hide annotation toggles and open annotation panels */
   .annot-align-toggle-cell { display: none !important; }
   .annot-align-annotation { display: none !important; }

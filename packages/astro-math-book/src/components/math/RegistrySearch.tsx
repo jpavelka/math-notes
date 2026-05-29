@@ -14,6 +14,12 @@ function stripHtml(html: string) {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+// Strips all whitespace and invisible Unicode so copy-pasted KaTeX text (which
+// contains layout spaces and U+200B zero-width spaces) matches the stored copyText.
+function compactText(s: string): string {
+  return s.replace(/[​‌‍­⁠﻿]/g, '').replace(/\s/g, '');
+}
+
 const plainText = new Map(
   ALL_ENTRIES.map(e => [e.id, stripHtml(e.contentHTML).toLowerCase()])
 );
@@ -31,59 +37,29 @@ function scoreEntry(entry: RegistryEntry, q: string, qNoSlash: string): number {
     ...(entry.aliases?.map(a => a.toLowerCase()) ?? []),
     ...(entry.alt?.map(a => a.toLowerCase()) ?? []),
   ];
+  const qCompact    = compactText(q);
+  const copyCompact = entry.copyText ? compactText(entry.copyText.toLowerCase()) : '';
 
   if (label && label === q)              return 100;
   if (tn === q)                          return 90;
   if (title === q)                       return 85;
   if (latex && latex === qNoSlash)       return 80;
-  if (aliases.some(a => a === q))        return 73;
+  if (aliases.some(a => a === q))                                    return 73;
+  if (copyCompact && copyCompact === qCompact) return 73;
   if (label && label.startsWith(q))     return 75;
   if (title.startsWith(q))               return 70;
   if (tn.startsWith(q))                  return 65;
   if (type.startsWith(q))                return 55;
   if (label && label.includes(q))       return 50;
   if (title.includes(q))                 return 45;
-  if (aliases.some(a => a.includes(q))) return 43;
+  if (aliases.some(a => a.includes(q)))                                          return 43;
+  if (copyCompact && qCompact.length > 2 && copyCompact.includes(qCompact))      return 43;
   if (tn.includes(q))                    return 40;
   if (num.includes(q))                   return 35;
   if (type.includes(q))                  return 30;
   if (latex && latex.includes(qNoSlash)) return 20;
   if (body.includes(q))                  return 15;
   return 0;
-}
-
-function searchRegistry(query: string): { envResults: RegistryEntry[]; symResults: RegistryEntry[] } {
-  const q = query.toLowerCase().trim();
-  if (!q) return { envResults: [], symResults: [] };
-  const qNoSlash = q.replace(/\\/g, '');
-
-  const envResults = ALL_ENV_ENTRIES
-    .map(e => ({ e, s: scoreEntry(e, q, qNoSlash) }))
-    .filter(x => x.s > 0)
-    .sort((a, b) =>
-      b.s - a.s ||
-      a.e.type.localeCompare(b.e.type) ||
-      String(a.e.number ?? '').localeCompare(String(b.e.number ?? ''), undefined, { numeric: true })
-    )
-    .slice(0, 6)
-    .map(x => x.e);
-
-  const symResults = ALL_SYM_ENTRIES
-    .map(e => ({ e, s: scoreEntry(e, q, qNoSlash) }))
-    .filter(x => x.s > 0)
-    .sort((a, b) => b.s - a.s)
-    .slice(0, 4)
-    .map(x => x.e);
-
-  return { envResults, symResults };
-}
-
-const ENV_TYPES = new Set(['theorem', 'definition', 'lemma', 'corollary', 'remark']);
-
-function typeColor(type: string) {
-  return ENV_TYPES.has(type.toLowerCase())
-    ? `var(--env-${type.toLowerCase()}-border)`
-    : 'var(--text-muted)';
 }
 
 // ── Pagefind (lazy, cached) ───────────────────────────────────────────────────
@@ -112,54 +88,66 @@ async function loadPagefind(): Promise<PFInstance | null> {
   }
 }
 
-// ── Result types ──────────────────────────────────────────────────────────────
+// ── Unified result list ───────────────────────────────────────────────────────
 
 type Item =
-  | { kind: 'env'; entry: RegistryEntry }
-  | { kind: 'sym'; entry: RegistryEntry }
-  | { kind: 'pf';  url: string; title: string; excerpt: string };
+  | { kind: 'env'; entry: RegistryEntry; score: number }
+  | { kind: 'sym'; entry: RegistryEntry; score: number }
+  | { kind: 'pf';  url: string; title: string; excerpt: string; score: number };
 
-const SEC_ENV = 'Environments';
-const SEC_SYM = 'Notation';
-const SEC_PF  = 'In text';
+// Map pagefind rank (0-based) to a score comparable with scoreEntry output.
+// Rank 0 ≈ 38 — above body-text substring (15), below most structured matches.
+function pfScore(rank: number): number {
+  return Math.max(0, 38 - rank * 5);
+}
+
+const MAX_RESULTS = 10;
+
+function buildItems(
+  envScored: Array<{ e: RegistryEntry; s: number }>,
+  symScored: Array<{ e: RegistryEntry; s: number }>,
+  pfData: PFData[],
+): Item[] {
+  const all: Item[] = [
+    ...envScored.map(({ e, s }) => ({ kind: 'env' as const, entry: e, score: s })),
+    ...symScored.map(({ e, s }) => ({ kind: 'sym' as const, entry: e, score: s })),
+    ...pfData.map((pf, i) => ({
+      kind: 'pf' as const,
+      url: pf.url,
+      title: pf.meta?.title ?? pf.url,
+      excerpt: pf.excerpt,
+      score: pfScore(i),
+    })),
+  ];
+  return all.sort((a, b) => b.score - a.score).slice(0, MAX_RESULTS);
+}
+
+const ENV_TYPES = new Set(['theorem', 'definition', 'lemma', 'corollary', 'remark']);
+
+function typeColor(type: string) {
+  return ENV_TYPES.has(type.toLowerCase())
+    ? `var(--env-${type.toLowerCase()}-border)`
+    : 'var(--text-muted)';
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function RegistrySearch() {
-  const [open, setOpen]           = useState(false);
-  const [query, setQuery]         = useState('');
-  const [cursor, setCursor]       = useState(0);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [expanded,  setExpanded]  = useState<Set<string>>(new Set());
-  const [envResults, setEnvResults] = useState<RegistryEntry[]>([]);
-  const [symResults, setSymResults] = useState<RegistryEntry[]>([]);
-  const [pfResults, setPfResults]   = useState<PFData[]>([]);
-  const [pfLoading, setPfLoading]   = useState(false);
-  const inputRef       = useRef<HTMLInputElement>(null);
-  const bodyRef        = useRef<HTMLDivElement>(null);
-  // Snapshot of the selection captured at mousedown, before the browser clears it
-  const selectionRef   = useRef('');
+  const [open, setOpen]     = useState(false);
+  const [query, setQuery]   = useState('');
+  const [cursor, setCursor] = useState(0);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  // Exclude collapsed sections from keyboard navigation
-  const visibleEnv = collapsed.has(SEC_ENV) ? [] : envResults;
-  const visibleSym = collapsed.has(SEC_SYM) ? [] : symResults;
-  const visiblePf  = collapsed.has(SEC_PF)  ? [] : pfResults;
+  const [envScored, setEnvScored] = useState<Array<{ e: RegistryEntry; s: number }>>([]);
+  const [symScored, setSymScored] = useState<Array<{ e: RegistryEntry; s: number }>>([]);
+  const [pfResults, setPfResults] = useState<PFData[]>([]);
+  const [pfLoading, setPfLoading] = useState(false);
 
-  const items: Item[] = [
-    ...visibleEnv.map(e  => ({ kind: 'env' as const, entry: e })),
-    ...visibleSym.map(e  => ({ kind: 'sym' as const, entry: e })),
-    ...visiblePf.map(pf  => ({ kind: 'pf'  as const, url: pf.url, title: pf.meta?.title ?? pf.url, excerpt: pf.excerpt })),
-  ];
+  const inputRef     = useRef<HTMLInputElement>(null);
+  const bodyRef      = useRef<HTMLDivElement>(null);
+  const selectionRef = useRef('');
 
-  const pfOffset = visibleEnv.length + visibleSym.length;
-
-  function toggleSection(name: string) {
-    setCollapsed(prev => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name); else next.add(name);
-      return next;
-    });
-  }
+  const items = buildItems(envScored, symScored, pfResults);
 
   function toggleExpanded(id: string) {
     setExpanded(prev => {
@@ -204,10 +192,9 @@ export function RegistrySearch() {
     const sel = selectionRef.current;
     selectionRef.current = '';
     setQuery(sel);
-    setEnvResults([]);
-    setSymResults([]);
+    setEnvScored([]);
+    setSymScored([]);
     setPfResults([]);
-    setCollapsed(new Set());
     setExpanded(new Set());
     setCursor(0);
     requestAnimationFrame(() => {
@@ -219,9 +206,26 @@ export function RegistrySearch() {
 
   // Synchronous registry search
   useEffect(() => {
-    const { envResults, symResults } = searchRegistry(query);
-    setEnvResults(envResults);
-    setSymResults(symResults);
+    const q = query.toLowerCase().trim();
+    if (!q) { setEnvScored([]); setSymScored([]); setCursor(0); return; }
+    const qNoSlash = q.replace(/\\/g, '');
+
+    const env = ALL_ENV_ENTRIES
+      .map(e => ({ e, s: scoreEntry(e, q, qNoSlash) }))
+      .filter(x => x.s > 0)
+      .sort((a, b) =>
+        b.s - a.s ||
+        a.e.type.localeCompare(b.e.type) ||
+        String(a.e.number ?? '').localeCompare(String(b.e.number ?? ''), undefined, { numeric: true })
+      );
+
+    const sym = ALL_SYM_ENTRIES
+      .map(e => ({ e, s: scoreEntry(e, q, qNoSlash) }))
+      .filter(x => x.s > 0)
+      .sort((a, b) => b.s - a.s);
+
+    setEnvScored(env);
+    setSymScored(sym);
     setCursor(0);
   }, [query]);
 
@@ -244,7 +248,7 @@ export function RegistrySearch() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Reset cursor when visible item count changes
+  // Reset cursor when item count changes
   useEffect(() => { setCursor(0); }, [items.length]);
 
   // Scroll active item into view
@@ -275,8 +279,7 @@ export function RegistrySearch() {
 
   if (!open) return null;
 
-  const showEmpty = query.trim() && items.length === 0 && !pfLoading
-    && collapsed.size === 0;
+  const showEmpty = query.trim() && items.length === 0 && !pfLoading;
 
   return (
     <div className="reg-search-backdrop" onClick={() => setOpen(false)} role="dialog" aria-modal="true">
@@ -295,114 +298,87 @@ export function RegistrySearch() {
         />
 
         <div ref={bodyRef} className="reg-search-body">
-          {envResults.length > 0 && (
-            <section>
-              <div
-                className="reg-search-section-header"
-                data-collapsed={collapsed.has(SEC_ENV) ? '' : undefined}
-                onClick={() => toggleSection(SEC_ENV)}
-              >
-                {SEC_ENV}
-              </div>
-              {!collapsed.has(SEC_ENV) && envResults.map((entry, i) => {
-                const active = i === cursor;
-                return (
-                  <div
-                    key={entry.id}
-                    className={`reg-search-item${active ? ' reg-search-item--active' : ''}`}
-                    data-active={active ? 'true' : undefined}
-                    onMouseEnter={() => setCursor(i)}
-                    onClick={() => go(entry.href)}
-                  >
-                    <div className="reg-search-item-header">
-                      <span className="reg-search-type" style={{ color: typeColor(entry.type) } as React.CSSProperties}>
-                        {entry.type}&nbsp;{entry.number}
-                      </span>
-                      {entry.label && <span className="reg-search-label">({entry.label})</span>}
-                      {entry.title && <span className="reg-search-title" dangerouslySetInnerHTML={{ __html: renderInlineMath(entry.title) }} />}
-                    </div>
-                    {entry.kind !== 'float' && entry.contentHTML && (
-                      <>
-                        <div
-                          className={`reg-search-preview${expanded.has(entry.id) ? ' reg-search-preview--expanded' : ''}`}
-                          dangerouslySetInnerHTML={{ __html: entry.contentHTML }}
-                        />
-                        <button
-                          className="reg-search-expand-btn"
-                          onClick={e => { e.stopPropagation(); toggleExpanded(entry.id); }}
-                        >
-                          {expanded.has(entry.id) ? '↑ collapse' : '↓ expand'}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </section>
-          )}
+          {items.map((item, i) => {
+            const active = i === cursor;
+            const sharedProps = {
+              className: `reg-search-item${active ? ' reg-search-item--active' : ''}`,
+              'data-active': active ? ('true' as const) : undefined,
+              onMouseEnter: () => setCursor(i),
+            };
 
-          {symResults.length > 0 && (
-            <section>
-              <div
-                className="reg-search-section-header"
-                data-collapsed={collapsed.has(SEC_SYM) ? '' : undefined}
-                onClick={() => toggleSection(SEC_SYM)}
-              >
-                {SEC_SYM}
-              </div>
-              {!collapsed.has(SEC_SYM) && symResults.map((entry, i) => {
-                const idx = visibleEnv.length + i;
-                const active = idx === cursor;
-                return (
-                  <div
-                    key={entry.id}
-                    className={`reg-search-item${active ? ' reg-search-item--active' : ''}`}
-                    data-active={active ? 'true' : undefined}
-                    onMouseEnter={() => setCursor(idx)}
-                    onClick={() => go(entry.href)}
-                  >
-                    <div className="reg-search-item-header">
-                      <span
-                        className="reg-search-sym-latex"
+            if (item.kind === 'env') {
+              const { entry } = item;
+              return (
+                <div key={entry.id} {...sharedProps} onClick={() => go(entry.href)}>
+                  <div className="reg-search-item-header">
+                    <span className="reg-search-type" style={{ color: typeColor(entry.type) } as React.CSSProperties}>
+                      {entry.type}&nbsp;{entry.number}
+                    </span>
+                    {entry.label && <span className="reg-search-label">({entry.label})</span>}
+                    {entry.title && <span className="reg-search-title" dangerouslySetInnerHTML={{ __html: renderInlineMath(entry.title) }} />}
+                  </div>
+                  {entry.kind !== 'float' && entry.contentHTML && (
+                    <>
+                      <div
+                        className={`reg-search-preview${expanded.has(entry.id) ? ' reg-search-preview--expanded' : ''}`}
                         dangerouslySetInnerHTML={{ __html: entry.contentHTML }}
                       />
-                      {entry.title && <span className="reg-search-title" dangerouslySetInnerHTML={{ __html: renderInlineMath(entry.title) }} />}
-                    </div>
-                  </div>
-                );
-              })}
-            </section>
-          )}
+                      <button
+                        className="reg-search-expand-btn"
+                        onClick={e => { e.stopPropagation(); toggleExpanded(entry.id); }}
+                      >
+                        {expanded.has(entry.id) ? '↑ collapse' : '↓ expand'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            }
 
-          {import.meta.env.PROD && (pfLoading || pfResults.length > 0) && (
-            <section>
-              <div
-                className="reg-search-section-header"
-                data-collapsed={collapsed.has(SEC_PF) ? '' : undefined}
-                onClick={() => toggleSection(SEC_PF)}
-              >
-                {SEC_PF}{pfLoading && <span className="reg-search-spinner"> …</span>}
-              </div>
-              {!collapsed.has(SEC_PF) && pfResults.map((pf, i) => {
-                const idx = pfOffset + i;
-                const active = idx === cursor;
-                return (
-                  <div
-                    key={pf.url}
-                    className={`reg-search-item${active ? ' reg-search-item--active' : ''}`}
-                    data-active={active ? 'true' : undefined}
-                    onMouseEnter={() => setCursor(idx)}
-                    onClick={() => go(pf.url)}
-                  >
-                    <div className="reg-search-item-header">
-                      <span className="reg-search-pf-title">{pf.meta?.title ?? pf.url}</span>
-                    </div>
-                    <div className="reg-search-excerpt" dangerouslySetInnerHTML={{ __html: pf.excerpt }} />
+            if (item.kind === 'sym') {
+              const { entry } = item;
+              return (
+                <div key={entry.id} {...sharedProps} onClick={() => go(entry.href)}>
+                  <div className="reg-search-item-header">
+                    <span className="reg-search-type" style={{ color: 'var(--text-muted)' } as React.CSSProperties}>
+                      Notation
+                    </span>
+                    <span
+                      className="reg-search-sym-latex"
+                      dangerouslySetInnerHTML={{ __html: entry.contentHTML }}
+                    />
                   </div>
-                );
-              })}
-            </section>
-          )}
+                  {entry.title && (
+                    <>
+                      <div
+                        className={`reg-search-preview${expanded.has(entry.id) ? ' reg-search-preview--expanded' : ''}`}
+                        dangerouslySetInnerHTML={{ __html: renderInlineMath(entry.title) }}
+                      />
+                      <button
+                        className="reg-search-expand-btn"
+                        onClick={e => { e.stopPropagation(); toggleExpanded(entry.id); }}
+                      >
+                        {expanded.has(entry.id) ? '↑ collapse' : '↓ expand'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            }
+
+            // kind === 'pf'
+            return (
+              <div key={item.url} {...sharedProps} onClick={() => go(item.url)}>
+                <div className="reg-search-item-header">
+                  <span className="reg-search-type" style={{ color: 'var(--text-muted)' } as React.CSSProperties}>
+                    In text
+                  </span>
+                  <span className="reg-search-pf-title">{item.title}</span>
+                </div>
+                <div className="reg-search-excerpt" dangerouslySetInnerHTML={{ __html: item.excerpt }} />
+              </div>
+            );
+          })}
 
           {showEmpty && <p className="reg-search-empty">No results</p>}
         </div>
@@ -411,6 +387,7 @@ export function RegistrySearch() {
           <span><kbd>↑↓</kbd> navigate</span>
           <span><kbd>↵</kbd> go</span>
           <span><kbd>Esc</kbd> close</span>
+          {pfLoading && <span className="reg-search-spinner">searching text…</span>}
         </div>
       </div>
     </div>

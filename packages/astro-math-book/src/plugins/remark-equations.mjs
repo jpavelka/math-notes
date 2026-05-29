@@ -108,6 +108,29 @@ function buildSubEquations(body, registry) {
   return { rows };
 }
 
+// Returns true if any row object property has a non-Literal value (e.g. JSX).
+// In that case the rows cannot be losslessly serialised to JSON.
+function hasNonLiteralRowProps(rowsExpr) {
+  if (!rowsExpr || rowsExpr.type !== 'ArrayExpression') return false;
+  return rowsExpr.elements.some(el =>
+    el?.type === 'ObjectExpression' &&
+    el.properties.some(p => p.type === 'Property' && p.value.type !== 'Literal')
+  );
+}
+
+// Add (or replace) a plain Literal property on an ObjectExpression node.
+function injectPropLiteral(objExpr, key, val) {
+  objExpr.properties = objExpr.properties.filter(
+    p => !(p.type === 'Property' && p.key?.type === 'Identifier' && p.key.name === key)
+  );
+  objExpr.properties.push({
+    type: 'Property', kind: 'init',
+    method: false, shorthand: false, computed: false,
+    key: { type: 'Identifier', name: key },
+    value: { type: 'Literal', value: val, raw: JSON.stringify(val) },
+  });
+}
+
 // Minimal evaluator for the rows={[...]} attribute in <AnnotatedAlign>.
 // Handles plain object/array/string literals — enough for typical MDX usage.
 function evalRows(expr) {
@@ -214,7 +237,7 @@ export function remarkEquations({ getRegistryPath } = {}) {
         if (!entry) return row;
         return { ...row, number: String(entry.number), ...(entry.label ? { label: entry.label } : {}) };
       });
-      annotAligns.push({ node, updated });
+      annotAligns.push({ node, rows, updated, rowsExpr });
     });
 
     // Extract the id string from either a unist JSX node or an estree JSXOpeningElement.
@@ -308,9 +331,22 @@ export function remarkEquations({ getRegistryPath } = {}) {
       node.children = [];
     }
 
-    for (const { node, updated } of annotAligns) {
+    for (const { node, rows, updated, rowsExpr } of annotAligns) {
       const idx = node.attributes.findIndex(a => a.name === 'rows');
-      if (idx >= 0) node.attributes[idx] = exprAttr('rows', updated);
+      if (idx < 0) continue;
+      if (hasNonLiteralRowProps(rowsExpr)) {
+        // Preserve the original ArrayExpression (which contains JSX values).
+        // Only inject number/label into rows whose id was resolved.
+        for (let i = 0; i < updated.length; i++) {
+          if (updated[i] === rows[i]) continue;
+          const objExpr = rowsExpr.elements[i];
+          if (!objExpr || objExpr.type !== 'ObjectExpression') continue;
+          if (updated[i].number != null) injectPropLiteral(objExpr, 'number', updated[i].number);
+          if (updated[i].label  != null) injectPropLiteral(objExpr, 'label',  updated[i].label);
+        }
+      } else {
+        node.attributes[idx] = exprAttr('rows', updated);
+      }
     }
   };
 }

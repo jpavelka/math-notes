@@ -203,6 +203,7 @@ function makeSerializer(katexMacros) {
           if (refId) {
             const props = { id: refId };
             if (getBoolAttr(node.attributes, 'useTitle')) props.useTitle = true;
+            if (getBoolAttr(node.attributes, 'useEnvNum')) props.useEnvNum = true;
             const altLabel = getAttrString(node.attributes, 'altLabel');
             if (altLabel) props.altLabel = altLabel;
             const textTransform = getAttrString(node.attributes, 'textTransform');
@@ -950,10 +951,10 @@ function buildRegistry(root, katexMacros = {}, environments = [], symbols = [], 
     return s.split(/(\$[^$]+\$)/).map((part, i) => i % 2 === 0 ? fn(part) : part).join('');
   };
   const refReplacer = (_, payload) => {
-    let refId, useTitle = false, altLabel = null, textTransform = null;
+    let refId, useTitle = false, useEnvNum = false, altLabel = null, textTransform = null;
     try {
       const props = JSON.parse(payload);
-      refId = props.id; useTitle = props.useTitle ?? false;
+      refId = props.id; useTitle = props.useTitle ?? false; useEnvNum = props.useEnvNum ?? false;
       altLabel = props.altLabel ?? null; textTransform = props.textTransform ?? null;
     } catch { refId = payload; }
     const ref = registry[refId];
@@ -961,7 +962,10 @@ function buildRegistry(root, katexMacros = {}, environments = [], symbols = [], 
     let rawLabel;
     if (altLabel) rawLabel = altLabel;
     else if (useTitle && ref.title) rawLabel = ref.title;
-    else rawLabel = ref.type === 'Equation' ? `(${ref.label ?? ref.number})` : (ref.label ?? `${ref.type} ${ref.number}`);
+    else if (useEnvNum) rawLabel = `${ref.type} ${ref.number}`;
+    else if (ref.type === 'Equation') rawLabel = `(${ref.label ?? ref.number})`;
+    else if (ref.type === 'Definition' && ref.title) rawLabel = ref.title;
+    else rawLabel = ref.label ?? `${ref.type} ${ref.number}`;
     if (textTransform) rawLabel = applyRefTransform(rawLabel, textTransform);
     return `<a href="${esc(ref.href)}" class="ref-link">${renderRefLabel(rawLabel)}</a>`;
   };
@@ -970,6 +974,18 @@ function buildRegistry(root, katexMacros = {}, environments = [], symbols = [], 
     if (entry.captionHTML) {
       entry.captionHTML = entry.captionHTML.replace(/\x00REF:([^\x00]+)\x00/g, refReplacer);
     }
+  }
+
+  // Compute the plain-text a browser would produce when copying a KaTeX render.
+  // Rendering with output:'html' omits the MathML <annotation>, so stripping tags
+  // gives only the visual Unicode characters — matching what ends up on the clipboard.
+  function computeCopyText(latex, macros) {
+    const html = katex.renderToString(latex, { throwOnError: false, output: 'html', macros });
+    return html
+      .replace(/<[^>]+>/g, '')
+      .replace(/[​‌‍­⁠﻿]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   // Inject symbol entries from symbols.ts
@@ -992,6 +1008,7 @@ function buildRegistry(root, katexMacros = {}, environments = [], symbols = [], 
         title: sym.description,
         chapter: 0,
         contentHTML: katex.renderToString(sym.latex, { throwOnError: false, macros: katexMacros }),
+        copyText: computeCopyText(sym.latex, katexMacros),
         href: `${symbolsBase}#${id}`,
       };
     });
